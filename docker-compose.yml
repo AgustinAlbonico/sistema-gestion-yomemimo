@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: sistema-gestion-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-sistema_gestion}
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    networks:
+      - sistema-gestion-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: sistema-gestion-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sistema-gestion-network
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.dev
+      args:
+        NODE_VERSION: 20-alpine
+    container_name: sistema-gestion-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${BACKEND_PORT:-3000}
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      DATABASE_NAME: ${DATABASE_NAME:-sistema_gestion}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - ./apps/backend:/app
+      - /app/node_modules
+      - ./packages/shared:/app/packages/shared
+    networks:
+      - sistema-gestion-network
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile.dev
+      args:
+        NODE_VERSION: 20-alpine
+    container_name: sistema-gestion-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+      - ./packages/shared:/app/packages/shared
+    networks:
+      - sistema-gestion-network
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  sistema-gestion-network:
+    driver: bridge
