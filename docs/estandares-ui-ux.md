@@ -13,92 +13,78 @@
 // tailwind.config.js - Variables CSS en globals.css
 const colors = {
   // Sistema de colores base (HSL)
-  background: 'hsl(0 0% 100%)',           // Fondo principal
-  foreground: 'hsl(222.2 84% 4.9%)',     // Texto principal
+  background: 'hsl(36 100% 96%)',          // Neutro 1: Crema/beige cálido (#FFF6E9)
+  foreground: 'hsl(0 0% 17%)',             // Neutro oscuro: Gris carbón (#2B2B2B)
   
   // Colores de marca
   primary: {
-    DEFAULT: 'hsl(221.2 83.2% 53.3%)',   // Azul principal
-    foreground: 'hsl(210 40% 98%)',      // Texto sobre primary
+    DEFAULT: 'hsl(331 84% 71%)',           // Secundario 1: Rosa intenso (#F276B1) - Botones + CTA
+    foreground: 'hsl(0 0% 100%)',          // Texto blanco sobre rosa intenso
   },
   
   secondary: {
-    DEFAULT: 'hsl(210 40% 96.1%)',       // Gris claro
-    foreground: 'hsl(222.2 47.4% 11.2%)', // Texto sobre secondary
+    DEFAULT: 'hsl(338 77% 95%)',           // Secundario 2: Rosa pálido (#FDE7EF) - Fondos suaves
+    foreground: 'hsl(331 84% 71%)',        // Texto rosa intenso sobre rosa pálido
   },
   
   // Estados semánticos
   destructive: {
-    DEFAULT: 'hsl(0 84.2% 60.2%)',       // Rojo para acciones destructivas
-    foreground: 'hsl(210 40% 98%)',
-  },
-  
-  success: {
-    DEFAULT: 'hsl(142 76% 36%)',         // Verde para éxito
-    foreground: 'hsl(0 0% 100%)',
-  },
-  
-  warning: {
-    DEFAULT: 'hsl(38 92% 50%)',          // Amarillo/Naranja para advertencias
-    foreground: 'hsl(0 0% 100%)',
-  },
-  
-  info: {
-    DEFAULT: 'hsl(199 89% 48%)',         // Azul claro para información
-    foreground: 'hsl(0 0% 100%)',
+    DEFAULT: 'hsl(0 84.2% 60.2%)',         // Rojo estándar
+    foreground: 'hsl(0 0% 98%)',
   },
   
   // Elementos de UI
   muted: {
-    DEFAULT: 'hsl(210 40% 96.1%)',       // Fondos sutiles
-    foreground: 'hsl(215.4 16.3% 46.9%)', // Texto secundario
+    DEFAULT: 'hsl(0 0% 83%)',              // Neutro 2: Gris claro (#D4D4D4)
+    foreground: 'hsl(0 0% 40%)',
   },
   
   accent: {
-    DEFAULT: 'hsl(210 40% 96.1%)',       // Acentos y hover states
-    foreground: 'hsl(222.2 47.4% 11.2%)',
+    DEFAULT: 'hsl(204 82% 81%)',           // Complementario: Celeste pastel (#A8D7F6)
+    foreground: 'hsl(0 0% 17%)',
   },
   
-  border: 'hsl(214.3 31.8% 91.4%)',      // Bordes
-  input: 'hsl(214.3 31.8% 91.4%)',       // Bordes de inputs
-  ring: 'hsl(221.2 83.2% 53.3%)',        // Focus ring
+  border: 'hsl(0 0% 83%)',                 // Neutro 2: Gris claro (#D4D4D4)
+  input: 'hsl(0 0% 83%)',                  // Neutro 2: Gris claro (#D4D4D4)
+  ring: 'hsl(331 84% 71%)',                // Rosa intenso (#F276B1)
   
   // Sistema de tarjetas
   card: {
-    DEFAULT: 'hsl(0 0% 100%)',
-    foreground: 'hsl(222.2 84% 4.9%)',
+    DEFAULT: 'hsl(0 0% 100%)',             // Blanco
+    foreground: 'hsl(0 0% 17%)',           // Gris carbón
   },
   
   popover: {
     DEFAULT: 'hsl(0 0% 100%)',
-    foreground: 'hsl(222.2 84% 4.9%)',
+    foreground: 'hsl(0 0% 17%)',
   },
+
+  // Color del logo (para referencia)
+  brand: {
+    DEFAULT: 'hsl(340 82% 83%)',           // Primario: Rosa pastel (#F9AFC8)
+  }
 };
 ```
 
-#### Modo Oscuro
+#### Modo Oscuro (Adaptado)
 ```css
 /* globals.css */
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --success: 142 76% 36%;
-  --success-foreground: 0 0% 100%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
+  --background: 0 0% 10%;                  /* Gris muy oscuro casi negro */
+  --foreground: 36 100% 96%;               /* Crema claro */
+  --primary: 331 84% 71%;                  /* Rosa intenso (mismo) */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 338 30% 20%;                /* Rosa pálido oscurecido */
+  --secondary-foreground: 36 100% 96%;
+  --muted: 0 0% 20%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 204 50% 30%;                   /* Celeste oscurecido */
+  --accent-foreground: 36 100% 96%;
+  --border: 0 0% 20%;
+  --input: 0 0% 20%;
+  --ring: 331 84% 71%;
+  --card: 0 0% 13%;                        /* Gris oscuro */
+  --card-foreground: 36 100% 96%;
 }
 ```
 

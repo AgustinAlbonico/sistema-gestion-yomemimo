@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
+import ProductsPage from './pages/products/ProductsPage';
+import SettingsPage from './pages/settings/SettingsPage';
 import { DashboardLayout } from './components/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -34,6 +36,8 @@ function App() {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
 
           {/* Ruta 404 */}

@@ -29,11 +29,6 @@ const navItems: NavItem[] = [
         icon: LayoutDashboard,
     },
     {
-        title: 'Usuarios',
-        href: '/users',
-        icon: Users,
-    },
-    {
         title: 'Productos',
         href: '/products',
         icon: Package,
@@ -42,6 +37,11 @@ const navItems: NavItem[] = [
         title: 'Ventas',
         href: '/sales',
         icon: ShoppingCart,
+    },
+    {
+        title: 'Usuarios',
+        href: '/users',
+        icon: Users,
     },
     {
         title: 'Configuración',
