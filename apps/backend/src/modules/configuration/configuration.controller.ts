@@ -29,7 +29,7 @@ export class ConfigurationController {
     @Post('update-all-prices')
     @ApiOperation({ summary: 'Actualizar precio de todos los productos según el % de ganancia' })
     @ApiResponse({ status: 200, description: 'Productos actualizados' })
-    updateAllPrices() {
-        return this.configService.updateAllProductsPrices();
+    updateAllPrices(@Body() body: UpdateConfigurationDto) {
+        return this.configService.updateAllProductsPrices(body.defaultProfitMargin);
     }
 }

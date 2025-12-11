@@ -18,12 +18,24 @@ export enum StockMovementType {
 }
 
 /**
+ * Origen del movimiento de stock
+ */
+export enum StockMovementSource {
+    INITIAL_LOAD = 'INITIAL_LOAD',   // Carga inicial desde módulo productos
+    PURCHASE = 'PURCHASE',            // Compra a proveedor
+    SALE = 'SALE',                    // Venta
+    ADJUSTMENT = 'ADJUSTMENT',        // Ajuste manual de inventario
+    RETURN = 'RETURN',                // Devolución
+}
+
+/**
  * Entidad para registrar movimientos de inventario
  */
 @Entity('stock_movements')
 @Index(['productId'])
 @Index(['date'])
 @Index(['type'])
+@Index(['source'])
 export class StockMovement {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
@@ -41,6 +53,13 @@ export class StockMovement {
     })
     type!: StockMovementType;
 
+    @Column({
+        type: 'enum',
+        enum: StockMovementSource,
+        default: StockMovementSource.ADJUSTMENT,
+    })
+    source!: StockMovementSource;
+
     @Column('int')
     quantity!: number;
 
@@ -49,6 +68,9 @@ export class StockMovement {
 
     @Column({ type: 'varchar', length: 255, nullable: true })
     provider?: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    referenceId?: string; // ID de referencia (compra, venta, etc.)
 
     @Column({ type: 'text', nullable: true })
     notes?: string;

@@ -1058,7 +1058,154 @@ docker-compose logs -f   # Ver logs
 
 ---
 
-## 7. Mejores Prácticas
+## 7. Manejo de Fechas
+
+### 7.1 Problema de Zona Horaria
+
+**⚠️ CRÍTICO**: Nunca uses `new Date('YYYY-MM-DD')` directamente. JavaScript interpreta estas fechas como **medianoche UTC**, lo que puede causar que se muestren con un día de diferencia en zonas horarias detrás de UTC (ej: Argentina UTC-3).
+
+### 7.2 Utilidades Centralizadas
+
+El proyecto incluye utilidades centralizadas para prevenir problemas de zona horaria:
+
+#### Frontend (`apps/frontend/src/lib/date-utils.ts`)
+
+```typescript
+import { 
+    getTodayLocal, 
+    parseLocalDate, 
+    formatDateLocal,
+    formatDateForDisplay,
+    getCurrentMonthRange,
+    getCurrentWeekRange,
+    getTodayRange 
+} from '@/lib/date-utils';
+
+// ✅ Obtener fecha de hoy
+const today = getTodayLocal(); // "2024-11-28"
+
+// ✅ Parsear fecha desde string (EVITA problemas de zona horaria)
+const date = parseLocalDate('2024-11-28');
+
+// ✅ Formatear Date a string
+const formatted = formatDateLocal(new Date());
+
+// ✅ Formatear para mostrar en UI
+const display = formatDateForDisplay('2024-11-28', 'short'); // "28/11/2024"
+const displayLong = formatDateForDisplay('2024-11-28', 'long'); // "28 de noviembre, 2024"
+
+// ✅ Rangos de fechas
+const monthRange = getCurrentMonthRange();
+const weekRange = getCurrentWeekRange();
+const todayRange = getTodayRange();
+```
+
+#### Backend (`apps/backend/src/common/utils/date.utils.ts`)
+
+```typescript
+import { parseLocalDate, formatDateLocal, getTodayLocal } from '../../common/utils/date.utils';
+
+// ✅ Parsear fecha desde DTO (SIEMPRE usar esto)
+const expenseDate = parseLocalDate(dto.expenseDate);
+
+// ✅ Formatear Date a string
+const formatted = formatDateLocal(new Date());
+
+// ✅ Obtener fecha de hoy
+const today = getTodayLocal();
+```
+
+### 7.3 Reglas de Uso
+
+#### ❌ NUNCA Hacer
+
+```typescript
+// Frontend
+const today = new Date().toISOString().split('T')[0]; // ❌
+const date = new Date('2024-11-28'); // ❌
+
+// Backend
+expenseDate: new Date(dto.expenseDate) // ❌
+```
+
+#### ✅ SIEMPRE Hacer
+
+```typescript
+// Frontend
+import { getTodayLocal, parseLocalDate } from '@/lib/date-utils';
+const today = getTodayLocal(); // ✅
+const date = parseLocalDate('2024-11-28'); // ✅
+
+// Backend
+import { parseLocalDate } from '../../common/utils/date.utils';
+expenseDate: parseLocalDate(dto.expenseDate) // ✅
+```
+
+### 7.4 Casos de Uso Comunes
+
+#### Crear entidad con fecha
+
+```typescript
+// Backend Service
+async create(dto: CreateEntityDto) {
+    const entity = this.repo.create({
+        dateField: parseLocalDate(dto.dateField), // ✅
+        // ...
+    });
+    return this.repo.save(entity);
+}
+```
+
+#### Formulario con fecha por defecto
+
+```typescript
+// Frontend Component
+import { getTodayLocal } from '@/lib/date-utils';
+
+const form = useForm({
+    defaultValues: {
+        dateField: getTodayLocal(), // ✅
+        // ...
+    },
+});
+```
+
+#### Filtrar por rango de fechas
+
+```typescript
+// Frontend Component
+import { getCurrentMonthRange } from '@/lib/date-utils';
+
+const [filters, setFilters] = useState({
+    ...getCurrentMonthRange(), // ✅
+});
+```
+
+#### Mostrar fecha en UI
+
+```typescript
+// Frontend Component
+import { formatDateForDisplay } from '@/lib/date-utils';
+
+<span>{formatDateForDisplay(expense.date, 'short')}</span> // ✅
+```
+
+### 7.5 Documentación Completa
+
+- **Frontend**: Ver `apps/frontend/src/lib/date-utils.README.md`
+- **Backend**: Ver `apps/backend/src/common/utils/date.utils.README.md`
+
+### 7.6 Cuándo NO Usar Estas Utilidades
+
+- ✅ **SÍ usar** para campos de tipo `date` (solo fecha, sin hora)
+- ✅ **SÍ usar** para parsear strings `YYYY-MM-DD` desde DTOs
+- ❌ **NO usar** para timestamps completos (`createdAt`, `updatedAt`) - estos ya vienen correctos del ORM
+- ❌ **NO usar** para fechas que ya son objetos `Date` - úsalas directamente
+- ❌ **NO usar** para cálculos de tiempo/hora - usa Date nativo
+
+---
+
+## 8. Mejores Prácticas
 
 ### Código
 - TypeScript strict mode

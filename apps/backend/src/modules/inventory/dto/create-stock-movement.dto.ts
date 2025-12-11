@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min, IsDateString, MaxLength } from 'class-validator';
-import { StockMovementType } from '../entities/stock-movement.entity';
+import { StockMovementType, StockMovementSource } from '../entities/stock-movement.entity';
 
 /**
  * DTO para crear un movimiento de stock
@@ -13,6 +13,15 @@ export class CreateStockMovementDto {
     @ApiProperty({ enum: StockMovementType, description: 'Tipo de movimiento (IN=entrada, OUT=salida)' })
     @IsEnum(StockMovementType)
     type!: StockMovementType;
+
+    @ApiPropertyOptional({ 
+        enum: StockMovementSource, 
+        description: 'Origen del movimiento',
+        default: StockMovementSource.ADJUSTMENT 
+    })
+    @IsOptional()
+    @IsEnum(StockMovementSource)
+    source?: StockMovementSource;
 
     @ApiProperty({ example: 10, description: 'Cantidad a mover' })
     @IsInt()
@@ -30,6 +39,12 @@ export class CreateStockMovementDto {
     @IsString()
     @MaxLength(255)
     provider?: string;
+
+    @ApiPropertyOptional({ description: 'ID de referencia (compra, venta, etc.)' })
+    @IsOptional()
+    @IsString()
+    @MaxLength(255)
+    referenceId?: string;
 
     @ApiPropertyOptional({ example: 'Compra de mercadería', description: 'Notas o motivo del movimiento' })
     @IsOptional()

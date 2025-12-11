@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ invoiceTypeName }} {{ invoiceTypeLetter }} {{ pointOfSale }}-{{ invoiceNumber }}</title>
+    <style type="text/css">
+        * {
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            margin: 0;
+            padding: 20px;
+        }
+        .bill-container {
+            width: 750px;
+            margin: auto;
+            border-collapse: collapse;
+        }
+        .header {
+            display: flex;
+            border: 1px solid #000;
+        }
+        .header-left, .header-right {
+            flex: 1;
+            padding: 15px;
+        }
+        .header-center {
+            width: 60px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 10px;
+        }
+        .invoice-type {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #000;
+            background: #fff;
+            text-align: center;
+            font-size: 36px;
+            font-weight: bold;
+            line-height: 50px;
+        }
+        .business-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .invoice-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .info-row {
+            margin: 4px 0;
+        }
+        .receiver {
+            padding: 15px;
+            border: 1px solid #000;
+            border-top: none;
+            background: #f9f9f9;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: -1px;
+        }
+        .items-table th, .items-table td {
+            border: 1px solid #000;
+            padding: 6px;
+            text-align: left;
+        }
+        .items-table th {
+            background: #e0e0e0;
+            font-weight: bold;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .footer {
+            display: flex;
+            border: 1px solid #000;
+            border-top: none;
+        }
+        .footer-left {
+            flex: 1;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .footer-right {
+            flex: 1;
+            padding: 15px;
+            text-align: right;
+        }
+        .qr-code {
+            width: 100px;
+            height: 100px;
+        }
+        .cae-info {
+            font-size: 11px;
+        }
+        .total-row {
+            font-size: 13px;
+            margin: 4px 0;
+        }
+        .total-final {
+            font-size: 16px;
+            font-weight: bold;
+            border-top: 2px solid #000;
+            padding-top: 8px;
+            margin-top: 8px;
+        }
+        .simulation-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            border: 1px solid #ffc107;
+            margin-bottom: 10px;
+        }
+        .code-legend {
+            font-size: 10px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="bill-container">
+        <!-- Warning for simulation mode -->
+        {{#if isSimulation}}
+        <div class="simulation-warning">
+            ⚠️ FACTURA EN MODO SIMULACIÓN - NO VÁLIDA FISCALMENTE
+        </div>
+        {{/if}}
+
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="business-name">{{ emitter.businessName }}</div>
+                <div class="info-row"><strong>Razón Social:</strong> {{ emitter.businessName }}</div>
+                <div class="info-row"><strong>Domicilio Comercial:</strong> {{ emitter.address }}</div>
+                <div class="info-row"><strong>Condición Frente al IVA:</strong> {{ emitter.ivaCondition }}</div>
+            </div>
+            <div class="header-center">
+                <div class="invoice-type">{{ invoiceTypeLetter }}</div>
+            </div>
+            <div class="header-right">
+                <div class="invoice-title">{{ invoiceTypeName }}</div>
+                <div class="info-row">
+                    <strong>Punto de Venta:</strong> {{ pointOfSale }}
+                    <span style="margin-left: 20px;"><strong>Comp. Nro:</strong> {{ invoiceNumber }}</span>
+                </div>
+                <div class="info-row"><strong>Fecha de Emisión:</strong> {{ issueDate }}</div>
+                <div class="info-row"><strong>CUIT:</strong> {{ emitter.cuit }}</div>
+                <div class="info-row"><strong>Ingresos Brutos:</strong> {{ emitter.grossIncome }}</div>
+                <div class="info-row"><strong>Inicio de Actividades:</strong> {{ emitter.activityStartDate }}</div>
+                <div class="code-legend">Cód. {{ invoiceTypeCode }}</div>
+            </div>
+        </div>
+
+        <!-- Receiver Info -->
+        <div class="receiver">
+            <div style="display: flex; gap: 30px;">
+                <div class="info-row"><strong>{{ receiver.documentType }}:</strong> {{ receiver.documentNumber }}</div>
+                <div class="info-row"><strong>Condición Frente al IVA:</strong> {{ receiver.ivaCondition }}</div>
+            </div>
+            <div class="info-row"><strong>Apellido y Nombre / Razón Social:</strong> {{ receiver.name }}</div>
+            <div class="info-row"><strong>Domicilio:</strong> {{ receiver.address }}</div>
+            <div class="info-row"><strong>Condición de Venta:</strong> {{ saleCondition }}</div>
+        </div>
+
+        <!-- Items Table -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Código</th>
+                    <th>Producto / Servicio</th>
+                    <th style="width: 70px;" class="text-center">Cantidad</th>
+                    <th style="width: 80px;">U. Medida</th>
+                    <th style="width: 90px;" class="text-right">Precio Unit.</th>
+                    <th style="width: 60px;" class="text-right">% Bonif.</th>
+                    <th style="width: 90px;" class="text-right">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each items}}
+                <tr>
+                    <td>{{ code }}</td>
+                    <td>{{ description }}</td>
+                    <td class="text-center">{{ quantity }}</td>
+                    <td>{{ unitOfMeasure }}</td>
+                    <td class="text-right">{{ unitPrice }}</td>
+                    <td class="text-right">{{ discount }}</td>
+                    <td class="text-right">{{ subtotal }}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-left">
+                <img src="{{ qrImage }}" alt="QR AFIP" class="qr-code" />
+                <div class="cae-info">
+                    <div><strong>CAE Nº:</strong> {{ cae }}</div>
+                    <div><strong>Fecha de Vto. de CAE:</strong> {{ caeExpirationDate }}</div>
+                </div>
+            </div>
+            <div class="footer-right">
+                <div class="total-row">Subtotal: $ {{ subtotal }}</div>
+                {{#if hasDiscount}}
+                <div class="total-row">Descuento: -$ {{ discount }}</div>
+                {{/if}}
+                {{#if hasOtherTaxes}}
+                <div class="total-row">Otros Tributos: $ {{ otherTaxes }}</div>
+                {{/if}}
+                <div class="total-row total-final">Importe Total: $ {{ total }}</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

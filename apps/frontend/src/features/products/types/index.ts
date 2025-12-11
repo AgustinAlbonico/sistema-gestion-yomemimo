@@ -7,10 +7,11 @@ export interface Product {
     cost: number;
     price: number;
     profitMargin?: number;
+    useCustomMargin?: boolean;
     stock: number;
     minStock: number;
-    categoryId?: string;
-    category?: Category;
+    categoryId?: string | null;
+    category?: Category | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -21,6 +22,7 @@ export interface Category {
     name: string;
     description?: string;
     color?: string;
+    profitMargin?: number | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -30,8 +32,10 @@ export interface CreateProductDTO {
     name: string;
     cost: number;
     stock?: number;
-    categoryId?: string;
+    categoryId?: string | null;
     isActive?: boolean;
+    useCustomMargin?: boolean;
+    customProfitMargin?: number;
 }
 
 export interface UpdateProductDTO extends Partial<CreateProductDTO> { }
@@ -50,6 +54,7 @@ export interface CreateCategoryDTO {
     name: string;
     description?: string;
     color?: string;
+    profitMargin?: number | null;
     isActive?: boolean;
 }
 
@@ -61,14 +66,24 @@ export enum StockMovementType {
     OUT = 'OUT',
 }
 
+export enum StockMovementSource {
+    INITIAL_LOAD = 'INITIAL_LOAD',
+    PURCHASE = 'PURCHASE',
+    SALE = 'SALE',
+    ADJUSTMENT = 'ADJUSTMENT',
+    RETURN = 'RETURN',
+}
+
 export interface StockMovement {
     id: string;
     productId: string;
     product?: Product;
     type: StockMovementType;
+    source: StockMovementSource;
     quantity: number;
     cost?: number;
     provider?: string;
+    referenceId?: string;
     notes?: string;
     date: string;
     createdAt: string;
@@ -77,9 +92,11 @@ export interface StockMovement {
 export interface CreateStockMovementDTO {
     productId: string;
     type: StockMovementType;
+    source?: StockMovementSource;
     quantity: number;
     cost?: number;
     provider?: string;
+    referenceId?: string;
     notes?: string;
     date: string;
 }

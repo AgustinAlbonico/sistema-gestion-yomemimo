@@ -19,10 +19,25 @@ export class Category {
     name!: string;
 
     @Column({ type: 'text', nullable: true })
-    description!: string;
+    description!: string | null;
 
     @Column({ type: 'varchar', length: 7, nullable: true })
-    color!: string;
+    color!: string | null;
+
+    // Porcentaje de ganancia para productos de esta categoría
+    // Si está definido, los productos de esta categoría usarán este margen
+    // a menos que tengan un margen personalizado (useCustomMargin = true)
+    @Column({
+        type: 'decimal',
+        precision: 5,
+        scale: 2,
+        nullable: true,
+        transformer: {
+            to: (value: number | null) => value,
+            from: (value: string | null) => value ? parseFloat(value) : null,
+        },
+    })
+    profitMargin!: number | null;
 
     @Column({ type: 'boolean', default: true })
     isActive!: boolean;

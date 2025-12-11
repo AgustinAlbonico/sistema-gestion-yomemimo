@@ -52,7 +52,7 @@ export class CategoriesController {
     }
 
     @Delete(':id')
-    @ApiOperation({ summary: 'Desactivar una categoría' })
+    @ApiOperation({ summary: 'Eliminar una categoría' })
     remove(@Param('id') id: string) {
         return this.categoriesService.remove(id);
     }

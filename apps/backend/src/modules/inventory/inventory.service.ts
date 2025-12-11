@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThanOrEqual, MoreThan } from 'typeorm';
-import { StockMovement, StockMovementType } from './entities/stock-movement.entity';
+import { StockMovement, StockMovementType, StockMovementSource } from './entities/stock-movement.entity';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
 import { Product } from '../products/entities/product.entity';
+import { ConfigurationService } from '../configuration/configuration.service';
 
 /**
  * Servicio de inventario - Gestiona movimientos de stock y alertas
@@ -16,6 +17,7 @@ export class InventoryService {
         @InjectRepository(Product)
         private readonly productRepository: Repository<Product>,
         private readonly dataSource: DataSource,
+        private readonly configurationService: ConfigurationService,
     ) { }
 
     /**
@@ -39,9 +41,10 @@ export class InventoryService {
                 );
             }
 
-            // Crear movimiento
+            // Crear movimiento con source (default: ADJUSTMENT)
             const movement = this.stockMovementRepository.create({
                 ...dto,
+                source: dto.source ?? StockMovementSource.ADJUSTMENT,
                 date: new Date(dto.date),
             });
             await queryRunner.manager.save(movement);
@@ -49,8 +52,8 @@ export class InventoryService {
             // Actualizar stock del producto
             if (dto.type === StockMovementType.IN) {
                 product.stock += dto.quantity;
-                // Actualizar costo del producto si es un ingreso y trae costo
-                if (dto.cost) {
+                // Actualizar costo del producto si es un ingreso y trae costo (solo para compras)
+                if (dto.cost && dto.source === StockMovementSource.PURCHASE) {
                     product.cost = dto.cost;
                     // Recalcular precio si tiene margen
                     if (product.profitMargin) {
@@ -109,14 +112,20 @@ export class InventoryService {
     }
 
     /**
-     * Obtiene productos con stock bajo (menor o igual al mínimo)
+     * Obtiene productos con stock bajo (menor o igual al mínimo configurado globalmente)
+     * Usa el mayor valor entre el minStock del producto y el minStockAlert global
      */
     async getLowStockProducts() {
+        const globalMinStock = await this.configurationService.getMinStockAlert();
+
         const products = await this.productRepository
             .createQueryBuilder('product')
             .leftJoinAndSelect('product.category', 'category')
             .where('product.isActive = :isActive', { isActive: true })
-            .andWhere('product.stock <= product.minStock')
+            .andWhere(
+                '(product.stock <= :globalMinStock OR (product.minStock > 0 AND product.stock <= product.minStock))',
+                { globalMinStock }
+            )
             .orderBy('product.stock', 'ASC')
             .getMany();
 
@@ -138,6 +147,8 @@ export class InventoryService {
      * Obtiene estadísticas generales de inventario
      */
     async getInventoryStats() {
+        const globalMinStock = await this.configurationService.getMinStockAlert();
+
         const allProducts = await this.productRepository.find({
             where: { isActive: true },
         });
@@ -145,7 +156,11 @@ export class InventoryService {
         const totalProducts = allProducts.length;
         const productsWithStock = allProducts.filter(p => p.stock > 0).length;
         const productsOutOfStock = allProducts.filter(p => p.stock === 0).length;
-        const productsLowStock = allProducts.filter(p => p.stock > 0 && p.stock <= p.minStock).length;
+        // Usa el mayor entre minStock del producto y el global
+        const productsLowStock = allProducts.filter(p => {
+            const minStock = Math.max(p.minStock, globalMinStock);
+            return p.stock > 0 && p.stock <= minStock;
+        }).length;
 
         // Calcular valor total del inventario (stock * costo)
         const totalInventoryValue = allProducts.reduce(
@@ -177,7 +192,7 @@ export class InventoryService {
             where: { isActive: true },
             relations: ['category'],
             order: { name: 'ASC' },
-            select: ['id', 'name', 'sku', 'stock', 'minStock', 'cost', 'price', 'categoryId'],
+            select: ['id', 'name', 'sku', 'stock', 'minStock', 'cost', 'price'],
         });
     }
 

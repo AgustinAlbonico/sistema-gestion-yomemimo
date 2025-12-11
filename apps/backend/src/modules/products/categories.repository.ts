@@ -10,7 +10,6 @@ export class CategoriesRepository extends Repository<Category> {
 
     async findActiveCategories(): Promise<Category[]> {
         return this.find({
-            where: { isActive: true },
             order: { name: 'ASC' },
         });
     }

@@ -141,7 +141,12 @@ export class ChangePasswordDto implements ChangePasswordDTO {
 
 // ==================== CREATE USER ====================
 export const CreateUserSchema = z.object({
-    username: z.string().min(3).max(50),
+    username: z
+        .string()
+        .min(3, 'El nombre de usuario debe tener al menos 3 caracteres')
+        .max(50, 'El nombre de usuario no puede exceder 50 caracteres')
+        .regex(/^[a-z0-9]+$/, 'El nombre de usuario debe estar en minúsculas, sin espacios ni caracteres especiales')
+        .refine((val) => !val.includes(' '), 'El nombre de usuario no puede contener espacios'),
     email: z.string().email().optional().nullable(),
     password: z
         .string()

@@ -7,6 +7,15 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ConfigurationModule } from './modules/configuration/configuration.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
+import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { PurchasesModule } from './modules/purchases/purchases.module';
+import { SalesModule } from './modules/sales/sales.module';
+import { CashRegisterModule } from './modules/cash-register/cash-register.module';
+import { CustomerAccountsModule } from './modules/customer-accounts/customer-accounts.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { IncomesModule } from './modules/incomes/incomes.module';
 
 @Module({
   imports: [
@@ -32,6 +41,15 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     ProductsModule,
     ConfigurationModule,
     InventoryModule,
+    CustomersModule,
+    ExpensesModule,
+    SuppliersModule,
+    PurchasesModule,
+    SalesModule,
+    CashRegisterModule,
+    CustomerAccountsModule,
+    ReportsModule,
+    IncomesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

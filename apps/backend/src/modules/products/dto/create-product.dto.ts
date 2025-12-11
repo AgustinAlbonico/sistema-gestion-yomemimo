@@ -4,14 +4,18 @@ import { IsString, IsOptional, IsNumber, IsBoolean, IsUUID, IsInt, Min, Max, Len
 
 /**
  * Schema simplificado para crear producto
- * Solo: nombre, costo, stock, categoría
+ * Solo: nombre, costo, stock, categoría (opcional, una sola)
+ * Opcionalmente: margen de ganancia personalizado
  */
 export const BaseProductSchema = z.object({
     name: z.string().min(1, 'El nombre es requerido').max(255),
     cost: z.number().min(0, 'El costo debe ser 0 o mayor'),
     stock: z.number().int().min(0).optional().default(0),
-    categoryId: z.string().uuid().optional(),
+    categoryId: z.string().uuid().optional().nullable(),
     isActive: z.boolean().default(true),
+    // Margen de ganancia personalizado (opcional)
+    useCustomMargin: z.boolean().optional().default(false),
+    customProfitMargin: z.number().min(0).max(1000).optional(),
 });
 
 export const CreateProductSchema = BaseProductSchema;
@@ -20,6 +24,8 @@ export type CreateProductDTO = z.infer<typeof CreateProductSchema>;
 
 /**
  * DTO para crear producto - Simplificado
+ * Categoría opcional (una sola)
+ * Opcional: margen de ganancia personalizado
  */
 export class CreateProductDto {
     @ApiProperty({ example: 'Coca Cola 500ml', description: 'Nombre del producto' })
@@ -38,13 +44,26 @@ export class CreateProductDto {
     @Min(0)
     stock?: number;
 
-    @ApiPropertyOptional({ format: 'uuid', description: 'ID de categoría' })
+    @ApiPropertyOptional({ type: String, description: 'ID de la categoría' })
     @IsOptional()
-    @IsUUID()
-    categoryId?: string;
+    @IsUUID('4')
+    categoryId?: string | null;
 
     @ApiPropertyOptional({ example: true, default: true })
     @IsOptional()
     @IsBoolean()
     isActive?: boolean;
+
+    @ApiPropertyOptional({ example: false, description: 'Usar margen de ganancia personalizado' })
+    @IsOptional()
+    @IsBoolean()
+    useCustomMargin?: boolean;
+
+    @ApiPropertyOptional({ example: 40.00, description: 'Margen de ganancia personalizado (%)' })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Max(1000)
+    customProfitMargin?: number;
 }
+

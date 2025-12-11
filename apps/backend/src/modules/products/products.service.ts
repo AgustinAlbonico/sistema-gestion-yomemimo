@@ -1,20 +1,30 @@
 import {
     Injectable,
     NotFoundException,
+    Inject,
+    forwardRef,
 } from '@nestjs/common';
 import { ProductsRepository } from './products.repository';
 import { CategoriesRepository } from './categories.repository';
 import {
-    CreateProductDTO,
+    CreateProductDto,
     UpdateProductDTO,
     QueryProductsDTO,
 } from './dto';
 
 import { ConfigurationService } from '../configuration/configuration.service';
+import { InventoryService } from '../inventory/inventory.service';
+import { StockMovementType, StockMovementSource } from '../inventory/entities/stock-movement.entity';
+import { Product } from './entities/product.entity';
+import { Category } from './entities/category.entity';
 
 /**
- * Servicio de productos simplificado
- * - Calcula precio automáticamente según % de configuración
+ * Servicio de productos
+ * - Calcula precio automáticamente según jerarquía de márgenes:
+ *   1. Margen personalizado del producto (si useCustomMargin = true)
+ *   2. Margen de la categoría (si la categoría tiene profitMargin definido)
+ *   3. Margen general del sistema (defaultProfitMargin)
+ * - Registra movimientos de stock al crear productos con stock inicial
  */
 @Injectable()
 export class ProductsService {
@@ -22,36 +32,92 @@ export class ProductsService {
         private readonly productsRepository: ProductsRepository,
         private readonly categoriesRepository: CategoriesRepository,
         private readonly configService: ConfigurationService,
+        @Inject(forwardRef(() => InventoryService))
+        private readonly inventoryService: InventoryService,
     ) { }
 
-    async create(dto: CreateProductDTO) {
-        // Validar que la categoría existe si se proporciona
-        if (dto.categoryId) {
-            const category = await this.categoriesRepository.findOne({
-                where: { id: dto.categoryId },
-            });
-            if (!category) {
-                throw new NotFoundException('Categoría no encontrada');
-            }
+    /**
+     * Obtiene el margen de ganancia efectivo según la jerarquía:
+     * 1. Margen personalizado del producto
+     * 2. Margen de la categoría
+     * 3. Margen general del sistema
+     */
+    async getEffectiveProfitMargin(
+        useCustomMargin: boolean,
+        customProfitMargin?: number,
+        category?: Category | null,
+    ): Promise<number> {
+        // 1. Margen personalizado del producto
+        if (useCustomMargin && customProfitMargin !== undefined) {
+            return customProfitMargin;
         }
 
-        // Obtener margen de ganancia de configuración
-        const profitMargin = await this.configService.getDefaultProfitMargin();
+        // 2. Margen de la categoría
+        if (category && category.profitMargin !== null && category.profitMargin !== undefined) {
+            return category.profitMargin;
+        }
+
+        // 3. Margen general del sistema
+        return this.configService.getDefaultProfitMargin();
+    }
+
+    async create(dto: CreateProductDto) {
+        // Cargar categoría si se proporciona ID
+        let category: Category | null = null;
+        if (dto.categoryId) {
+            const foundCategory = await this.categoriesRepository.findOne({
+                where: { id: dto.categoryId },
+            });
+            if (!foundCategory) {
+                throw new NotFoundException('Categoría no encontrada');
+            }
+            category = foundCategory;
+        }
+
+        // Determinar margen de ganancia según jerarquía
+        const useCustomMargin = dto.useCustomMargin ?? false;
+        const profitMargin = await this.getEffectiveProfitMargin(
+            useCustomMargin,
+            dto.customProfitMargin,
+            category,
+        );
 
         // Calcular precio automáticamente
         const price = this.calculatePrice(dto.cost, profitMargin);
 
+        // Crear producto con stock 0 inicialmente (el stock se agrega via movimiento)
+        const initialStock = dto.stock ?? 0;
         const product = this.productsRepository.create({
             name: dto.name,
             cost: dto.cost,
             price,
             profitMargin,
-            stock: dto.stock ?? 0,
-            categoryId: dto.categoryId,
+            useCustomMargin,
+            stock: 0, // Inicializar en 0, el movimiento lo actualizará
+            category,
+            categoryId: dto.categoryId || null,
             isActive: dto.isActive ?? true,
         });
 
-        return this.productsRepository.save(product);
+        const savedProduct = await this.productsRepository.save(product);
+
+        // Si hay stock inicial, registrar movimiento de stock
+        if (initialStock > 0) {
+            await this.inventoryService.createMovement({
+                productId: savedProduct.id,
+                type: StockMovementType.IN,
+                source: StockMovementSource.INITIAL_LOAD,
+                quantity: initialStock,
+                cost: dto.cost,
+                notes: 'Carga inicial de stock',
+                date: new Date().toISOString(),
+            });
+
+            // Recargar el producto con el stock actualizado
+            return this.findOne(savedProduct.id);
+        }
+
+        return savedProduct;
     }
 
     async findAll(filters: QueryProductsDTO) {
@@ -82,28 +148,72 @@ export class ProductsService {
     async update(id: string, dto: UpdateProductDTO) {
         const product = await this.findOne(id);
 
-        // Validar categoría si se modifica
-        if (dto.categoryId && dto.categoryId !== product.categoryId) {
-            const category = await this.categoriesRepository.findOne({
-                where: { id: dto.categoryId },
-            });
-            if (!category) {
-                throw new NotFoundException('Categoría no encontrada');
+        // Actualizar categoría si se proporciona
+        if (dto.categoryId !== undefined) {
+            if (dto.categoryId) {
+                const category = await this.categoriesRepository.findOne({
+                    where: { id: dto.categoryId },
+                });
+                if (!category) {
+                    throw new NotFoundException('Categoría no encontrada');
+                }
+                product.category = category;
+                product.categoryId = dto.categoryId;
+            } else {
+                // Quitar categoría
+                product.category = null;
+                product.categoryId = null;
             }
         }
 
-        // Si cambia el costo, recalcular precio
-        if (dto.cost !== undefined && dto.cost !== product.cost) {
-            const profitMargin = await this.configService.getDefaultProfitMargin();
-            product.price = this.calculatePrice(dto.cost, profitMargin);
-            product.profitMargin = profitMargin;
+        // Manejar cambio de margen personalizado
+        if (dto.useCustomMargin !== undefined) {
+            product.useCustomMargin = dto.useCustomMargin;
+
+            if (dto.useCustomMargin && dto.customProfitMargin !== undefined) {
+                // Usar margen personalizado
+                product.profitMargin = dto.customProfitMargin;
+            } else if (!dto.useCustomMargin) {
+                // Volver a la jerarquía: categoría > general
+                product.profitMargin = await this.getEffectiveProfitMargin(
+                    false,
+                    undefined,
+                    product.category,
+                );
+            }
+
+            // Recalcular precio con el nuevo margen
+            const cost = dto.cost ?? product.cost;
+            product.price = this.calculatePrice(cost, product.profitMargin ?? 0);
+        } else if (dto.customProfitMargin !== undefined && product.useCustomMargin) {
+            // Solo actualizar el margen si ya tiene margen personalizado activo
+            product.profitMargin = dto.customProfitMargin;
+            const cost = dto.cost ?? product.cost;
+            product.price = this.calculatePrice(cost, product.profitMargin);
+        } else if (dto.cost !== undefined && dto.cost !== product.cost) {
+            // Si solo cambia el costo, recalcular precio con el margen actual
+            const margin = await this.getEffectiveProfitMargin(
+                product.useCustomMargin,
+                product.profitMargin ?? undefined,
+                product.category,
+            );
+            product.price = this.calculatePrice(dto.cost, margin);
+            product.profitMargin = margin;
+        } else if (dto.categoryId !== undefined && !product.useCustomMargin) {
+            // Si cambió la categoría y no tiene margen personalizado, recalcular
+            const margin = await this.getEffectiveProfitMargin(
+                false,
+                undefined,
+                product.category,
+            );
+            product.profitMargin = margin;
+            product.price = this.calculatePrice(product.cost, margin);
         }
 
         // Actualizar campos
         if (dto.name !== undefined) product.name = dto.name;
         if (dto.cost !== undefined) product.cost = dto.cost;
         if (dto.stock !== undefined) product.stock = dto.stock;
-        if (dto.categoryId !== undefined) product.categoryId = dto.categoryId;
         if (dto.isActive !== undefined) product.isActive = dto.isActive;
 
         return this.productsRepository.save(product);
@@ -117,6 +227,33 @@ export class ProductsService {
         await this.productsRepository.save(product);
 
         return { message: 'Producto eliminado' };
+    }
+
+    /**
+     * Recalcula los precios de todos los productos de una categoría
+     * Se llama cuando se actualiza el profitMargin de una categoría
+     */
+    async recalculateProductsByCategory(categoryId: string, categoryMargin: number | null): Promise<number> {
+        // Obtener productos de esta categoría que NO tienen margen personalizado
+        const products = await this.productsRepository.find({
+            where: {
+                categoryId,
+                useCustomMargin: false,
+                isActive: true,
+            },
+        });
+
+        let updated = 0;
+        for (const product of products) {
+            // Si la categoría tiene margen, usarlo; si no, usar el margen general
+            const margin = categoryMargin ?? await this.configService.getDefaultProfitMargin();
+            product.profitMargin = margin;
+            product.price = this.calculatePrice(product.cost, margin);
+            await this.productsRepository.save(product);
+            updated++;
+        }
+
+        return updated;
     }
 
     private calculatePrice(cost: number, profitMargin: number): number {

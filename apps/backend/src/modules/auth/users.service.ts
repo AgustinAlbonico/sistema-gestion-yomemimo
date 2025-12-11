@@ -137,6 +137,12 @@ export class UsersService {
         await this.usersRepository.remove(user);
     }
 
+    async toggleActive(id: string, isActive: boolean): Promise<User> {
+        const user = await this.findOne(id);
+        user.isActive = isActive;
+        return this.usersRepository.save(user);
+    }
+
     async updateLastLogin(id: string): Promise<void> {
         await this.usersRepository.update(id, {
             lastLogin: new Date(),

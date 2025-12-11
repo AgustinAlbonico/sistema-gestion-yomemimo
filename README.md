@@ -248,6 +248,17 @@ cd apps/frontend && pnpm dev
 
 - [Stack Tecnológico Completo](./docs/stack-tecnologico.md)
 - [Docker Setup](./docs/DOCKER-SETUP-COMPLETO.md)
+- [Utilidades de Fechas (Frontend)](./apps/frontend/src/lib/date-utils.README.md)
+- [Utilidades de Fechas (Backend)](./apps/backend/src/common/utils/date.utils.README.md)
+
+## ⚠️ Importante: Manejo de Fechas
+
+**SIEMPRE usa las utilidades centralizadas de fechas** para evitar problemas de zona horaria:
+
+- **Frontend**: Importa desde `@/lib/date-utils`
+- **Backend**: Importa desde `../../common/utils/date.utils`
+
+**NUNCA uses `new Date('YYYY-MM-DD')` directamente** - puede causar que las fechas se muestren con un día de diferencia.
 
 ## 🤝 Contribuir
 

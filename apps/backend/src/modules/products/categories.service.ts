@@ -2,14 +2,20 @@ import {
     Injectable,
     NotFoundException,
     ConflictException,
+    Inject,
+    forwardRef,
 } from '@nestjs/common';
 import { CategoriesRepository } from './categories.repository';
 import { CreateCategoryDTO, UpdateCategoryDTO } from './dto';
+import { generateColorFromName } from '../../common/utils/color.utils';
+import { ProductsService } from './products.service';
 
 @Injectable()
 export class CategoriesService {
     constructor(
         private readonly categoriesRepository: CategoriesRepository,
+        @Inject(forwardRef(() => ProductsService))
+        private readonly productsService: ProductsService,
     ) { }
 
     async create(dto: CreateCategoryDTO) {
@@ -19,7 +25,14 @@ export class CategoriesService {
             throw new ConflictException('Ya existe una categoría con ese nombre');
         }
 
-        const category = this.categoriesRepository.create(dto);
+        // Asignar color automáticamente si no se proporciona
+        const categoryData = {
+            ...dto,
+            color: dto.color || generateColorFromName(dto.name),
+            profitMargin: dto.profitMargin ?? null,
+        };
+
+        const category = this.categoriesRepository.create(categoryData);
         return this.categoriesRepository.save(category);
     }
 
@@ -56,17 +69,29 @@ export class CategoriesService {
             }
         }
 
+        // Verificar si cambió el margen de ganancia
+        const marginChanged = dto.profitMargin !== undefined && dto.profitMargin !== category.profitMargin;
+        const oldMargin = category.profitMargin;
+
         Object.assign(category, dto);
-        return this.categoriesRepository.save(category);
+        const savedCategory = await this.categoriesRepository.save(category);
+
+        // Si cambió el margen, recalcular precios de productos de esta categoría
+        if (marginChanged) {
+            await this.productsService.recalculateProductsByCategory(
+                id,
+                savedCategory.profitMargin,
+            );
+        }
+
+        return savedCategory;
     }
 
     async remove(id: string) {
         const category = await this.findOne(id);
 
-        // Soft delete
-        category.isActive = false;
-        await this.categoriesRepository.save(category);
+        await this.categoriesRepository.remove(category);
 
-        return { message: 'Categoría desactivada exitosamente' };
+        return { message: 'Categoría eliminada exitosamente' };
     }
 }

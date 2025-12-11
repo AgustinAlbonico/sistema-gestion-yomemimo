@@ -1,9 +1,10 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { SystemConfiguration } from './entities/system-configuration.entity';
 import { UpdateConfigurationDto } from './dto/update-configuration.dto';
 import { Product } from '../products/entities/product.entity';
+import { Category } from '../products/entities/category.entity';
 
 /**
  * Servicio de configuración del sistema
@@ -34,8 +35,12 @@ export class ConfigurationService implements OnModuleInit {
 
     async updateConfiguration(updateDto: UpdateConfigurationDto): Promise<SystemConfiguration> {
         const config = await this.getConfiguration();
-        Object.assign(config, updateDto);
-        return this.configRepository.save(config);
+
+        // Usamos update() en lugar de save() para asegurar que los cambios se apliquen
+        // correctamente en columnas decimales
+        await this.configRepository.update(config.id, updateDto);
+
+        return this.getConfiguration();
     }
 
     async getDefaultProfitMargin(): Promise<number> {
@@ -49,26 +54,85 @@ export class ConfigurationService implements OnModuleInit {
     }
 
     /**
-     * Actualiza el precio de TODOS los productos según el % de ganancia configurado
+     * Actualiza el precio de productos según el % de ganancia configurado
+     * NOTA: Excluye:
+     * - Productos con margen de ganancia personalizado (useCustomMargin = true)
+     * - Productos cuya categoría tenga un margen de ganancia definido
      */
-    async updateAllProductsPrices(): Promise<{ updated: number; margin: number }> {
+    async updateAllProductsPrices(newMargin?: number): Promise<{ updated: number; margin: number; skipped: number; skippedByCategory: number }> {
+        if (newMargin !== undefined) {
+            await this.updateConfiguration({ defaultProfitMargin: newMargin });
+        }
+
         const config = await this.getConfiguration();
         const margin = Number(config.defaultProfitMargin);
 
         const productRepo = this.dataSource.getRepository(Product);
-        
-        // Obtener todos los productos activos
-        const products = await productRepo.find({ where: { isActive: true } });
-        
+        const categoryRepo = this.dataSource.getRepository(Category);
+
+        // Obtener IDs de categorías que tienen margen definido
+        const categoriesWithMargin = await categoryRepo
+            .createQueryBuilder('category')
+            .select('category.id')
+            .where('category.profitMargin IS NOT NULL')
+            .getMany();
+
+        const categoryIdsWithMargin = categoriesWithMargin.map(c => c.id);
+
+        // Obtener productos que deben usar el margen general:
+        // - isActive = true
+        // - useCustomMargin = false
+        // - categoryId IS NULL O categoryId NO está en categorías con margen
+        let productsToUpdate: Product[] = [];
+
+        if (categoryIdsWithMargin.length > 0) {
+            productsToUpdate = await productRepo
+                .createQueryBuilder('product')
+                .where('product.isActive = :isActive', { isActive: true })
+                .andWhere('product.useCustomMargin = :useCustomMargin', { useCustomMargin: false })
+                .andWhere('(product.categoryId IS NULL OR product.categoryId NOT IN (:...categoryIds))', {
+                    categoryIds: categoryIdsWithMargin
+                })
+                .getMany();
+        } else {
+            // No hay categorías con margen, obtener todos los que no tienen margen personalizado
+            productsToUpdate = await productRepo.find({
+                where: { isActive: true, useCustomMargin: false }
+            });
+        }
+
+        // Contar productos con margen personalizado (no serán afectados)
+        const skipped = await productRepo.count({
+            where: { isActive: true, useCustomMargin: true }
+        });
+
+        // Contar productos con categoría que tiene margen (no serán afectados)
+        let skippedByCategory = 0;
+        if (categoryIdsWithMargin.length > 0) {
+            skippedByCategory = await productRepo
+                .createQueryBuilder('product')
+                .where('product.isActive = :isActive', { isActive: true })
+                .andWhere('product.useCustomMargin = :useCustomMargin', { useCustomMargin: false })
+                .andWhere('product.categoryId IN (:...categoryIds)', {
+                    categoryIds: categoryIdsWithMargin
+                })
+                .getCount();
+        }
+
         // Actualizar precio de cada producto
-        for (const product of products) {
+        for (const product of productsToUpdate) {
             product.price = product.cost * (1 + margin / 100);
             product.price = Math.round(product.price * 100) / 100;
             product.profitMargin = margin;
         }
 
-        await productRepo.save(products);
+        await productRepo.save(productsToUpdate);
 
-        return { updated: products.length, margin };
+        return {
+            updated: productsToUpdate.length,
+            margin,
+            skipped,
+            skippedByCategory
+        };
     }
 }

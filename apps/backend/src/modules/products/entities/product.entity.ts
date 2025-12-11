@@ -15,7 +15,6 @@ import { Category } from './category.entity';
 @Entity('products')
 @Index(['name'])
 @Index(['barcode'])
-@Index(['categoryId'])
 @Index(['isActive'])
 export class Product {
     @PrimaryGeneratedColumn('uuid')
@@ -25,7 +24,7 @@ export class Product {
     name!: string;
 
     @Column({ type: 'text', nullable: true })
-    description!: string;
+    description!: string | null;
 
     @Column({ type: 'varchar', length: 100, nullable: true })
     sku?: string | null;
@@ -74,12 +73,17 @@ export class Product {
     @Column({ type: 'int', default: 0 })
     minStock!: number;
 
+    // Relación ManyToOne: Un producto pertenece a UNA categoría (opcional)
     @Column({ type: 'uuid', nullable: true })
-    categoryId!: string;
+    categoryId!: string | null;
 
-    @ManyToOne(() => Category, { eager: false, nullable: true })
-    @JoinColumn({ name: 'category_id' })
-    category!: Category;
+    @ManyToOne(() => Category, (category) => category.products, { eager: false, nullable: true })
+    @JoinColumn({ name: 'categoryId' })
+    category!: Category | null;
+
+    // Indica si el producto usa un margen de ganancia personalizado (no afectado por actualización masiva)
+    @Column({ type: 'boolean', default: false })
+    useCustomMargin!: boolean;
 
     @Column({ type: 'boolean', default: true })
     isActive!: boolean;

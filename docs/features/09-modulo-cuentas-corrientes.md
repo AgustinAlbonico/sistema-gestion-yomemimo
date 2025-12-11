@@ -46,7 +46,11 @@ export class CustomerAccount {
   customer: Customer;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
-  balance: number; // Saldo actual (deuda total)
+  balance: number; // Saldo actual de la cuenta
+  // Convención:
+  //  balance > 0  => el cliente le debe al negocio
+  //  balance = 0  => cuenta saldada
+  //  balance < 0  => el negocio le debe al cliente (saldo a favor)
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   creditLimit: number; // Límite de crédito
@@ -101,13 +105,16 @@ export class AccountMovement {
   movementType: MovementType;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
-  amount: number; // Positivo para cargos, negativo para pagos
+  amount: number; // Positivo aumenta la deuda, negativo la reduce
+  // Convención de signos:
+  //  amount > 0  => débito al cliente (cargo, venta, interés)
+  //  amount < 0  => crédito al cliente (pago, descuento, ajuste a favor)
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   balanceBefore: number; // Saldo antes del movimiento
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
-  balanceAfter: number; // Saldo después del movimiento
+  balanceAfter: number; // Saldo después del movimiento (running balance)
 
   @Column({ type: 'varchar', length: 200 })
   description: string;
@@ -198,6 +205,10 @@ export class CreatePaymentDto {
   @IsOptional()
   @MaxLength(1000)
   notes?: string;
+
+  // En esta primera versión simple, los pagos siempre se imputan
+  // al saldo total del cliente. En el futuro se podría extender
+  // para imputar manualmente a documentos específicos.
 }
 
 // account-filters.dto.ts
@@ -297,12 +308,20 @@ export class CustomerAccountsService {
   // Registrar pago
   async createPayment(dto: CreatePaymentDto, userId: string): Promise<AccountMovement> {
     const account = await this.getOrCreateAccount(dto.customerId);
+    
+    // En este diseño simple, permitimos dos comportamientos posibles:
+    // A) Solo cancelar deuda (no permitir saldo a favor)
+    // B) Permitir saldo a favor del cliente (pago mayor a la deuda)
+    //
+    // Por defecto implementamos A) para mantener la operación simple y segura.
+    // Si se quisiera habilitar saldo a favor en el futuro, se podría
+    // quitar la validación del monto y documentarlo claramente.
 
     if (account.balance <= 0) {
       throw new BadRequestException('El cliente no tiene deuda pendiente');
     }
 
-    // Validar que el pago no exceda la deuda
+    // Validar que el pago no exceda la deuda (no se permite saldo a favor)
     if (dto.amount > account.balance) {
       throw new BadRequestException(
         `El pago (${dto.amount}) excede la deuda pendiente (${account.balance})`
@@ -351,17 +370,27 @@ export class CustomerAccountsService {
       order: { createdAt: 'DESC' }
     });
 
+    const totalCharges = movements
+      .filter(m => m.movementType === MovementType.CHARGE)
+      .reduce((sum, m) => sum + Number(m.amount), 0);
+
+    const totalPayments = movements
+      .filter(m => m.movementType === MovementType.PAYMENT)
+      .reduce((sum, m) => sum + Math.abs(Number(m.amount)), 0);
+
     return {
       account,
       movements,
       summary: {
-        totalCharges: movements
-          .filter(m => m.movementType === MovementType.CHARGE)
-          .reduce((sum, m) => sum + Number(m.amount), 0),
-        totalPayments: movements
-          .filter(m => m.movementType === MovementType.PAYMENT)
-          .reduce((sum, m) => sum + Math.abs(Number(m.amount)), 0),
-        currentBalance: account.balance
+        totalCharges,
+        totalPayments,
+        currentBalance: account.balance,
+        customerPosition:
+          account.balance > 0
+            ? 'customer_owes'   // El cliente le debe al negocio
+            : account.balance < 0
+            ? 'business_owes'   // El negocio le debe al cliente (saldo a favor)
+            : 'settled',        // Cuenta en cero
       }
     };
   }

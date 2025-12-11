@@ -1,13 +1,20 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/common/DataTable';
-import { productsApi } from '../api/products.api';
+import { productsApi, categoriesApi } from '../api/products.api';
 import { Product } from '../types';
 import { ColumnDef } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, Edit, Trash, MoreHorizontal, AlertTriangle, Eye } from 'lucide-react';
+import { ArrowUpDown, Edit, Trash, MoreHorizontal, AlertTriangle, Eye, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -22,6 +29,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { StockHistoryDialog } from './StockHistoryDialog';
 
 interface ProductListProps {
     onEdit: (product: Product) => void;
@@ -31,13 +39,13 @@ interface ProductListProps {
 /**
  * Modal para ver detalle de un producto
  */
-function ProductDetailDialog({ 
-    product, 
-    open, 
-    onClose 
-}: { 
-    product: Product | null; 
-    open: boolean; 
+function ProductDetailDialog({
+    product,
+    open,
+    onClose
+}: {
+    product: Product | null;
+    open: boolean;
     onClose: () => void;
 }) {
     if (!product) return null;
@@ -90,10 +98,9 @@ function ProductDetailDialog({
                     {/* Stock */}
                     <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Stock Actual</span>
-                        <span className={`font-medium ${
-                            product.stock === 0 ? 'text-destructive' :
-                            product.stock <= product.minStock ? 'text-yellow-600' : ''
-                        }`}>
+                        <span className={`font-medium ${product.stock === 0 ? 'text-destructive' :
+                                product.stock <= product.minStock ? 'text-yellow-600' : ''
+                            }`}>
                             {product.stock} unidades
                         </span>
                     </div>
@@ -123,11 +130,60 @@ function ProductDetailDialog({
  */
 export function ProductList({ onEdit, onDelete }: ProductListProps) {
     const [viewProduct, setViewProduct] = useState<Product | null>(null);
+    const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+
+    // Query para categorías
+    const { data: categories } = useQuery({
+        queryKey: ['categories'],
+        queryFn: () => categoriesApi.getAll(),
+    });
+
+    // Query para configuración global (stock mínimo)
+    const { data: config } = useQuery({
+        queryKey: ['configuration'],
+        queryFn: async () => {
+            const res = await import('@/lib/axios').then(m => m.api.get('/api/configuration'));
+            return res.data as { minStockAlert: number };
+        },
+    });
+    const globalMinStock = config?.minStockAlert ?? 5;
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['products'],
-        queryFn: () => productsApi.getAll(),
+        queryKey: ['products', { categoryId: selectedCategoryId }],
+        queryFn: () => productsApi.getAll({
+            limit: 100, // Máximo permitido por el backend
+            categoryId: selectedCategoryId && selectedCategoryId !== 'all' ? selectedCategoryId : undefined,
+        }),
     });
+
+    // Componente del filtro de categorías
+    const categoryFilter = (
+        <Select
+            value={selectedCategoryId || 'all'}
+            onValueChange={setSelectedCategoryId}
+        >
+            <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Todas las categorías" />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="all">Todas las categorías</SelectItem>
+                {categories?.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                        <div className="flex items-center gap-2">
+                            {cat.color && (
+                                <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: cat.color }}
+                                />
+                            )}
+                            {cat.name}
+                        </div>
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
 
     const columns: ColumnDef<Product>[] = [
         {
@@ -148,10 +204,32 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
                 return (
                     <div>
                         <p className="font-medium">{product.name}</p>
-                        {product.category && (
-                            <p className="text-xs text-muted-foreground">{product.category.name}</p>
-                        )}
                     </div>
+                );
+            },
+        },
+        {
+            id: 'category',
+            header: 'Categoría',
+            cell: ({ row }) => {
+                const product = row.original;
+                if (!product.category) {
+                    return <span className="text-muted-foreground">-</span>;
+                }
+                return (
+                    <Badge
+                        variant="outline"
+                        className="text-xs"
+                        style={{
+                            borderColor: product.category.color || undefined,
+                            backgroundColor: product.category.color ? `${product.category.color}20` : undefined,
+                        }}
+                    >
+                        {product.category.name}
+                        {product.category.profitMargin !== null && product.category.profitMargin !== undefined && (
+                            <span className="ml-1 text-muted-foreground">({product.category.profitMargin}%)</span>
+                        )}
+                    </Badge>
                 );
             },
         },
@@ -198,15 +276,16 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
             },
             cell: ({ row }) => {
                 const stock = row.original.stock;
-                const minStock = row.original.minStock;
-                const isLow = stock <= minStock && stock > 0;
+                // Usa el mayor entre el minStock del producto y el global
+                const effectiveMinStock = Math.max(row.original.minStock, globalMinStock);
+                const isLow = stock <= effectiveMinStock && stock > 0;
                 const isOut = stock === 0;
 
                 return (
                     <div className="flex items-center gap-1">
                         <span className={
                             isOut ? 'text-destructive font-medium' :
-                            isLow ? 'text-yellow-600 font-medium' : ''
+                                isLow ? 'text-yellow-600 font-medium' : ''
                         }>
                             {stock}
                         </span>
@@ -236,6 +315,10 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
                                 <Eye className="mr-2 h-4 w-4" />
                                 Ver Detalle
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setHistoryProduct(product)}>
+                                <History className="mr-2 h-4 w-4" />
+                                Historial de Stock
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => onEdit(product)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Editar
@@ -258,6 +341,21 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
     if (isLoading) return <div className="flex items-center justify-center p-8">Cargando...</div>;
     if (error) return <div className="text-destructive p-4">Error al cargar productos</div>;
 
+    /**
+     * Determina la clase CSS de la fila según el estado del stock
+     * Usa el mayor entre el minStock del producto y el global
+     */
+    const getRowClassName = (product: Product): string => {
+        const effectiveMinStock = Math.max(product.minStock, globalMinStock);
+        if (product.stock === 0) {
+            return 'bg-destructive/5 hover:bg-destructive/10';
+        }
+        if (product.stock <= effectiveMinStock) {
+            return 'bg-yellow-500/5 hover:bg-yellow-500/10';
+        }
+        return '';
+    };
+
     return (
         <>
             <DataTable
@@ -265,11 +363,18 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
                 data={data?.data || []}
                 searchKey="name"
                 searchPlaceholder="Buscar producto..."
+                filterSlot={categoryFilter}
+                getRowClassName={getRowClassName}
             />
-            <ProductDetailDialog 
-                product={viewProduct} 
-                open={!!viewProduct} 
-                onClose={() => setViewProduct(null)} 
+            <ProductDetailDialog
+                product={viewProduct}
+                open={!!viewProduct}
+                onClose={() => setViewProduct(null)}
+            />
+            <StockHistoryDialog
+                product={historyProduct}
+                open={!!historyProduct}
+                onClose={() => setHistoryProduct(null)}
             />
         </>
     );

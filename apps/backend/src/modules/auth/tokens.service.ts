@@ -13,7 +13,7 @@ export class TokensService {
     ) { }
 
     async saveToken(userId: string, token: string): Promise<RefreshToken> {
-        const expiresIn = this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN', '7d');
+        const expiresIn = this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN', '90d');
         const expiresAt = this.calculateExpirationDate(expiresIn);
 
         const refreshToken = this.refreshTokenRepository.create({
@@ -51,8 +51,8 @@ export class TokensService {
         const match = expiresIn.match(/^(\d+)([smhd])$/);
 
         if (!match) {
-            // Default to 7 days if invalid format
-            return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            // Default to 90 days if invalid format
+            return new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
         }
 
         const [, amount, unit] = match;
@@ -68,7 +68,7 @@ export class TokensService {
             case 'd':
                 return new Date(now.getTime() + value * 24 * 60 * 60 * 1000);
             default:
-                return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                return new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
         }
     }
 }

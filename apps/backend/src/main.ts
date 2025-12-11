@@ -1,4 +1,7 @@
 import 'reflect-metadata';
+// Log para verificar si NODE_OPTIONS está activa
+// eslint-disable-next-line no-console
+console.log('NODE_OPTIONS:', process.env.NODE_OPTIONS);
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';

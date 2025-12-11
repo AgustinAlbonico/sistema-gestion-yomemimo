@@ -9,9 +9,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Settings, Percent, Save, RefreshCw, Package } from 'lucide-react';
+import { Settings, Percent, Save, RefreshCw, Package, FileText, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface SystemConfiguration {
     id: string;
@@ -51,6 +53,7 @@ export default function SettingsPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['configuration'] });
+            queryClient.invalidateQueries({ queryKey: ['inventory', 'low-stock'] });
             toast.success('Configuración guardada');
         },
         onError: () => {
@@ -60,12 +63,13 @@ export default function SettingsPage() {
 
     // Mutation para actualizar todos los precios
     const updatePricesMutation = useMutation({
-        mutationFn: async () => {
-            const res = await api.post('/api/configuration/update-all-prices');
+        mutationFn: async (margin: number) => {
+            const res = await api.post('/api/configuration/update-all-prices', { defaultProfitMargin: margin });
             return res.data;
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products'] });
+            queryClient.invalidateQueries({ queryKey: ['configuration'] });
             toast.success(`¡${data.updated} productos actualizados al ${data.margin}% de ganancia!`);
         },
         onError: () => {
@@ -76,7 +80,7 @@ export default function SettingsPage() {
     const handleSave = () => {
         const margin = parseFloat(profitMargin);
         const stock = parseInt(minStock);
-        
+
         if (isNaN(margin) || margin < 0) {
             toast.error('Ingrese un % de ganancia válido');
             return;
@@ -86,7 +90,7 @@ export default function SettingsPage() {
             return;
         }
 
-        saveMutation.mutate({ 
+        saveMutation.mutate({
             defaultProfitMargin: margin,
             minStockAlert: stock,
         });
@@ -97,14 +101,14 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="container mx-auto py-10 max-w-2xl space-y-6">
+        <div className="max-w-2xl space-y-6">
             {/* Header */}
             <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Settings className="h-6 w-6 text-primary" />
+                <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Settings className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Configuración</h2>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Configuración</h1>
                     <p className="text-muted-foreground">
                         Ajustes generales del sistema
                     </p>
@@ -128,12 +132,8 @@ export default function SettingsPage() {
                         <div className="flex-1">
                             <Label htmlFor="profitMargin">Porcentaje</Label>
                             <div className="flex gap-2 items-center mt-1">
-                                <Input
+                                <NumericInput
                                     id="profitMargin"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max="1000"
                                     value={profitMargin}
                                     onChange={(e) => setProfitMargin(e.target.value)}
                                     className="max-w-[150px]"
@@ -155,6 +155,25 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </div>
+                {/* Botón para aplicar porcentaje a todos los productos (moved here) */}
+                <div className="p-6">
+                    <Button
+                        onClick={() => {
+                            const margin = parseFloat(profitMargin);
+                            if (isNaN(margin) || margin < 0) {
+                                toast.error('Ingrese un % de ganancia válido');
+                                return;
+                            }
+                            updatePricesMutation.mutate(margin);
+                        }}
+                        disabled={updatePricesMutation.isPending}
+                        variant="outline"
+                        className="w-full border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900"
+                    >
+                        <RefreshCw className={`mr-2 h-4 w-4 ${updatePricesMutation.isPending ? 'animate-spin' : ''}`} />
+                        {updatePricesMutation.isPending ? 'Actualizando...' : 'Aplicar % a todos los productos'}
+                    </Button>
+                </div>
             </div>
 
             {/* Card 2: Stock Mínimo */}
@@ -171,10 +190,8 @@ export default function SettingsPage() {
 
                 <div className="p-6">
                     <div className="flex gap-2 items-center">
-                        <Input
-                            type="number"
-                            step="1"
-                            min="0"
+                        <NumericInput
+                            allowDecimals={false}
                             value={minStock}
                             onChange={(e) => setMinStock(e.target.value)}
                             className="max-w-[150px]"
@@ -185,8 +202,8 @@ export default function SettingsPage() {
             </div>
 
             {/* Botón Guardar */}
-            <Button 
-                onClick={handleSave} 
+            <Button
+                onClick={handleSave}
                 disabled={saveMutation.isPending}
                 className="w-full"
                 size="lg"
@@ -195,30 +212,25 @@ export default function SettingsPage() {
                 {saveMutation.isPending ? 'Guardando...' : 'Guardar Configuración'}
             </Button>
 
-            {/* Card 3: Actualizar Todos los Precios */}
-            <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800 shadow-sm">
-                <div className="p-6">
-                    <div className="flex items-center gap-2 mb-2">
-                        <RefreshCw className="h-5 w-5 text-orange-600" />
-                        <h3 className="font-semibold text-lg text-orange-800 dark:text-orange-200">
-                            Actualizar Todos los Precios
-                        </h3>
+            {/* Card: Facturación Fiscal */}
+            <Link to="/settings/fiscal" className="block">
+                <div className="rounded-lg border bg-card shadow-sm hover:border-primary/50 transition-colors cursor-pointer">
+                    <div className="p-6 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="h-11 w-11 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-lg">Facturación Fiscal (AFIP)</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Configurar datos del emisor, certificados y entorno AFIP
+                                </p>
+                            </div>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
                     </div>
-                    <p className="text-sm text-orange-700 dark:text-orange-300 mb-4">
-                        Aplica el {profitMargin || 0}% de ganancia a <strong>todos</strong> los productos.
-                        Útil cuando cambiaste los costos de varios productos.
-                    </p>
-                    <Button 
-                        onClick={() => updatePricesMutation.mutate()}
-                        disabled={updatePricesMutation.isPending}
-                        variant="outline"
-                        className="w-full border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900"
-                    >
-                        <RefreshCw className={`mr-2 h-4 w-4 ${updatePricesMutation.isPending ? 'animate-spin' : ''}`} />
-                        {updatePricesMutation.isPending ? 'Actualizando...' : 'Actualizar Precios de Todos los Productos'}
-                    </Button>
                 </div>
-            </div>
+            </Link>
         </div>
     );
 }

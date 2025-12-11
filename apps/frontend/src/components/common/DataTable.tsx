@@ -19,7 +19,8 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[];
@@ -27,6 +28,10 @@ interface DataTableProps<TData, TValue> {
     searchKey?: string;
     searchPlaceholder?: string;
     onRowClick?: (row: TData) => void;
+    /** Slot para filtros adicionales que se muestran junto al buscador */
+    filterSlot?: ReactNode;
+    /** Función para determinar clases CSS adicionales por fila */
+    getRowClassName?: (row: TData) => string;
 }
 
 export function DataTable<TData, TValue>({
@@ -35,6 +40,8 @@ export function DataTable<TData, TValue>({
     searchKey,
     searchPlaceholder = 'Buscar...',
     onRowClick,
+    filterSlot,
+    getRowClassName,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -58,17 +65,22 @@ export function DataTable<TData, TValue>({
 
     return (
         <div className="space-y-4">
-            {/* Search */}
-            {searchKey && (
-                <div className="flex items-center justify-between">
-                    <Input
-                        placeholder={searchPlaceholder}
-                        value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ''}
-                        onChange={(e) =>
-                            table.getColumn(searchKey)?.setFilterValue(e.target.value)
-                        }
-                        className="max-w-sm"
-                    />
+            {/* Search y Filtros */}
+            {(searchKey || filterSlot) && (
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1">
+                        {searchKey && (
+                            <Input
+                                placeholder={searchPlaceholder}
+                                value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ''}
+                                onChange={(e) =>
+                                    table.getColumn(searchKey)?.setFilterValue(e.target.value)
+                                }
+                                className="max-w-sm"
+                            />
+                        )}
+                        {filterSlot}
+                    </div>
                     <div className="text-sm text-muted-foreground">
                         {table.getFilteredRowModel().rows.length} registro(s)
                     </div>
@@ -100,7 +112,10 @@ export function DataTable<TData, TValue>({
                                 <TableRow
                                     key={row.id}
                                     data-state={row.getIsSelected() && 'selected'}
-                                    className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : ''}
+                                    className={cn(
+                                        onRowClick && 'cursor-pointer hover:bg-muted/50',
+                                        getRowClassName?.(row.original)
+                                    )}
                                     onClick={() => onRowClick?.(row.original)}
                                 >
                                     {row.getVisibleCells().map((cell) => (

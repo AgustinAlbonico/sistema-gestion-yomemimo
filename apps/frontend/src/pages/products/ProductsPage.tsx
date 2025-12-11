@@ -4,7 +4,7 @@ import { ProductForm } from '@/features/products/components/ProductForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Tags } from 'lucide-react';
+import { Plus, Tags, Percent, Pencil, Trash2 } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -17,9 +17,10 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { productsApi, categoriesApi } from '@/features/products/api/products.api';
 import { toast } from 'sonner';
-import { Product } from '@/features/products/types';
+import { Product, Category, CreateCategoryDTO } from '@/features/products/types';
 import { ProductFormValues } from '@/features/products/schemas/product.schema';
 import { Badge } from '@/components/ui/badge';
+import { NumericInput } from '@/components/ui/numeric-input';
 
 /**
  * Página de Productos - Gestión completa de productos y stock
@@ -28,7 +29,14 @@ export default function ProductsPage() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+
+    // Estado para crear/editar categorías
     const [newCategoryName, setNewCategoryName] = useState('');
+    const [newCategoryMargin, setNewCategoryMargin] = useState<number | undefined>(undefined);
+    const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+    const [editCategoryName, setEditCategoryName] = useState('');
+    const [editCategoryMargin, setEditCategoryMargin] = useState<number | undefined>(undefined);
+
     const queryClient = useQueryClient();
 
     // Query para categorías
@@ -79,10 +87,24 @@ export default function ProductsPage() {
             queryClient.invalidateQueries({ queryKey: ['categories'] });
             toast.success('Categoría creada');
             setNewCategoryName('');
-            setIsCategoryOpen(false);
+            setNewCategoryMargin(undefined);
         },
         onError: () => {
             toast.error('Error al crear categoría');
+        },
+    });
+
+    const updateCategoryMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<CreateCategoryDTO> }) =>
+            categoriesApi.update(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
+            queryClient.invalidateQueries({ queryKey: ['products'] });
+            toast.success('Categoría actualizada');
+            setEditingCategory(null);
+        },
+        onError: () => {
+            toast.error('Error al actualizar categoría');
         },
     });
 
@@ -118,14 +140,38 @@ export default function ProductsPage() {
             toast.error('Ingresá un nombre para la categoría');
             return;
         }
-        createCategoryMutation.mutate({ name: newCategoryName.trim() });
+        createCategoryMutation.mutate({
+            name: newCategoryName.trim(),
+            profitMargin: newCategoryMargin ?? null,
+        });
+    };
+
+    const handleUpdateCategory = () => {
+        if (!editingCategory) return;
+        if (!editCategoryName.trim()) {
+            toast.error('Ingresá un nombre para la categoría');
+            return;
+        }
+        updateCategoryMutation.mutate({
+            id: editingCategory.id,
+            data: {
+                name: editCategoryName.trim(),
+                profitMargin: editCategoryMargin ?? null,
+            },
+        });
+    };
+
+    const startEditCategory = (category: Category) => {
+        setEditingCategory(category);
+        setEditCategoryName(category.name);
+        setEditCategoryMargin(category.profitMargin ?? undefined);
     };
 
     return (
-        <div className="container mx-auto py-10 space-y-6">
+        <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Productos</h2>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Productos</h1>
                     <p className="text-muted-foreground">
                         Cargá productos con nombre, costo y stock
                     </p>
@@ -139,64 +185,159 @@ export default function ProductsPage() {
                                 Categorías
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-[400px]">
+                        <DialogContent className="sm:max-w-[500px]">
                             <DialogHeader>
-                                <DialogTitle>Categorías</DialogTitle>
+                                <DialogTitle>Categorías de Productos</DialogTitle>
                                 <DialogDescription>
-                                    Organizá tus productos por categorías
+                                    Organizá tus productos por categorías. Podés asignar un % de ganancia a cada categoría.
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 {/* Lista de categorías existentes */}
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     <Label>Categorías actuales</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {categories && categories.length > 0 ? (
-                                            categories.map((cat) => (
-                                                <Badge 
-                                                    key={cat.id} 
-                                                    variant="secondary"
-                                                    className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-                                                    onClick={() => {
-                                                        if (confirm(`¿Eliminar "${cat.name}"?`)) {
-                                                            deleteCategoryMutation.mutate(cat.id);
-                                                        }
-                                                    }}
-                                                    title="Click para eliminar"
+                                    {categories && categories.length > 0 ? (
+                                        <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                            {categories.map((cat) => (
+                                                <div
+                                                    key={cat.id}
+                                                    className="flex items-center justify-between p-3 rounded-lg border bg-card"
                                                 >
-                                                    {cat.name} ×
-                                                </Badge>
-                                            ))
-                                        ) : (
-                                            <p className="text-sm text-muted-foreground">
-                                                No hay categorías creadas
-                                            </p>
-                                        )}
-                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="w-4 h-4 rounded-full"
+                                                            style={{ backgroundColor: cat.color || '#6b7280' }}
+                                                        />
+                                                        <div>
+                                                            <p className="font-medium">{cat.name}</p>
+                                                            {cat.profitMargin !== null && cat.profitMargin !== undefined ? (
+                                                                <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                                    <Percent className="h-3 w-3" />
+                                                                    {cat.profitMargin}% de ganancia
+                                                                </p>
+                                                            ) : (
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Usa margen general
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => startEditCategory(cat)}
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="text-destructive hover:text-destructive"
+                                                            onClick={() => {
+                                                                if (confirm(`¿Eliminar "${cat.name}"?`)) {
+                                                                    deleteCategoryMutation.mutate(cat.id);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground p-4 border rounded-lg text-center">
+                                            No hay categorías creadas
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Crear nueva categoría */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="categoryName">Nueva categoría</Label>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            id="categoryName"
-                                            placeholder="Ej: Bebidas"
-                                            value={newCategoryName}
-                                            onChange={(e) => setNewCategoryName(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') handleCreateCategory();
-                                            }}
-                                        />
-                                        <Button 
-                                            onClick={handleCreateCategory}
-                                            disabled={createCategoryMutation.isPending}
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
+                                <div className="space-y-3 pt-4 border-t">
+                                    <Label>Nueva categoría</Label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label htmlFor="categoryName" className="text-xs text-muted-foreground">Nombre</Label>
+                                            <Input
+                                                id="categoryName"
+                                                placeholder="Ej: Bebidas"
+                                                value={newCategoryName}
+                                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label htmlFor="categoryMargin" className="text-xs text-muted-foreground">% Ganancia (opcional)</Label>
+                                            <div className="flex gap-2">
+                                                <NumericInput
+                                                    id="categoryMargin"
+                                                    placeholder="Ej: 30"
+                                                    value={newCategoryMargin ?? ''}
+                                                    onChange={(e) => setNewCategoryMargin(e.target.value === '' ? undefined : parseFloat(e.target.value) || 0)}
+                                                />
+                                                <Button
+                                                    onClick={handleCreateCategory}
+                                                    disabled={createCategoryMutation.isPending}
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
                                     </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Si no asignás un % de ganancia, los productos usarán el margen general del sistema.
+                                    </p>
                                 </div>
                             </div>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Diálogo para editar categoría */}
+                    <Dialog open={!!editingCategory} onOpenChange={(open) => !open && setEditingCategory(null)}>
+                        <DialogContent className="sm:max-w-[400px]">
+                            <DialogHeader>
+                                <DialogTitle>Editar Categoría</DialogTitle>
+                                <DialogDescription>
+                                    Modificá el nombre y % de ganancia de la categoría
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="editCategoryName">Nombre</Label>
+                                    <Input
+                                        id="editCategoryName"
+                                        value={editCategoryName}
+                                        onChange={(e) => setEditCategoryName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="editCategoryMargin">% de Ganancia</Label>
+                                    <div className="flex items-center gap-2">
+                                        <NumericInput
+                                            id="editCategoryMargin"
+                                            placeholder="Ej: 30 (dejar vacío para usar margen general)"
+                                            value={editCategoryMargin ?? ''}
+                                            onChange={(e) => setEditCategoryMargin(e.target.value === '' ? undefined : parseFloat(e.target.value) || 0)}
+                                        />
+                                        <span className="text-muted-foreground">%</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Dejar vacío para que los productos usen el margen general del sistema.
+                                        Al cambiar este valor, los precios de los productos de esta categoría se recalcularán.
+                                    </p>
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setEditingCategory(null)}>
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    onClick={handleUpdateCategory}
+                                    disabled={updateCategoryMutation.isPending}
+                                >
+                                    {updateCategoryMutation.isPending ? 'Guardando...' : 'Guardar'}
+                                </Button>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
 
@@ -212,7 +353,7 @@ export default function ProductsPage() {
                             <DialogHeader>
                                 <DialogTitle>Nuevo Producto</DialogTitle>
                                 <DialogDescription>
-                                    El precio se calcula automático según la configuración
+                                    El precio se calcula automático según la configuración o categoría
                                 </DialogDescription>
                             </DialogHeader>
                             <ProductForm
@@ -245,8 +386,10 @@ export default function ProductsPage() {
                                 name: editingProduct.name,
                                 cost: editingProduct.cost,
                                 stock: editingProduct.stock,
-                                categoryId: editingProduct.categoryId || undefined,
+                                categoryId: editingProduct.categoryId || null,
                                 isActive: editingProduct.isActive,
+                                useCustomMargin: editingProduct.useCustomMargin ?? false,
+                                customProfitMargin: editingProduct.useCustomMargin ? editingProduct.profitMargin : undefined,
                             }}
                             onSubmit={handleUpdate}
                             isLoading={updateMutation.isPending}

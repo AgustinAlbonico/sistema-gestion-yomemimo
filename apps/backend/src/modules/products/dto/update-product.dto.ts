@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { BaseProductSchema } from './create-product.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber, IsBoolean, IsUUID, IsInt, Min, Length } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsBoolean, IsUUID, IsInt, Min, Max, Length } from 'class-validator';
 
 export const UpdateProductSchema = BaseProductSchema.partial();
 
@@ -9,6 +9,8 @@ export type UpdateProductDTO = z.infer<typeof UpdateProductSchema>;
 
 /**
  * DTO para actualizar producto - Simplificado
+ * Categoría opcional (una sola)
+ * Opcional: margen de ganancia personalizado
  */
 export class UpdateProductDto {
     @ApiPropertyOptional({ example: 'Coca Cola 500ml' })
@@ -29,13 +31,26 @@ export class UpdateProductDto {
     @Min(0)
     stock?: number;
 
-    @ApiPropertyOptional({ format: 'uuid' })
+    @ApiPropertyOptional({ type: String, description: 'ID de la categoría' })
     @IsOptional()
-    @IsUUID()
-    categoryId?: string;
+    @IsUUID('4')
+    categoryId?: string | null;
 
     @ApiPropertyOptional({ example: true })
     @IsOptional()
     @IsBoolean()
     isActive?: boolean;
+
+    @ApiPropertyOptional({ example: false, description: 'Usar margen de ganancia personalizado' })
+    @IsOptional()
+    @IsBoolean()
+    useCustomMargin?: boolean;
+
+    @ApiPropertyOptional({ example: 40.00, description: 'Margen de ganancia personalizado (%)' })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Max(1000)
+    customProfitMargin?: number;
 }
+
