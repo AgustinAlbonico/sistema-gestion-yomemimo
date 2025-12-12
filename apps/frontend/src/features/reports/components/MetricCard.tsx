@@ -7,14 +7,14 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface MetricCardProps {
-    title: string;
-    value: number;
-    subtitle?: string;
-    icon: LucideIcon;
-    trend?: number;
-    format?: 'currency' | 'number' | 'percent';
-    variant?: 'default' | 'success' | 'warning' | 'danger';
-    isLoading?: boolean;
+    readonly title: string;
+    readonly value: number;
+    readonly subtitle?: string;
+    readonly icon: LucideIcon;
+    readonly trend?: number;
+    readonly format?: 'currency' | 'number' | 'percent';
+    readonly variant?: 'default' | 'success' | 'warning' | 'danger';
+    readonly isLoading?: boolean;
 }
 
 export function MetricCard({

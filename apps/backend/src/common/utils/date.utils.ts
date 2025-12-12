@@ -4,24 +4,32 @@
  */
 
 /**
- * Parsea un string YYYY-MM-DD a Date usando zona horaria local
- * Evita problemas de zona horaria que ocurren con new Date('YYYY-MM-DD')
- * que interpreta la fecha como medianoche UTC
+ * Parsea un string de fecha/hora a Date usando zona horaria local
+ * - Si viene solo fecha (YYYY-MM-DD), usa la hora actual
+ * - Si viene con hora (ISO 8601 completo), preserva la hora
  * 
- * @param dateString - String en formato YYYY-MM-DD (puede incluir hora)
+ * @param dateString - String en formato YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss
  * @returns Objeto Date en zona horaria local
  * 
  * @example
- * parseLocalDate('2024-11-28') // Date en zona horaria local
- * parseLocalDate('2024-11-28T10:00:00Z') // Solo toma la fecha, ignora la hora
+ * parseLocalDate('2024-11-28') // Date con hora actual
+ * parseLocalDate('2024-11-28T10:30:00') // Date con hora 10:30:00
  */
 export function parseLocalDate(dateString: string): Date {
-    // Si viene con hora/timestamp, solo tomamos la parte de la fecha
-    const dateOnly = dateString.split('T')[0];
-    const [year, month, day] = dateOnly.split('-').map(Number);
+    // Si viene con hora/timestamp completo (contiene 'T')
+    if (dateString.includes('T')) {
+        // Parsear fecha con hora
+        const date = new Date(dateString);
+        // Si es válida, retornarla
+        if (!Number.isNaN(date.getTime())) {
+            return date;
+        }
+    }
 
-    // Crear fecha en zona horaria local (no UTC)
-    return new Date(year, month - 1, day);
+    // Si solo viene fecha (YYYY-MM-DD), crear fecha con hora actual
+    const [year, month, day] = dateString.split('-').map(Number);
+    const now = new Date();
+    return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
 }
 
 /**
@@ -59,7 +67,7 @@ export function isValidDateString(dateString: string): boolean {
 
     try {
         const date = parseLocalDate(dateString);
-        return date instanceof Date && !isNaN(date.getTime());
+        return date instanceof Date && !Number.isNaN(date.getTime());
     } catch {
         return false;
     }

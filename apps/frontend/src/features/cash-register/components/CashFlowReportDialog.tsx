@@ -47,8 +47,8 @@ import type { CashFlowReportFilters, PaymentMethod, CashFlowReport } from '../ty
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 
 interface CashFlowReportDialogProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
+    readonly open: boolean;
+    readonly onOpenChange: (open: boolean) => void;
 }
 
 type PeriodPreset = 'today' | 'week' | 'month' | 'custom';
@@ -373,12 +373,12 @@ export function CashFlowReportDialog({ open, onOpenChange }: CashFlowReportDialo
 
 // Componente de tarjeta de métrica
 interface MetricCardProps {
-    title: string;
-    value: number;
-    icon: React.ReactNode;
-    color: 'green' | 'red' | 'blue';
-    trend?: number | null;
-    subtitle?: string;
+    readonly title: string;
+    readonly value: number;
+    readonly icon: React.ReactNode;
+    readonly color: 'green' | 'red' | 'blue';
+    readonly trend?: number | null;
+    readonly subtitle?: string;
 }
 
 function MetricCard({ title, value, icon, color, trend, subtitle }: MetricCardProps) {
@@ -417,10 +417,10 @@ function MetricCard({ title, value, icon, color, trend, subtitle }: MetricCardPr
 
 // Componente de comparación
 interface ComparisonItemProps {
-    label: string;
-    current: number;
-    previous: number;
-    invertColors?: boolean;
+    readonly label: string;
+    readonly current: number;
+    readonly previous: number;
+    readonly invertColors?: boolean;
 }
 
 function ComparisonItem({ label, current, previous, invertColors }: ComparisonItemProps) {

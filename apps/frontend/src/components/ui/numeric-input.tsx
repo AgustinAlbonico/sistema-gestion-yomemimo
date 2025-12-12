@@ -72,8 +72,8 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
             // Validar el valor
             if (pattern.test(inputValue)) {
                 onChange?.(e);
-                const numericValue = parseFloat(inputValue);
-                onValueChange?.(isNaN(numericValue) ? undefined : numericValue);
+                const numericValue = Number.parseFloat(inputValue);
+                onValueChange?.(Number.isNaN(numericValue) ? undefined : numericValue);
             }
             // Si no pasa la validación, no hacer nada (ignorar el input)
         };

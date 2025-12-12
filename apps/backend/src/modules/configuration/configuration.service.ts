@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, IsNull } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { SystemConfiguration } from './entities/system-configuration.entity';
 import { UpdateConfigurationDto } from './dto/update-configuration.dto';
 import { Product } from '../products/entities/product.entity';

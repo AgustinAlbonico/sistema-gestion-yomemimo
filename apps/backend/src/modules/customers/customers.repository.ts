@@ -9,7 +9,7 @@ import { QueryCustomersDTO } from './dto/query-customers.dto';
 
 @Injectable()
 export class CustomersRepository extends Repository<Customer> {
-    constructor(private dataSource: DataSource) {
+    constructor(private readonly dataSource: DataSource) {
         super(Customer, dataSource.createEntityManager());
     }
 
@@ -122,7 +122,7 @@ export class CustomersRepository extends Repository<Customer> {
             inactive,
             byCategory: byCategory.map((item) => ({
                 categoryName: item.categoryName || 'Sin categoría',
-                count: parseInt(item.count),
+                count: Number.parseInt(item.count, 10),
             })),
         };
     }

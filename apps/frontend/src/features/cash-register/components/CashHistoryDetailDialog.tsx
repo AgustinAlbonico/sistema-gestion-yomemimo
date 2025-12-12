@@ -17,11 +17,11 @@ import { CashRegisterSummary } from './CashRegisterSummary';
 
 interface CashHistoryDetailDialogProps {
     /** ID de la caja a mostrar */
-    registerId: string | null;
+    readonly registerId: string | null;
     /** Estado de apertura del diálogo */
-    open: boolean;
+    readonly open: boolean;
     /** Callback para cambiar estado de apertura */
-    onOpenChange: (open: boolean) => void;
+    readonly onOpenChange: (open: boolean) => void;
 }
 
 const statusLabels: Record<CashRegisterStatus, string> = {

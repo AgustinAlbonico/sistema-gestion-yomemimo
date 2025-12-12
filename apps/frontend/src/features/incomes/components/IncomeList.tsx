@@ -29,9 +29,9 @@ import { toast } from 'sonner';
 import { MarkAsPaidDialog } from './MarkAsPaidDialog';
 
 interface IncomeListProps {
-    filters?: IncomeFilters;
-    onEdit: (income: Income) => void;
-    onDelete: (id: string) => void;
+    readonly filters?: IncomeFilters;
+    readonly onEdit: (income: Income) => void;
+    readonly onDelete: (id: string) => void;
 }
 
 /**

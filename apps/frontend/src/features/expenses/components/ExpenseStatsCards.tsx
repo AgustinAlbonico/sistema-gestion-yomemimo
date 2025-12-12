@@ -8,8 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingDown, Clock, Receipt, PieChart } from 'lucide-react';
 
 interface ExpenseStatsCardsProps {
-    startDate?: string;
-    endDate?: string;
+    readonly startDate?: string;
+    readonly endDate?: string;
 }
 
 /**

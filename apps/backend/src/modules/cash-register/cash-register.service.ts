@@ -11,7 +11,6 @@ import { CashRegisterTotals } from './entities/cash-register-totals.entity';
 import { PaymentMethod as PaymentMethodEntity } from '../configuration/entities/payment-method.entity';
 import { OpenCashRegisterDto } from './dto/open-cash-register.dto';
 import { CloseCashRegisterDto } from './dto/close-cash-register.dto';
-import { CreateCashMovementDto } from './dto/create-cash-movement.dto';
 import { CashFlowReportFiltersDto } from './dto/cash-flow-report-filters.dto';
 import { getTodayLocalDate } from '../../common/utils/date.utils';
 
@@ -19,15 +18,15 @@ import { getTodayLocalDate } from '../../common/utils/date.utils';
 export class CashRegisterService {
     constructor(
         @InjectRepository(CashRegister)
-        private cashRegisterRepo: Repository<CashRegister>,
+        private readonly cashRegisterRepo: Repository<CashRegister>,
         @InjectRepository(CashMovement)
-        private cashMovementRepo: Repository<CashMovement>,
+        private readonly cashMovementRepo: Repository<CashMovement>,
         @InjectRepository(CashRegisterTotals)
-        private cashTotalsRepo: Repository<CashRegisterTotals>,
+        private readonly cashTotalsRepo: Repository<CashRegisterTotals>,
         @InjectRepository(PaymentMethodEntity)
-        private paymentMethodRepo: Repository<PaymentMethodEntity>,
+        private readonly paymentMethodRepo: Repository<PaymentMethodEntity>,
         @InjectDataSource()
-        private dataSource: DataSource,
+        private readonly dataSource: DataSource,
     ) { }
 
     // ============ SPRINT 1: Saldo Sugerido ============
@@ -212,19 +211,7 @@ export class CashRegisterService {
         }
 
         // Validar que la caja sea del día actual
-        // Comparar strings de fecha en lugar de timestamps para evitar problemas de zona horaria
-        const todayDate = getTodayLocalDate();
-        const todayString = todayDate.toISOString().split('T')[0]; // YYYY-MM-DD
-
-        // cashRegister.date puede ser un Date o un string, normalizarlo a string
-        let cashRegisterDateString: string;
-        if (cashRegister.date instanceof Date) {
-            cashRegisterDateString = cashRegister.date.toISOString().split('T')[0];
-        } else {
-            cashRegisterDateString = String(cashRegister.date).split('T')[0];
-        }
-
-        if (cashRegisterDateString !== todayString) {
+        if (!this.isSameDayAsToday(cashRegister.date)) {
             throw new BadRequestException(
                 'Solo se puede reabrir la caja del día actual'
             );
@@ -323,6 +310,22 @@ export class CashRegisterService {
     }
 
     /**
+     * Verifica si una fecha corresponde al día actual
+     * Compara strings de fecha para evitar problemas de zona horaria
+     */
+    private isSameDayAsToday(date: Date | string): boolean {
+        const todayDate = getTodayLocalDate();
+        const todayString = todayDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+        // La fecha puede ser un Date o un string, normalizarla
+        const dateString = date instanceof Date
+            ? date.toISOString().split('T')[0]
+            : String(date).split('T')[0];
+
+        return dateString === todayString;
+    }
+
+    /**
      * Obtener la caja abierta actual
      */
     async getOpenRegister(): Promise<CashRegister | null> {
@@ -332,69 +335,81 @@ export class CashRegisterService {
         });
 
         if (register) {
-            // Cargar movimientos explícitamente para evitar problemas con cascade
-            const movements = await this.cashMovementRepo
-                .createQueryBuilder('movement')
-                .leftJoinAndSelect('movement.createdBy', 'createdBy')
-                .leftJoinAndSelect('movement.cashRegister', 'cashRegister')
-                // Join con SalePayment para ingresos de ventas
-                .leftJoin('sale_payments', 'sp', 'movement.referenceType = :saleType AND movement.referenceId = sp.id', { saleType: 'sale_payment' })
-                .leftJoin('sales', 's', 'sp.sale_id = s.id')
-                .leftJoin('payment_methods', 'pm_sale', 'sp.payment_method_id = pm_sale.id')
-                // Join con Expense para egresos de gastos
-                .leftJoin('expenses', 'e', 'movement.referenceType = :expenseType AND movement.referenceId = e.id', { expenseType: 'expense' })
-                .leftJoin('payment_methods', 'pm_expense', 'e.payment_method_id = pm_expense.id')
-                // Join con Purchase para egresos de compras
-                .leftJoin('purchases', 'p', 'movement.referenceType = :purchaseType AND movement.referenceId = p.id', { purchaseType: 'purchase' })
-                .leftJoin('payment_methods', 'pm_purchase', 'p.payment_method_id = pm_purchase.id')
-                .select([
-                    'movement.id',
-                    'movement.movementType',
-                    'movement.referenceType',
-                    'movement.referenceId',
-                    'movement.createdAt',
-                    'createdBy.id',
-                    'createdBy.firstName',
-                    'createdBy.lastName',
-                ])
-                // Mapear campos dinámicos - prioridad: sale_payment > expense > purchase
-                .addSelect('COALESCE(sp.amount, e.amount, p.total)', 'amount')
-                .addSelect(`CASE 
-                    WHEN s.id IS NOT NULL THEN CONCAT('Venta ', s."saleNumber") 
-                    WHEN e.id IS NOT NULL THEN e.description 
-                    WHEN p.id IS NOT NULL THEN CONCAT('Compra ', p."purchaseNumber")
-                    ELSE 'Movimiento' 
-                END`, 'description')
-                .addSelect('COALESCE(pm_sale.name, pm_expense.name, pm_purchase.name)', 'paymentMethodName')
-                .addSelect('COALESCE(pm_sale.code, pm_expense.code, pm_purchase.code)', 'paymentMethodCode')
-                .where('movement.cashRegister.id = :registerId', { registerId: register.id })
-                .orderBy('movement.createdAt', 'DESC')
-                .getRawMany();
-
-            // Mapear resultados raw a objetos que el frontend pueda entender
-            // getRawMany() devuelve campos con prefijos como movement_id, movement_createdAt, etc.
-            register.movements = movements.map(m => ({
-                id: m.movement_id,
-                movementType: m.movement_movementType,
-                referenceType: m.movement_referenceType,
-                referenceId: m.movement_referenceId,
-                createdAt: m.movement_createdAt,
-                createdBy: {
-                    id: m.createdBy_id,
-                    firstName: m.createdBy_firstName,
-                    lastName: m.createdBy_lastName
-                },
-                // Campos calculados desde los JOINs
-                amount: Number(m.amount),
-                description: m.description,
-                paymentMethod: {
-                    name: m.paymentMethodName,
-                    code: m.paymentMethodCode
-                }
-            })) as any;
+            register.movements = await this.loadMovementsWithDetails(register.id);
         }
 
         return register;
+    }
+
+    /**
+     * Cargar movimientos con detalles de ventas, gastos y compras
+     */
+    private async loadMovementsWithDetails(registerId: string): Promise<any[]> {
+        const movements = await this.cashMovementRepo
+            .createQueryBuilder('movement')
+            .leftJoinAndSelect('movement.createdBy', 'createdBy')
+            .leftJoinAndSelect('movement.cashRegister', 'cashRegister')
+            // Join con SalePayment para ingresos de ventas
+            .leftJoin('sale_payments', 'sp', 'movement.referenceType = :saleType AND movement.referenceId = sp.id', { saleType: 'sale_payment' })
+            .leftJoin('sales', 's', 'sp.sale_id = s.id')
+            .leftJoin('payment_methods', 'pm_sale', 'sp.payment_method_id = pm_sale.id')
+            // Join con Expense para egresos de gastos
+            .leftJoin('expenses', 'e', 'movement.referenceType = :expenseType AND movement.referenceId = e.id', { expenseType: 'expense' })
+            .leftJoin('payment_methods', 'pm_expense', 'e.payment_method_id = pm_expense.id')
+            // Join con Purchase para egresos de compras
+            .leftJoin('purchases', 'p', 'movement.referenceType = :purchaseType AND movement.referenceId = p.id', { purchaseType: 'purchase' })
+            .leftJoin('payment_methods', 'pm_purchase', 'p.payment_method_id = pm_purchase.id')
+            .select([
+                'movement.id',
+                'movement.movementType',
+                'movement.referenceType',
+                'movement.referenceId',
+                'movement.createdAt',
+                'createdBy.id',
+                'createdBy.firstName',
+                'createdBy.lastName',
+            ])
+            // Mapear campos dinámicos - prioridad: sale_payment > expense > purchase
+            .addSelect('COALESCE(sp.amount, e.amount, p.total)', 'amount')
+            .addSelect(`CASE 
+                WHEN s.id IS NOT NULL THEN CONCAT('Venta ', s."saleNumber") 
+                WHEN e.id IS NOT NULL THEN e.description 
+                WHEN p.id IS NOT NULL THEN CONCAT('Compra ', p."purchaseNumber")
+                ELSE 'Movimiento' 
+            END`, 'description')
+            .addSelect('COALESCE(pm_sale.name, pm_expense.name, pm_purchase.name)', 'paymentMethodName')
+            .addSelect('COALESCE(pm_sale.code, pm_expense.code, pm_purchase.code)', 'paymentMethodCode')
+            .where('movement.cashRegister.id = :registerId', { registerId })
+            .orderBy('movement.createdAt', 'DESC')
+            .getRawMany();
+
+        return this.mapRawMovements(movements);
+    }
+
+    /**
+     * Mapear resultados raw a objetos que el frontend pueda entender
+     * getRawMany() devuelve campos con prefijos como movement_id, movement_createdAt, etc.
+     */
+    private mapRawMovements(movements: any[]): any[] {
+        return movements.map(m => ({
+            id: m.movement_id,
+            movementType: m.movement_movementType,
+            referenceType: m.movement_referenceType,
+            referenceId: m.movement_referenceId,
+            createdAt: m.movement_createdAt,
+            createdBy: {
+                id: m.createdBy_id,
+                firstName: m.createdBy_firstName,
+                lastName: m.createdBy_lastName
+            },
+            // Campos calculados desde los JOINs
+            amount: Number(m.amount),
+            description: m.description,
+            paymentMethod: {
+                name: m.paymentMethodName,
+                code: m.paymentMethodCode
+            }
+        }));
     }
 
     /**

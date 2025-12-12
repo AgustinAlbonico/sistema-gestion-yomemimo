@@ -28,10 +28,10 @@ import { Loader2 } from 'lucide-react';
 import { IvaConditionOptions, DEFAULT_IVA_CONDITION, IvaCondition } from '@/types/iva-condition';
 
 interface SupplierFormProps {
-    initialData?: SupplierFormValues;
-    onSubmit: (data: SupplierFormValues) => void;
-    isLoading?: boolean;
-    isEditing?: boolean;
+    readonly initialData?: SupplierFormValues;
+    readonly onSubmit: (data: SupplierFormValues) => void;
+    readonly isLoading?: boolean;
+    readonly isEditing?: boolean;
 }
 
 const DOCUMENT_TYPES = [

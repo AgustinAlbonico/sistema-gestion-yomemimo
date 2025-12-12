@@ -11,7 +11,7 @@ import { FiscalConfigurationService } from '../../configuration/fiscal-configura
 import { AfipEnvironment } from '../../configuration/entities/fiscal-configuration.entity';
 import axios from 'axios';
 import * as https from 'https';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 import * as forge from 'node-forge';
 import { createTRA, createLoginCmsRequest, parseLoginCmsResponse, parseSoapFault } from './soap-utils';
 import {
@@ -260,40 +260,54 @@ export class AfipService {
             return newToken;
 
         } catch (error) {
-            this.logger.error('Error en autenticación WSAA:', error);
-
-            // Intentar parsear error SOAP
-            if (axios.isAxiosError(error) && error.response?.data) {
-                // Loggear el cuerpo completo de la respuesta de error para diagnóstico
-                this.logger.error(`Respuesta de error WSAA (${error.response.status}):`,
-                    typeof error.response.data === 'string'
-                        ? error.response.data.substring(0, 2000)
-                        : JSON.stringify(error.response.data).substring(0, 2000)
-                );
-
-                const faultMsg = await parseSoapFault(error.response.data).catch(() => null);
-                if (faultMsg) {
-                    this.logger.error(`WSAA Fault Message: ${faultMsg}`);
-
-                    // Si el error es que ya existe un TA válido, pero no lo tenemos en BD
-                    // significa que se perdió. Limpiar y esperar a que expire.
-                    if (faultMsg.includes('ya posee un TA valido') || faultMsg.includes('ya posee un TA válido')) {
-                        this.logger.warn(`AFIP indica que ya existe un token válido para ${environmentName} pero no lo tenemos almacenado.`);
-                        // Limpiar tokens locales del ambiente actual
-                        this.setTokenCache(isHomologacion, null);
-                        await this.fiscalConfigService.clearWsaaToken();
-                        throw new Error(
-                            `AFIP tiene un token activo para ${environmentName} que no está almacenado en el sistema. ` +
-                            'Esto puede ocurrir si se cambió de servidor o se restauró la base de datos. ' +
-                            'El token expirará automáticamente en unas horas. Por favor, intente nuevamente más tarde.'
-                        );
-                    }
-                    throw new Error(`Error WSAA: ${faultMsg}`);
-                }
-            }
-
-            throw new Error(`Error de autenticación AFIP: ${(error as Error).message}`);
+            await this.handleWsaaError(error, environmentName, isHomologacion);
+            // Esta línea nunca se alcanza porque handleWsaaError siempre lanza error,
+            // pero TypeScript necesita el throw para el tipo de retorno
+            throw error;
         }
+    }
+
+    /**
+     * Maneja los errores de autenticación WSAA
+     * Extrae la lógica de manejo de errores para reducir la complejidad cognitiva
+     */
+    private async handleWsaaError(
+        error: unknown,
+        environmentName: string,
+        isHomologacion: boolean
+    ): Promise<never> {
+        this.logger.error('Error en autenticación WSAA:', error);
+
+        // Intentar parsear error SOAP
+        if (axios.isAxiosError(error) && error.response?.data) {
+            // Loggear el cuerpo completo de la respuesta de error para diagnóstico
+            this.logger.error(`Respuesta de error WSAA (${error.response.status}):`,
+                typeof error.response.data === 'string'
+                    ? error.response.data.substring(0, 2000)
+                    : JSON.stringify(error.response.data).substring(0, 2000)
+            );
+
+            const faultMsg = await parseSoapFault(error.response.data).catch(() => null);
+            if (faultMsg) {
+                this.logger.error(`WSAA Fault Message: ${faultMsg}`);
+
+                // Si el error es que ya existe un TA válido, pero no lo tenemos en BD
+                // significa que se perdió. Limpiar y esperar a que expire.
+                if (faultMsg.includes('ya posee un TA valido') || faultMsg.includes('ya posee un TA válido')) {
+                    this.logger.warn(`AFIP indica que ya existe un token válido para ${environmentName} pero no lo tenemos almacenado.`);
+                    this.setTokenCache(isHomologacion, null);
+                    await this.fiscalConfigService.clearWsaaToken();
+                    throw new Error(
+                        `AFIP tiene un token activo para ${environmentName} que no está almacenado en el sistema. ` +
+                        'Esto puede ocurrir si se cambió de servidor o se restauró la base de datos. ' +
+                        'El token expirará automáticamente en unas horas. Por favor, intente nuevamente más tarde.'
+                    );
+                }
+                throw new Error(`Error WSAA: ${faultMsg}`);
+            }
+        }
+
+        throw new Error(`Error de autenticación AFIP: ${(error as Error).message}`);
     }
 
     /**
@@ -538,9 +552,9 @@ export class AfipService {
     }
 
     parseAfipDate(dateStr: string): Date {
-        const year = parseInt(dateStr.slice(0, 4));
-        const month = parseInt(dateStr.slice(4, 6)) - 1;
-        const day = parseInt(dateStr.slice(6, 8));
+        const year = Number.parseInt(dateStr.slice(0, 4));
+        const month = Number.parseInt(dateStr.slice(4, 6)) - 1;
+        const day = Number.parseInt(dateStr.slice(6, 8));
         return new Date(year, month, day);
     }
 }

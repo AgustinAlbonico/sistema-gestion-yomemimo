@@ -38,8 +38,8 @@ import {
 } from '@/components/ui/dialog';
 
 interface SupplierListProps {
-    onEdit: (supplier: Supplier) => void;
-    onDelete: (id: string) => void;
+    readonly onEdit: (supplier: Supplier) => void;
+    readonly onDelete: (id: string) => void;
 }
 
 /**

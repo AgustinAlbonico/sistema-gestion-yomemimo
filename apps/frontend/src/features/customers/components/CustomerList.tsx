@@ -43,8 +43,8 @@ import {
 } from '@/components/ui/dialog';
 
 interface CustomerListProps {
-    onEdit: (customer: Customer) => void;
-    onDelete: (id: string) => void;
+    readonly onEdit: (customer: Customer) => void;
+    readonly onDelete: (id: string) => void;
 }
 
 /**

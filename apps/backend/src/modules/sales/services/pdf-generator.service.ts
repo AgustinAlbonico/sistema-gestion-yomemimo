@@ -5,8 +5,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as puppeteer from 'puppeteer';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as Handlebars from 'handlebars';
 import { Invoice, InvoiceType } from '../entities/invoice.entity';
 import { IvaCondition } from '../../../common/enums/iva-condition.enum';

@@ -56,7 +56,7 @@ export class TokensService {
         }
 
         const [, amount, unit] = match;
-        const value = parseInt(amount, 10);
+        const value = Number.parseInt(amount, 10);
 
         switch (unit) {
             case 's':

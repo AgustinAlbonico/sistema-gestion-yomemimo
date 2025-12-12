@@ -62,6 +62,161 @@ export class SalesService {
         private readonly dataSource: DataSource,
     ) { }
 
+    // ============ Métodos auxiliares para reducir complejidad cognitiva ============
+
+    /**
+     * Valida que todos los productos existan y tengan stock suficiente
+     */
+    private async validateProductsStock(items: CreateSaleDto['items']): Promise<void> {
+        for (const item of items) {
+            const product = await this.productsService.findOne(item.productId);
+            if (!product) {
+                throw new NotFoundException(`Producto con ID ${item.productId} no encontrado`);
+            }
+            if (product.stock < item.quantity) {
+                throw new BadRequestException(
+                    `Stock insuficiente para "${product.name}". Disponible: ${product.stock}, Solicitado: ${item.quantity}`
+                );
+            }
+        }
+    }
+
+    /**
+     * Calcula los totales de la venta (subtotal, impuestos, total)
+     */
+    private calculateSaleTotals(dto: CreateSaleDto): { subtotal: number; totalTax: number; total: number } {
+        const subtotal = dto.items.reduce(
+            (sum, item) => sum + item.quantity * item.unitPrice - (item.discount || 0),
+            0
+        );
+
+        let totalTax = dto.tax || 0;
+        if (dto.taxes && dto.taxes.length > 0) {
+            totalTax = dto.taxes.reduce((sum, tax) => sum + tax.amount, 0);
+        }
+
+        const total = subtotal + totalTax - (dto.discount || 0) + (dto.surcharge || 0);
+
+        return { subtotal, totalTax, total };
+    }
+
+    /**
+     * Determina el estado inicial de la venta
+     */
+    private determineSaleStatus(dto: CreateSaleDto): SaleStatus {
+        if (dto.isOnAccount) {
+            return SaleStatus.PENDING;
+        }
+        return dto.status ?? SaleStatus.COMPLETED;
+    }
+
+    /**
+     * Valida que los pagos cubran el total (si no es cuenta corriente)
+     */
+    private validatePayments(dto: CreateSaleDto, total: number): void {
+        if (!dto.isOnAccount && dto.payments) {
+            const totalPayments = dto.payments.reduce((sum, p) => sum + p.amount, 0);
+            if (Math.abs(totalPayments - total) > 0.01) {
+                throw new BadRequestException(
+                    `El total de pagos ($${totalPayments.toFixed(2)}) no coincide con el total de la venta ($${total.toFixed(2)})`
+                );
+            }
+        }
+    }
+
+    /**
+     * Crea los items de la venta
+     */
+    private async createSaleItems(
+        manager: any,
+        saleId: string,
+        items: CreateSaleDto['items']
+    ): Promise<void> {
+        for (const itemDto of items) {
+            const product = await this.productsService.findOne(itemDto.productId);
+            const item = this.saleItemRepo.create({
+                saleId,
+                productId: itemDto.productId,
+                productCode: product.sku ?? null,
+                productDescription: product.name,
+                quantity: itemDto.quantity,
+                unitPrice: itemDto.unitPrice,
+                discount: itemDto.discount ?? 0,
+                discountPercent: itemDto.discountPercent ?? 0,
+                subtotal: (itemDto.quantity * itemDto.unitPrice) - (itemDto.discount || 0),
+            });
+            await manager.save(item);
+        }
+    }
+
+    /**
+     * Crea los impuestos de la venta
+     */
+    private async createSaleTaxes(
+        manager: any,
+        saleId: string,
+        taxes: CreateSaleDto['taxes']
+    ): Promise<void> {
+        if (!taxes || taxes.length === 0) return;
+
+        for (const taxDto of taxes) {
+            const tax = this.saleTaxRepo.create({
+                saleId,
+                name: taxDto.name,
+                percentage: taxDto.percentage ?? null,
+                amount: taxDto.amount,
+            });
+            await manager.save(tax);
+        }
+    }
+
+    /**
+     * Crea los pagos de la venta
+     */
+    private async createSalePayments(
+        manager: any,
+        saleId: string,
+        payments: CreateSaleDto['payments']
+    ): Promise<void> {
+        if (!payments || payments.length === 0) return;
+
+        for (const paymentDto of payments) {
+            const payment = this.salePaymentRepo.create({
+                saleId,
+                paymentMethodId: paymentDto.paymentMethodId,
+                amount: paymentDto.amount,
+                installments: paymentDto.installments ?? null,
+                cardLastFourDigits: paymentDto.cardLastFourDigits ?? null,
+                authorizationCode: paymentDto.authorizationCode ?? null,
+                referenceNumber: paymentDto.referenceNumber ?? null,
+                notes: paymentDto.notes ?? null,
+            });
+            await manager.save(payment);
+        }
+    }
+
+    /**
+     * Registra los ingresos en caja para los pagos de la venta
+     */
+    private async registerCashIncomes(
+        payments: SalePayment[],
+        userId: string
+    ): Promise<void> {
+        for (const payment of payments) {
+            try {
+                await this.cashRegisterService.registerIncome(
+                    { salePaymentId: payment.id },
+                    userId || 'system'
+                );
+                console.log(`[Ventas] Ingreso registrado en caja: ${payment.amount} (${payment.paymentMethodId})`);
+            } catch (cashErr) {
+                console.warn(`[Ventas] No se pudo registrar ingreso en caja: ${(cashErr as Error).message}`);
+            }
+        }
+    }
+
+    // ============ Métodos públicos ============
+
     /**
      * Crea una nueva venta
      */
@@ -74,56 +229,25 @@ export class SalesService {
             );
         }
 
+        // Validar productos y stock
+        await this.validateProductsStock(dto.items);
+
+        // Calcular totales
+        const { subtotal, totalTax, total } = this.calculateSaleTotals(dto);
+
+        // Determinar estado
+        const status = this.determineSaleStatus(dto);
+
+        // Validar pagos
+        this.validatePayments(dto, total);
+
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
 
         try {
-            // Validar que todos los productos existan y tengan stock
-            for (const item of dto.items) {
-                const product = await this.productsService.findOne(item.productId);
-                if (!product) {
-                    throw new NotFoundException(`Producto con ID ${item.productId} no encontrado`);
-                }
-                if (product.stock < item.quantity) {
-                    throw new BadRequestException(
-                        `Stock insuficiente para "${product.name}". Disponible: ${product.stock}, Solicitado: ${item.quantity}`
-                    );
-                }
-            }
-
             // Generar número de venta
             const saleNumber = await this.generateSaleNumber();
-
-            // Calcular subtotal
-            const subtotal = dto.items.reduce(
-                (sum, item) => sum + item.quantity * item.unitPrice - (item.discount || 0),
-                0
-            );
-
-            // Calcular impuestos
-            let totalTax = dto.tax || 0;
-            if (dto.taxes && dto.taxes.length > 0) {
-                totalTax = dto.taxes.reduce((sum, tax) => sum + tax.amount, 0);
-            }
-
-            const total = subtotal + totalTax - (dto.discount || 0) + (dto.surcharge || 0);
-
-            // Determinar estado
-            let status = dto.status ?? SaleStatus.COMPLETED;
-            if (dto.isOnAccount) {
-                status = SaleStatus.PENDING;
-            }
-
-            // Validar pagos si no es cuenta corriente
-            if (!dto.isOnAccount && dto.payments) {
-                const totalPayments = dto.payments.reduce((sum, p) => sum + p.amount, 0);
-                if (Math.abs(totalPayments - total) > 0.01) {
-                    throw new BadRequestException(
-                        `El total de pagos ($${totalPayments.toFixed(2)}) no coincide con el total de la venta ($${total.toFixed(2)})`
-                    );
-                }
-            }
 
             // Crear venta
             const sale = this.saleRepo.create({
@@ -144,55 +268,14 @@ export class SalesService {
 
             const savedSale = await queryRunner.manager.save(sale);
 
-            // Crear items de venta
-            for (const itemDto of dto.items) {
-                const product = await this.productsService.findOne(itemDto.productId);
-                const item = this.saleItemRepo.create({
-                    saleId: savedSale.id,
-                    productId: itemDto.productId,
-                    productCode: product.sku ?? null,
-                    productDescription: product.name,
-                    quantity: itemDto.quantity,
-                    unitPrice: itemDto.unitPrice,
-                    discount: itemDto.discount ?? 0,
-                    discountPercent: itemDto.discountPercent ?? 0,
-                    subtotal: (itemDto.quantity * itemDto.unitPrice) - (itemDto.discount || 0),
-                });
-                await queryRunner.manager.save(item);
-            }
+            // Crear items, impuestos y pagos usando funciones auxiliares
+            await this.createSaleItems(queryRunner.manager, savedSale.id, dto.items);
+            await this.createSaleTaxes(queryRunner.manager, savedSale.id, dto.taxes);
+            await this.createSalePayments(queryRunner.manager, savedSale.id, dto.payments);
 
-            // Crear impuestos si existen
-            if (dto.taxes && dto.taxes.length > 0) {
-                for (const taxDto of dto.taxes) {
-                    const tax = this.saleTaxRepo.create({
-                        saleId: savedSale.id,
-                        name: taxDto.name,
-                        percentage: taxDto.percentage ?? null,
-                        amount: taxDto.amount,
-                    });
-                    await queryRunner.manager.save(tax);
-                }
-            }
-
-            // Crear pagos si existen
-            if (dto.payments && dto.payments.length > 0) {
-                for (const paymentDto of dto.payments) {
-                    const payment = this.salePaymentRepo.create({
-                        saleId: savedSale.id,
-                        paymentMethodId: paymentDto.paymentMethodId,
-                        amount: paymentDto.amount,
-                        installments: paymentDto.installments ?? null,
-                        cardLastFourDigits: paymentDto.cardLastFourDigits ?? null,
-                        authorizationCode: paymentDto.authorizationCode ?? null,
-                        referenceNumber: paymentDto.referenceNumber ?? null,
-                        notes: paymentDto.notes ?? null,
-                    });
-                    await queryRunner.manager.save(payment);
-                }
-            }
-
-            // Si la venta está completa, actualizar inventario
-            if (status === SaleStatus.COMPLETED) {
+            // Actualizar inventario siempre que la venta no esté cancelada
+            // (las ventas en cuenta corriente también deben descontar stock)
+            if (status !== SaleStatus.CANCELLED) {
                 await this.updateInventoryFromSale(savedSale.id, queryRunner.manager);
                 savedSale.inventoryUpdated = true;
                 await queryRunner.manager.save(savedSale);
@@ -221,27 +304,20 @@ export class SalesService {
             });
 
             // Generar factura si se solicitó
-            // Si falla, la venta se crea igual pero con fiscalPending=true
             if (dto.generateInvoice && completedSale) {
                 console.log(`[Ventas] Generando factura fiscal para venta ${savedSale.id}...`);
                 try {
                     await this.invoiceService.generateInvoice(savedSale.id, queryRunner.manager);
-
-                    // Recargar venta con la factura generada
                     completedSale = await queryRunner.manager.findOne(Sale, {
                         where: { id: savedSale.id },
                         relations: ['items', 'items.product', 'payments', 'customer', 'createdBy', 'invoice'],
                     });
                 } catch (invoiceErr) {
-                    // Si falla la facturación, marcar la venta como pendiente de factura
                     const errorMsg = (invoiceErr as Error).message;
                     console.error(`[Ventas] Error al generar factura fiscal: ${errorMsg}`);
-
                     savedSale.fiscalPending = true;
                     savedSale.fiscalError = errorMsg;
                     await queryRunner.manager.save(savedSale);
-
-                    // Recargar venta con el estado actualizado
                     completedSale = await queryRunner.manager.findOne(Sale, {
                         where: { id: savedSale.id },
                         relations: ['items', 'items.product', 'payments', 'customer', 'createdBy', 'invoice'],
@@ -251,24 +327,9 @@ export class SalesService {
 
             await queryRunner.commitTransaction();
 
-            // Registrar ingresos en caja (después del commit para evitar problemas con la transacción)
+            // Registrar ingresos en caja (después del commit)
             if (status === SaleStatus.COMPLETED && completedSale?.payments && completedSale.payments.length > 0) {
-                for (const payment of completedSale.payments) {
-                    // Registrar todos los métodos de pago en la caja
-                    try {
-                        await this.cashRegisterService.registerIncome(
-                            {
-                                salePaymentId: payment.id,
-                            },
-                            userId || 'system'
-                        );
-                        console.log(`[Ventas] Ingreso registrado en caja: ${payment.amount} (${payment.paymentMethodId})`);
-                    } catch (cashErr) {
-                        // Si falla el registro en caja, solo loguear el error
-                        // No queremos que falle la venta por esto
-                        console.warn(`[Ventas] No se pudo registrar ingreso en caja: ${(cashErr as Error).message}`);
-                    }
-                }
+                await this.registerCashIncomes(completedSale.payments, userId || 'system');
             }
 
             return completedSale!;
@@ -277,6 +338,66 @@ export class SalesService {
             throw err;
         } finally {
             await queryRunner.release();
+        }
+    }
+
+    /**
+     * Aplica filtros de estado de facturación al query
+     */
+    private applyInvoiceStatusFilter(query: any, invoiceStatus: string): void {
+        switch (invoiceStatus) {
+            case 'fiscal':
+                query.andWhere('sale.isFiscal = :isFiscal', { isFiscal: true });
+                break;
+            case 'no_fiscal':
+                query.andWhere('sale.isFiscal = :isFiscal', { isFiscal: false });
+                query.andWhere('(sale.fiscalPending IS NULL OR sale.fiscalPending = :fiscalPending)',
+                    { fiscalPending: false });
+                break;
+            case 'error':
+                query.andWhere('sale.fiscalPending = :fiscalPending', { fiscalPending: true });
+                query.andWhere('sale.isFiscal = :isFiscal', { isFiscal: false });
+                break;
+            case 'pending':
+                query.andWhere('invoice.status = :invoiceStatus', { invoiceStatus: 'pending' });
+                break;
+        }
+    }
+
+    /**
+     * Aplica filtros de fecha al query de ventas
+     */
+    private applyDateFilters(query: any, startDate?: string, endDate?: string): void {
+        if (startDate && endDate) {
+            query.andWhere('DATE(sale.saleDate) BETWEEN :start AND :end', { start: startDate, end: endDate });
+        } else if (startDate) {
+            query.andWhere('DATE(sale.saleDate) >= :start', { start: startDate });
+        } else if (endDate) {
+            query.andWhere('DATE(sale.saleDate) <= :end', { end: endDate });
+        }
+    }
+
+    /**
+     * Aplica filtros básicos de búsqueda al query de ventas
+     */
+    private applySearchFilters(query: any, filters: SaleFiltersDto): void {
+        if (filters.search) {
+            query.andWhere(
+                '(sale.saleNumber ILIKE :search OR sale.customerName ILIKE :search OR customer.firstName ILIKE :search OR customer.lastName ILIKE :search)',
+                { search: `%${filters.search}%` }
+            );
+        }
+        if (filters.status) {
+            query.andWhere('sale.status = :status', { status: filters.status });
+        }
+        if (filters.customerId) {
+            query.andWhere('sale.customerId = :customerId', { customerId: filters.customerId });
+        }
+        if (filters.productId) {
+            query.andWhere('items.productId = :productId', { productId: filters.productId });
+        }
+        if (filters.fiscalPending !== undefined) {
+            query.andWhere('sale.fiscalPending = :fiscalPending', { fiscalPending: filters.fiscalPending });
         }
     }
 
@@ -298,89 +419,22 @@ export class SalesService {
             .leftJoinAndSelect('sale.invoice', 'invoice')
             .where('sale.deletedAt IS NULL');
 
-        // Aplicar filtros
-        if (filters.search) {
-            query.andWhere(
-                '(sale.saleNumber ILIKE :search OR sale.customerName ILIKE :search OR customer.firstName ILIKE :search OR customer.lastName ILIKE :search)',
-                { search: `%${filters.search}%` }
-            );
-        }
-
-        if (filters.status) {
-            query.andWhere('sale.status = :status', { status: filters.status });
-        }
-
-        if (filters.startDate && filters.endDate) {
-            query.andWhere('DATE(sale.saleDate) BETWEEN :start AND :end', {
-                start: filters.startDate,
-                end: filters.endDate,
-            });
-        } else if (filters.startDate) {
-            query.andWhere('DATE(sale.saleDate) >= :start', {
-                start: filters.startDate,
-            });
-        } else if (filters.endDate) {
-            query.andWhere('DATE(sale.saleDate) <= :end', {
-                end: filters.endDate,
-            });
-        }
-
-        if (filters.customerId) {
-            query.andWhere('sale.customerId = :customerId', {
-                customerId: filters.customerId,
-            });
-        }
-
-        if (filters.productId) {
-            query.andWhere('items.productId = :productId', {
-                productId: filters.productId,
-            });
-        }
-
-        if (filters.fiscalPending !== undefined) {
-            query.andWhere('sale.fiscalPending = :fiscalPending', {
-                fiscalPending: filters.fiscalPending,
-            });
-        }
+        // Aplicar filtros usando funciones auxiliares
+        this.applySearchFilters(query, filters);
+        this.applyDateFilters(query, filters.startDate, filters.endDate);
 
         // Filtro por estado de facturación
         if (filters.invoiceStatus) {
-            switch (filters.invoiceStatus) {
-                case 'fiscal':
-                    // Ventas con factura fiscal autorizada
-                    query.andWhere('sale.isFiscal = :isFiscal', { isFiscal: true });
-                    break;
-                case 'no_fiscal':
-                    // Ventas sin factura fiscal (nunca se intentó facturar)
-                    // Incluye NULL para manejar ventas antiguas o con valores por defecto
-                    query.andWhere('sale.isFiscal = :isFiscal', { isFiscal: false });
-                    query.andWhere('(sale.fiscalPending IS NULL OR sale.fiscalPending = :fiscalPending)',
-                        { fiscalPending: false });
-                    break;
-                case 'error':
-                    // Ventas con error en facturación
-                    // Debe tener fiscalPending = true (indica que se intentó facturar pero falló)
-                    query.andWhere('sale.fiscalPending = :fiscalPending', { fiscalPending: true });
-                    query.andWhere('sale.isFiscal = :isFiscal', { isFiscal: false });
-                    break;
-                case 'pending':
-                    // Ventas pendientes de facturación (se solicitó pero aún no se procesó)
-                    query.andWhere('invoice.status = :invoiceStatus', { invoiceStatus: 'pending' });
-                    break;
-            }
+            this.applyInvoiceStatusFilter(query, filters.invoiceStatus);
         }
 
         // Ordenamiento
-        // Ordenar por saleNumber descendente por defecto
         const sortBy = filters.sortBy ?? 'saleNumber';
         const order = filters.order ?? 'DESC';
         query.orderBy(`sale.${sortBy}`, order);
 
         // Obtener total y datos paginados
-        const [data, total] = await query
-            .skip(skip)
-            .take(limit)
-            .getManyAndCount();
+        const [data, total] = await query.skip(skip).take(limit).getManyAndCount();
 
         return {
             data,

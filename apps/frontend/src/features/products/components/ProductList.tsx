@@ -32,8 +32,8 @@ import {
 import { StockHistoryDialog } from './StockHistoryDialog';
 
 interface ProductListProps {
-    onEdit: (product: Product) => void;
-    onDelete: (id: string) => void;
+    readonly onEdit: (product: Product) => void;
+    readonly onDelete: (id: string) => void;
 }
 
 /**
@@ -61,12 +61,12 @@ function ProductDetailDialog({
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     {/* Categoría */}
-                    {product.category && (
+                    {product.category ? (
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Categoría</span>
                             <Badge variant="outline">{product.category.name}</Badge>
                         </div>
-                    )}
+                    ) : null}
 
                     {/* Costo */}
                     <div className="flex justify-between items-center">
@@ -99,18 +99,18 @@ function ProductDetailDialog({
                     <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Stock Actual</span>
                         <span className={`font-medium ${product.stock === 0 ? 'text-destructive' :
-                                product.stock <= product.minStock ? 'text-yellow-600' : ''
+                            product.stock <= product.minStock ? 'text-yellow-600' : ''
                             }`}>
                             {product.stock} unidades
                         </span>
                     </div>
 
-                    {product.minStock > 0 && (
+                    {product.minStock > 0 ? (
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Stock Mínimo</span>
                             <span className="font-medium">{product.minStock}</span>
                         </div>
-                    )}
+                    ) : null}
 
                     {/* Estado */}
                     <div className="flex justify-between items-center">
@@ -171,12 +171,12 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
                 {categories?.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                         <div className="flex items-center gap-2">
-                            {cat.color && (
+                            {cat.color ? (
                                 <div
                                     className="w-3 h-3 rounded-full"
                                     style={{ backgroundColor: cat.color }}
                                 />
-                            )}
+                            ) : null}
                             {cat.name}
                         </div>
                     </SelectItem>
@@ -226,9 +226,9 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
                         }}
                     >
                         {product.category.name}
-                        {product.category.profitMargin !== null && product.category.profitMargin !== undefined && (
+                        {product.category.profitMargin !== null && product.category.profitMargin !== undefined ? (
                             <span className="ml-1 text-muted-foreground">({product.category.profitMargin}%)</span>
-                        )}
+                        ) : null}
                     </Badge>
                 );
             },
@@ -289,9 +289,9 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
                         }>
                             {stock}
                         </span>
-                        {(isLow || isOut) && (
+                        {(isLow || isOut) ? (
                             <AlertTriangle className={`h-4 w-4 ${isOut ? 'text-destructive' : 'text-yellow-600'}`} />
-                        )}
+                        ) : null}
                     </div>
                 );
             },

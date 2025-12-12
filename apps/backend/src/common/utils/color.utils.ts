@@ -49,7 +49,7 @@ export function generateColorFromName(name: string): string {
     // Calcular un hash simple del nombre
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        hash = name.codePointAt(i) ?? 0 + ((hash << 5) - hash);
     }
     
     // Usar el hash para seleccionar un color de la paleta

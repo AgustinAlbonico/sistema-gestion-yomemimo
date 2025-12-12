@@ -17,10 +17,10 @@ import { getPaymentMethodIcon } from '@/features/configuration/utils/payment-met
 import { Loader2 } from 'lucide-react';
 
 interface MarkAsPaidDialogProps {
-    open: boolean;
-    onClose: () => void;
-    onConfirm: (paymentMethodId: string) => void;
-    isLoading?: boolean;
+    readonly open: boolean;
+    readonly onClose: () => void;
+    readonly onConfirm: (paymentMethodId: string) => void;
+    readonly isLoading?: boolean;
 }
 
 export function MarkAsPaidDialog({

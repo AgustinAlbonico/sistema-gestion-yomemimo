@@ -12,7 +12,11 @@ export const QueryCustomersSchema = z.object({
     search: z.string().optional(),
     categoryId: z.string().uuid().optional(),
     isActive: z.preprocess(
-        (val) => val === 'true' ? true : val === 'false' ? false : val,
+        (val) => {
+            if (val === 'true') return true;
+            if (val === 'false') return false;
+            return val;
+        },
         z.boolean().optional()
     ),
     city: z.string().optional(),

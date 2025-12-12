@@ -26,9 +26,9 @@ import { Sale, SaleStatusLabels, SaleStatusColors, InvoiceStatus } from '@/featu
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 interface CashMovementDetailDialogProps {
-    movement: CashMovement | null;
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
+    readonly movement: CashMovement | null;
+    readonly open: boolean;
+    readonly onOpenChange: (open: boolean) => void;
 }
 
 export function CashMovementDetailDialog({ movement, open, onOpenChange }: CashMovementDetailDialogProps) {

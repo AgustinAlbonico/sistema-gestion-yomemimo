@@ -18,6 +18,7 @@ import {
 } from './dto';
 import { CashRegisterService } from '../cash-register/cash-register.service';
 import { parseLocalDate } from '../../common/utils/date.utils';
+import { resolveIsPaidStatus, resolvePaidDate } from '../../common/utils/payment.utils';
 
 export interface ExpenseStats {
     totalExpenses: number;
@@ -54,8 +55,8 @@ export class ExpensesService {
      */
     async create(dto: CreateExpenseDto, userId?: string): Promise<Expense> {
         // Si el gasto está pagado, validar que haya caja abierta
-        const isPaidGasto = dto.isPaid !== undefined ? dto.isPaid : true;
-        if (isPaidGasto) {
+        const isPaid = resolveIsPaidStatus(dto.isPaid);
+        if (isPaid) {
             const openCashRegister = await this.cashRegisterService.getOpenRegister();
             if (!openCashRegister) {
                 throw new BadRequestException(
@@ -76,18 +77,18 @@ export class ExpensesService {
             }
         }
 
-        // Determinar fecha de pago
-        const isPaid = dto.isPaid !== undefined ? dto.isPaid : true;
-        let paidAt: Date | null = null;
-
-        if (isPaid) {
-            paidAt = dto.paidAt ? parseLocalDate(dto.paidAt) : parseLocalDate(dto.expenseDate);
-        }
+        // Determinar fecha de pago usando utilidad compartida
+        const expenseDate = parseLocalDate(dto.expenseDate);
+        const paidAt = resolvePaidDate(
+            isPaid,
+            dto.paidAt ? parseLocalDate(dto.paidAt) : undefined,
+            expenseDate
+        );
 
         const expense = this.expenseRepo.create({
             description: dto.description,
             amount: dto.amount,
-            expenseDate: parseLocalDate(dto.expenseDate),
+            expenseDate,
             category,
             categoryId: dto.categoryId ?? null,
             paymentMethodId: dto.paymentMethodId ?? null,
@@ -111,10 +112,10 @@ export class ExpensesService {
                     userId || 'system'
                 );
                 console.log(`[ExpensesService] Egreso registrado en caja: ${dto.amount} (${dto.paymentMethodId})`);
-            } catch (cashErr) {
+            } catch (error_) {
                 // Si falla el registro en caja, solo loguear el error
                 // No queremos que falle el gasto por esto
-                console.error(`[ExpensesService] ERROR al registrar egreso en caja:`, cashErr);
+                handleCashRegisterError(error_, 'ExpensesService');
             }
         } else {
             console.log(`[ExpensesService] No se registra en caja. isPaid: ${isPaid}, paymentMethodId: ${dto.paymentMethodId}`);
@@ -298,13 +299,13 @@ export class ExpensesService {
                 { expenseId: savedExpense.id },
                 userId
             );
-        } catch (cashErr) {
+        } catch (error_) {
             // Si falla el registro en caja, revertir el cambio de estado
             expense.isPaid = false;
             expense.paidAt = null;
             await this.expenseRepo.save(expense);
             throw new BadRequestException(
-                'Error al registrar el egreso en caja. El gasto no fue marcado como pagado.'
+                `Error al registrar el egreso en caja: ${error_ instanceof Error ? error_.message : 'Error desconocido'}`
             );
         }
 

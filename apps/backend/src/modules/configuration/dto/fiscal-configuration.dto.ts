@@ -2,7 +2,7 @@
  * DTOs para configuración fiscal AFIP
  */
 import { IsString, IsOptional, IsEnum, IsNumber, Min, Max, Length, Matches, IsDateString } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AfipEnvironment } from '../entities/fiscal-configuration.entity';
 import { IvaCondition } from '../../../common/enums/iva-condition.enum';
 

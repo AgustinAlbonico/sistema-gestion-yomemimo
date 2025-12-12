@@ -7,7 +7,7 @@ import { PaymentMethod } from '../entities/payment-method.entity';
 export class PaymentMethodsService implements OnModuleInit {
     constructor(
         @InjectRepository(PaymentMethod)
-        private repo: Repository<PaymentMethod>,
+        private readonly repo: Repository<PaymentMethod>,
     ) { }
 
     async onModuleInit() {
@@ -25,7 +25,7 @@ export class PaymentMethodsService implements OnModuleInit {
     async deactivateWalletMethod() {
         // Desactivar el método 'wallet' antiguo para evitar duplicados con 'qr'
         const walletMethod = await this.repo.findOne({ where: { code: 'wallet' } });
-        if (walletMethod && walletMethod.isActive) {
+        if (walletMethod?.isActive) {
             walletMethod.isActive = false;
             await this.repo.save(walletMethod);
             console.log('Método de pago "wallet" desactivado (reemplazado por "qr")');
@@ -58,12 +58,10 @@ export class PaymentMethodsService implements OnModuleInit {
                     await this.repo.save(exists);
                 }
                 createdCount++;
-            } else {
+            } else if (exists.name !== method.name) {
                 // Si existe, aseguramos que tenga el nombre correcto (especialmente para QR)
-                if (exists.name !== method.name) {
-                    exists.name = method.name;
-                    await this.repo.save(exists);
-                }
+                exists.name = method.name;
+                await this.repo.save(exists);
             }
         }
         return { created: createdCount };

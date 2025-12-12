@@ -30,12 +30,12 @@ import { Loader2 } from 'lucide-react';
 import { IvaConditionOptions, DEFAULT_IVA_CONDITION, IvaCondition } from '@/types/iva-condition';
 
 interface CustomerFormProps {
-    initialData?: CustomerFormValues;
-    onSubmit: (data: CustomerFormValues) => void;
-    isLoading?: boolean;
-    isEditing?: boolean;
+    readonly initialData?: CustomerFormValues;
+    readonly onSubmit: (data: CustomerFormValues) => void;
+    readonly isLoading?: boolean;
+    readonly isEditing?: boolean;
     /** Modo compacto para modales - distribuye campos en 2 columnas */
-    compact?: boolean;
+    readonly compact?: boolean;
 }
 
 const DOCUMENT_TYPES = [
@@ -435,7 +435,7 @@ export function CustomerForm({
 
                     {/* Botón submit */}
                     <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         {isEditing ? 'Actualizar' : 'Crear'} Cliente
                     </Button>
                 </form>
@@ -740,7 +740,7 @@ export function CustomerForm({
                 />
 
                 {/* Estado activo (solo en edición) */}
-                {isEditing && (
+                {isEditing ? (
                     <FormField
                         control={form.control}
                         name="isActive"
@@ -761,7 +761,7 @@ export function CustomerForm({
                             </FormItem>
                         )}
                     />
-                )}
+                ) : null}
 
                 {/* Botón submit */}
                 <Button type="submit" className="w-full" disabled={isLoading}>

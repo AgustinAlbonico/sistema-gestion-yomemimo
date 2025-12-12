@@ -78,7 +78,7 @@ export class Purchase {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     subtotal!: number; // Suma de todos los items
@@ -90,7 +90,7 @@ export class Purchase {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     tax!: number; // IVA u otros impuestos
@@ -102,7 +102,7 @@ export class Purchase {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     discount!: number; // Descuento aplicado
@@ -114,7 +114,7 @@ export class Purchase {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     total!: number; // subtotal + tax - discount

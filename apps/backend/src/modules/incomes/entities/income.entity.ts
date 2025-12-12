@@ -34,7 +34,7 @@ export class Income {
         scale: 2,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value),
+            from: (value: string) => Number.parseFloat(value),
         },
     })
     amount!: number;

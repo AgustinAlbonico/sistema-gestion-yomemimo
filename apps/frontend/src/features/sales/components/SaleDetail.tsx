@@ -31,9 +31,9 @@ import { formatDateForDisplay } from '@/lib/date-utils';
 import { InvoiceActions } from './InvoiceActions';
 
 interface SaleDetailProps {
-    sale: Sale;
-    open: boolean;
-    onClose: () => void;
+    readonly sale: Sale;
+    readonly open: boolean;
+    readonly onClose: () => void;
 }
 
 /**

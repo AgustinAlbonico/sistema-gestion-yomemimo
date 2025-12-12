@@ -23,8 +23,8 @@ import { Button } from './ui/button';
 import { useLowStockCount } from '@/features/products/hooks/useLowStock';
 
 interface SidebarProps {
-    user: any;
-    onLogout: () => void;
+    readonly user: any;
+    readonly onLogout: () => void;
 }
 
 interface NavItem {
@@ -149,7 +149,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
                                     )}
                                 />
                                 <span className="flex-1">{item.title}</span>
-                                {badgeCount > 0 && (
+                                {badgeCount > 0 ? (
                                     <span
                                         className={cn(
                                             'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold',
@@ -160,7 +160,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
                                     >
                                         {badgeCount > 99 ? '99+' : badgeCount}
                                     </span>
-                                )}
+                                ) : null}
                             </Link>
                         );
                     })}

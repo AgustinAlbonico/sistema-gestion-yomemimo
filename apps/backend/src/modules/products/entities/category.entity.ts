@@ -34,7 +34,7 @@ export class Category {
         nullable: true,
         transformer: {
             to: (value: number | null) => value,
-            from: (value: string | null) => value ? parseFloat(value) : null,
+            from: (value: string | null) => value ? Number.parseFloat(value) : null,
         },
     })
     profitMargin!: number | null;

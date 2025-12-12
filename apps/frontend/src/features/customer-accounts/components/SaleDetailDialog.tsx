@@ -34,10 +34,10 @@ import {
 import { usePaymentMethods } from '@/features/configuration/hooks/use-payment-methods';
 
 interface SaleDetailDialogProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    saleId: string | null;
-    onSalePaid?: () => void; // Callback cuando se marca como pagada
+    readonly open: boolean;
+    readonly onOpenChange: (open: boolean) => void;
+    readonly saleId: string | null;
+    readonly onSalePaid?: () => void; // Callback cuando se marca como pagada
 }
 
 export function SaleDetailDialog({
@@ -130,7 +130,7 @@ export function SaleDetailDialog({
                         </div>
 
                         {/* Cliente */}
-                        {(sale.customer || sale.customerName) && (
+                        {(sale.customer || sale.customerName) ? (
                             <div className="flex items-center gap-2 text-sm">
                                 <User className="h-4 w-4 text-muted-foreground" />
                                 <span>
@@ -139,7 +139,7 @@ export function SaleDetailDialog({
                                         : sale.customerName}
                                 </span>
                             </div>
-                        )}
+                        ) : null}
 
                         <Separator />
 
@@ -159,11 +159,11 @@ export function SaleDetailDialog({
                                             <p className="font-medium">
                                                 {item.productDescription}
                                             </p>
-                                            {item.productCode && (
+                                            {item.productCode ? (
                                                 <p className="text-xs text-muted-foreground">
                                                     SKU: {item.productCode}
                                                 </p>
-                                            )}
+                                            ) : null}
                                             <p className="text-sm text-muted-foreground">
                                                 {item.quantity} x ${Number(item.unitPrice).toFixed(2)}
                                             </p>
@@ -172,11 +172,11 @@ export function SaleDetailDialog({
                                             <p className="font-semibold">
                                                 ${Number(item.subtotal).toFixed(2)}
                                             </p>
-                                            {item.discount > 0 && (
+                                            {item.discount > 0 ? (
                                                 <p className="text-xs text-green-600">
                                                     -${Number(item.discount).toFixed(2)} desc.
                                                 </p>
-                                            )}
+                                            ) : null}
                                         </div>
                                     </div>
                                 ))}
@@ -191,18 +191,18 @@ export function SaleDetailDialog({
                                 <span className="text-muted-foreground">Subtotal</span>
                                 <span>${Number(sale.subtotal).toFixed(2)}</span>
                             </div>
-                            {sale.discount > 0 && (
+                            {sale.discount > 0 ? (
                                 <div className="flex justify-between text-sm text-green-600">
                                     <span>Descuento</span>
                                     <span>-${Number(sale.discount).toFixed(2)}</span>
                                 </div>
-                            )}
-                            {sale.tax > 0 && (
+                            ) : null}
+                            {sale.tax > 0 ? (
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Impuestos</span>
                                     <span>${Number(sale.tax).toFixed(2)}</span>
                                 </div>
-                            )}
+                            ) : null}
                             <Separator />
                             <div className="flex justify-between text-lg font-bold">
                                 <span>Total</span>
@@ -211,7 +211,7 @@ export function SaleDetailDialog({
                         </div>
 
                         {/* Pagos (si hay) */}
-                        {sale.payments && sale.payments.length > 0 && (
+                        {sale.payments && sale.payments.length > 0 ? (
                             <>
                                 <Separator />
                                 <div>
@@ -236,17 +236,17 @@ export function SaleDetailDialog({
                                     </div>
                                 </div>
                             </>
-                        )}
+                        ) : null}
 
                         {/* Indicador de cuenta corriente y opción de marcar como pagada */}
-                        {sale.isOnAccount && (
+                        {sale.isOnAccount ? (
                             <div className="p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg space-y-3">
                                 <p className="text-sm text-yellow-700 dark:text-yellow-300 font-medium">
                                     Esta venta está registrada en cuenta corriente
                                 </p>
 
                                 {/* Botón para marcar como pagada */}
-                                {canMarkAsPaid && !showPaymentForm && (
+                                {canMarkAsPaid && !showPaymentForm ? (
                                     <Button
                                         size="sm"
                                         variant="outline"
@@ -256,10 +256,10 @@ export function SaleDetailDialog({
                                         <CheckCircle className="h-4 w-4 mr-2" />
                                         Marcar como Pagada
                                     </Button>
-                                )}
+                                ) : null}
 
                                 {/* Formulario de pago */}
-                                {showPaymentForm && (
+                                {showPaymentForm ? (
                                     <div className="space-y-3 pt-2 border-t border-yellow-200 dark:border-yellow-700">
                                         <p className="text-sm font-medium">Seleccione método de pago:</p>
                                         <Select
@@ -299,17 +299,17 @@ export function SaleDetailDialog({
                                             </Button>
                                         </div>
                                     </div>
-                                )}
+                                ) : null}
                             </div>
-                        )}
+                        ) : null}
 
                         {/* Notas */}
-                        {sale.notes && (
+                        {sale.notes ? (
                             <div className="p-3 bg-muted rounded-lg">
                                 <p className="text-sm font-medium mb-1">Notas:</p>
                                 <p className="text-sm text-muted-foreground">{sale.notes}</p>
                             </div>
-                        )}
+                        ) : null}
 
                         {/* Botón cerrar */}
                         <div className="flex justify-end">

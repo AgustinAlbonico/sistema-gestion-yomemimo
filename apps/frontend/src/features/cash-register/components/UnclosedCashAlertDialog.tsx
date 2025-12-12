@@ -20,7 +20,7 @@ import { useCashStatus } from '../hooks';
 
 interface UnclosedCashAlertDialogProps {
     /** Callback cuando el usuario decide continuar de todos modos */
-    onContinue?: () => void;
+    readonly onContinue?: () => void;
 }
 
 export function UnclosedCashAlertDialog({ onContinue }: UnclosedCashAlertDialogProps) {

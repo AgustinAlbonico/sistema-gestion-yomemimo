@@ -29,8 +29,8 @@ import {
 import { api } from '@/lib/axios';
 
 interface InvoiceActionsProps {
-    sale: Sale;
-    invoice?: Invoice;
+    readonly sale: Sale;
+    readonly invoice?: Invoice;
 }
 
 export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActionsProps) {

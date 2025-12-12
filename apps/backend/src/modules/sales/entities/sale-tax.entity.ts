@@ -29,7 +29,7 @@ export class SaleTax {
         nullable: true,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => (value ? parseFloat(value) : null),
+            from: (value: string) => (value ? Number.parseFloat(value) : null),
         },
     })
     percentage!: number | null; // Porcentaje aplicado (si aplica)
@@ -41,7 +41,7 @@ export class SaleTax {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     amount!: number; // Monto calculado del impuesto

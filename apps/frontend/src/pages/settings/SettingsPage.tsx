@@ -78,14 +78,14 @@ export default function SettingsPage() {
     });
 
     const handleSave = () => {
-        const margin = parseFloat(profitMargin);
-        const stock = parseInt(minStock);
+        const margin = Number.parseFloat(profitMargin);
+        const stock = Number.parseInt(minStock);
 
-        if (isNaN(margin) || margin < 0) {
+        if (Number.isNaN(margin) || margin < 0) {
             toast.error('Ingrese un % de ganancia válido');
             return;
         }
-        if (isNaN(stock) || stock < 0) {
+        if (Number.isNaN(stock) || stock < 0) {
             toast.error('Ingrese un stock mínimo válido');
             return;
         }
@@ -150,7 +150,7 @@ export default function SettingsPage() {
                             <span>Costo $100</span>
                             <span className="text-muted-foreground">+{profitMargin || 0}%</span>
                             <span className="font-bold text-green-600">
-                                = ${(100 * (1 + (parseFloat(profitMargin) || 0) / 100)).toFixed(2)}
+                                = ${(100 * (1 + (Number.parseFloat(profitMargin) || 0) / 100)).toFixed(2)}
                             </span>
                         </div>
                     </div>
@@ -159,8 +159,8 @@ export default function SettingsPage() {
                 <div className="p-6">
                     <Button
                         onClick={() => {
-                            const margin = parseFloat(profitMargin);
-                            if (isNaN(margin) || margin < 0) {
+                            const margin = Number.parseFloat(profitMargin);
+                            if (Number.isNaN(margin) || margin < 0) {
                                 toast.error('Ingrese un % de ganancia válido');
                                 return;
                             }

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CustomerStats as CustomerStatsType } from '../types';
 
 interface CustomerStatsProps {
-    stats: CustomerStatsType;
+    readonly stats: CustomerStatsType;
 }
 
 export function CustomerStats({ stats }: CustomerStatsProps) {

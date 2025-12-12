@@ -40,16 +40,15 @@ import { CustomerFormValues } from '@/features/customers/schemas/customer.schema
 import { incomeCategoriesApi } from '../api/incomes.api';
 import { customersApi } from '@/features/customers/api/customers.api';
 import { Customer } from '@/features/customers/types';
-import { paymentMethodsApi } from '@/features/configuration/api/payment-methods.api';
-import { getPaymentMethodIcon } from '@/features/configuration/utils/payment-method-utils';
 import { Loader2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { PaymentMethodSelect } from '@/components/shared/PaymentMethodSelect';
 
 interface IncomeFormProps {
-    initialData?: Partial<IncomeFormValues>;
-    onSubmit: (data: IncomeFormValues) => void;
-    isLoading?: boolean;
-    isEditing?: boolean;
+    readonly initialData?: Partial<IncomeFormValues>;
+    readonly onSubmit: (data: IncomeFormValues) => void;
+    readonly isLoading?: boolean;
+    readonly isEditing?: boolean;
 }
 
 /**
@@ -90,12 +89,7 @@ export function IncomeForm({
         queryFn: incomeCategoriesApi.getAll,
     });
 
-    // Query para métodos de pago
-    const { data: paymentMethods = [], isLoading: loadingPaymentMethods } = useQuery({
-        queryKey: ['payment-methods'],
-        queryFn: paymentMethodsApi.getAll,
-        select: (data) => data.filter((pm) => pm.isActive),
-    });
+    // Los métodos de pago ahora se manejan en PaymentMethodSelect
 
     // Mutación para crear cliente
     const createCustomerMutation = useMutation({
@@ -295,37 +289,19 @@ export function IncomeForm({
                     )}
                 </div>
 
-                {/* Método de Pago (solo si NO es a cuenta corriente) - Grilla de 6 columnas */}
+                {/* Método de Pago (solo si NO es a cuenta corriente) - Componente compartido */}
                 {!isOnAccount && (
                     <FormField
                         control={form.control}
                         name="paymentMethodId"
                         render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Método de Pago *</FormLabel>
-                                <div className="grid grid-cols-6 gap-2">
-                                    {paymentMethods.map((pm) => {
-                                        const isSelected = field.value === pm.id;
-                                        return (
-                                            <button
-                                                key={pm.id}
-                                                type="button"
-                                                onClick={() => field.onChange(pm.id)}
-                                                className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all ${isSelected
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-muted hover:border-muted-foreground/50'
-                                                    }`}
-                                            >
-                                                {getPaymentMethodIcon(pm.code, `h-4 w-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`)}
-                                                <span className={`text-[10px] font-medium ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
-                                                    {pm.name}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <FormMessage />
-                            </FormItem>
+                            <PaymentMethodSelect
+                                value={field.value}
+                                onChange={field.onChange}
+                                label="Método de Pago"
+                                required={true}
+                                variant="grid"
+                            />
                         )}
                     />
                 )}
@@ -366,7 +342,7 @@ export function IncomeForm({
 
                 {/* Botón de envío */}
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {isEditing ? 'Actualizar Ingreso' : 'Registrar Ingreso'}
                 </Button>
             </form>

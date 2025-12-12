@@ -30,9 +30,9 @@ import {
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 interface PurchaseDetailProps {
-    purchase: Purchase;
-    open: boolean;
-    onClose: () => void;
+    readonly purchase: Purchase;
+    readonly open: boolean;
+    readonly onClose: () => void;
 }
 
 /**

@@ -23,16 +23,16 @@ import { customersApi } from '@/features/customers/api';
 import { Customer } from '@/features/customers/types';
 
 interface CustomerSearchProps {
-    value?: string; // ID del cliente seleccionado
-    onSelect: (customerId: string, customer: Customer) => void;
-    onClear?: () => void;
-    placeholder?: string;
-    showClearButton?: boolean;
-    limit?: number;
-    className?: string;
-    disabled?: boolean;
-    allowCreate?: boolean;
-    onCreateClick?: () => void;
+    readonly value?: string; // ID del cliente seleccionado
+    readonly onSelect: (customerId: string, customer: Customer) => void;
+    readonly onClear?: () => void;
+    readonly placeholder?: string;
+    readonly showClearButton?: boolean;
+    readonly limit?: number;
+    readonly className?: string;
+    readonly disabled?: boolean;
+    readonly allowCreate?: boolean;
+    readonly onCreateClick?: () => void;
 }
 
 /**

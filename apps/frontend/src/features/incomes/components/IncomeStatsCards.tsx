@@ -8,8 +8,8 @@ import { TrendingUp, DollarSign, Clock } from 'lucide-react';
 import { incomesApi } from '../api/incomes.api';
 
 interface IncomeStatsCardsProps {
-    startDate?: string;
-    endDate?: string;
+    readonly startDate?: string;
+    readonly endDate?: string;
 }
 
 export function IncomeStatsCards({ startDate, endDate }: IncomeStatsCardsProps) {

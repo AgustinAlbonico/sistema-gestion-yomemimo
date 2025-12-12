@@ -2,7 +2,7 @@
  * Formulario profesional de Punto de Venta (POS)
  * Diseño moderno y optimizado para velocidad de uso
  */
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
@@ -23,7 +23,6 @@ import {
     Minus,
     Percent,
     CheckCircle2,
-    AlertCircle,
     UserPlus,
     Package,
     DollarSign,
@@ -50,7 +49,6 @@ import {
     FormField,
     FormItem,
     FormLabel,
-    FormMessage,
 } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
 import { ProductSearch } from '@/components/common/ProductSearch';
@@ -76,12 +74,20 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { paymentMethodsApi } from '@/features/configuration/api/payment-methods.api';
-import { getPaymentMethodIcon, getPaymentMethodColor } from '@/features/configuration/utils/payment-method-utils';
-
+import {
+    useTaxSync,
+    usePaymentAmountSync,
+    useDiscountCalculation,
+    useSurchargeCalculation,
+    useTaxAmountCalculation,
+    useOnAccountValidation,
+    useMonotributistaCleanup,
+    useFiscalConfigValidation,
+} from '../hooks/useSaleFormEffects';
 
 interface SaleFormProps {
-    onSubmit: (data: CreateSaleFormValues) => void;
-    isLoading?: boolean;
+    readonly onSubmit: (data: CreateSaleFormValues) => void;
+    readonly isLoading?: boolean;
 }
 
 /**
@@ -110,13 +116,11 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
 
     const queryClient = useQueryClient();
 
-    // Obtener métodos de pago
+    // Obtener métodos de pago (necesario para mapear códigos a IDs en el submit)
     const { data: paymentMethods } = useQuery({
         queryKey: ['payment-methods'],
         queryFn: paymentMethodsApi.getAll,
     });
-
-    console.log(paymentMethods);
 
     // Obtener configuración fiscal
     const { data: fiscalConfig } = useQuery({
@@ -131,7 +135,7 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
     const [newTaxPercentage, setNewTaxPercentage] = useState('');
     const [pendingTaxIndex, setPendingTaxIndex] = useState<number | null>(null);
 
-    const isMonotributista = fiscalConfig?.ivaCondition === IvaCondition.MONOTRIBUTO;
+    const isMonotributista = fiscalConfig?.ivaCondition === IvaCondition.RESPONSABLE_MONOTRIBUTO;
 
     const form = useForm<CreateSaleFormValues>({
         resolver: zodResolver(createSaleSchema as any),
@@ -197,10 +201,9 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
     // Calcular impuestos desde la lista de impuestos
     const totalTaxAmount = taxes?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
 
-    // Mantener sincronizado el campo 'tax' (total) para compatibilidad
-    useEffect(() => {
-        form.setValue('tax', totalTaxAmount);
-    }, [totalTaxAmount, form]);
+    // === EFECTOS EXTRAÍDOS A HOOKS PARA REDUCIR COMPLEJIDAD ===
+    // Sincronizar campo tax con total de impuestos
+    useTaxSync(form, totalTaxAmount);
 
     const total = subtotal + totalTaxAmount - discount + surcharge;
 
@@ -212,67 +215,25 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
     const pendingAmount = total - totalPayments;
 
     // Actualizar monto del primer pago cuando cambia el total
-    useEffect(() => {
-        if (!isOnAccount && payments?.length === 1) {
-            form.setValue('payments.0.amount', total > 0 ? total : 0);
-        }
-    }, [total, isOnAccount, payments?.length, form]);
+    usePaymentAmountSync(form, total, isOnAccount, payments?.length);
 
     // Recalcular descuento si es porcentual
-    useEffect(() => {
-        if (discountType === 'PERCENTAGE') {
-            const percentage = typeof discountPercentage === 'string' ? 0 : discountPercentage;
-            const calculatedDiscount = (subtotal * percentage) / 100;
-            if (Math.abs(discount - calculatedDiscount) > 0.01) {
-                form.setValue('discount', Number(calculatedDiscount.toFixed(2)));
-            }
-        }
-    }, [subtotal, discountPercentage, discountType, form, discount]);
+    useDiscountCalculation(form, subtotal, discountType, discountPercentage, discount);
 
     // Recalcular recargo si es porcentual
-    useEffect(() => {
-        if (surchargeType === 'PERCENTAGE') {
-            const percentage = typeof surchargePercentage === 'string' ? 0 : surchargePercentage;
-            const calculatedSurcharge = (subtotal * percentage) / 100;
-            if (Math.abs(surcharge - calculatedSurcharge) > 0.01) {
-                form.setValue('surcharge', Number(calculatedSurcharge.toFixed(2)));
-            }
-        }
-    }, [subtotal, surchargePercentage, surchargeType, form, surcharge]);
+    useSurchargeCalculation(form, subtotal, surchargeType, surchargePercentage, surcharge);
 
     // Recalcular montos de impuestos cuando cambia el subtotal
-    useEffect(() => {
-        taxes?.forEach((tax, index) => {
-            if (tax.percentage) {
-                const amount = (subtotal * tax.percentage) / 100;
-                if (Math.abs((tax.amount || 0) - amount) > 0.01) {
-                    form.setValue(`taxes.${index}.amount`, Number(amount.toFixed(2)));
-                }
-            }
-        });
-    }, [subtotal, taxes, form]);
+    useTaxAmountCalculation(form, subtotal, taxes);
 
     // Si se deselecciona cuenta corriente, limpiar cliente si no hay cliente seleccionado
-    useEffect(() => {
-        if (!customerId && isOnAccount) {
-            form.setValue('isOnAccount', false);
-        }
-    }, [customerId, isOnAccount, form]);
+    useOnAccountValidation(form, customerId, isOnAccount);
 
     // Si es monotributista, limpiar impuestos
-    useEffect(() => {
-        if (isMonotributista) {
-            form.setValue('taxes', []);
-            form.setValue('tax', 0);
-        }
-    }, [isMonotributista, form]);
+    useMonotributistaCleanup(form, isMonotributista);
 
     // Si AFIP no está configurado, asegurar que generateInvoice sea false
-    useEffect(() => {
-        if (fiscalConfig && !fiscalConfig.isConfigured) {
-            form.setValue('generateInvoice', false);
-        }
-    }, [fiscalConfig, form]);
+    useFiscalConfigValidation(form, fiscalConfig?.isConfigured);
 
     const handleCustomerSelect = (customerId: string, customer: Customer) => {
         form.setValue('customerId', customerId);
@@ -308,7 +269,7 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
         try {
             const newTax = await createTaxMutation.mutateAsync({
                 name: newTaxName,
-                percentage: parseFloat(newTaxPercentage),
+                percentage: Number.parseFloat(newTaxPercentage),
             });
 
             if (pendingTaxIndex !== null) {
@@ -433,24 +394,6 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
         }
     };
 
-    const handleQuickPayment = (methodCode: string) => {
-        // Encontrar el enum correspondiente o usar el código directo si el sistema de tipos lo permite
-        // Por ahora casteamos a any para evitar problemas de tipos estrictos con el enum antiguo
-        const method = methodCode as any;
-
-        // Si solo hay un pago, cambiar el método
-        if (paymentFields.length === 1) {
-            form.setValue('payments.0.paymentMethod', method);
-            form.setValue('payments.0.amount', total);
-        } else {
-            // Si hay múltiples, agregar uno nuevo con el monto pendiente
-            appendPayment({
-                paymentMethod: method,
-                amount: pendingAmount > 0 ? pendingAmount : 0,
-            });
-        }
-    };
-
     const updateQuantity = (index: number, delta: number) => {
         const currentQty = items[index]?.quantity || 1;
         const newQty = currentQty + delta;
@@ -552,19 +495,19 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                         </FormControl>
                                                         <div className="flex flex-col">
                                                             <FormLabel className="text-sm font-medium cursor-pointer">
-                                                                Factura Fiscal
-                                                            </FormLabel>
-                                                            {!fiscalConfig?.isConfigured && (
-                                                                <span className="text-[10px] text-amber-600">
-                                                                    AFIP no configurado
-                                                                </span>
-                                                            )}
+                                                            Factura Fiscal
+                                                        </FormLabel>
+                                                        {fiscalConfig?.isConfigured ? null : (
+                                                            <span className="text-[10px] text-amber-600">
+                                                                AFIP no configurado
+                                                            </span>
+                                                        )}
                                                         </div>
-                                                        {field.value && (
+                                                        {field.value ? (
                                                             <Badge className="bg-blue-500 text-white text-[10px] ml-1">
                                                                 AFIP
                                                             </Badge>
-                                                        )}
+                                                        ) : null}
                                                     </div>
                                                 </FormItem>
                                             )}
@@ -573,22 +516,22 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                 </div>
 
                                 {/* Info del cliente seleccionado */}
-                                {selectedCustomer && (
+                                {selectedCustomer ? (
                                     <div className="mt-3 pt-3 border-t flex items-center gap-4 text-xs text-muted-foreground">
-                                        {selectedCustomer.documentNumber && (
+                                        {selectedCustomer.documentNumber ? (
                                             <span className="flex items-center gap-1">
                                                 <FileText className="h-3 w-3" />
                                                 {selectedCustomer.documentType}: {selectedCustomer.documentNumber}
                                             </span>
-                                        )}
-                                        {selectedCustomer.email && (
+                                        ) : null}
+                                        {selectedCustomer.email ? (
                                             <span>{selectedCustomer.email}</span>
-                                        )}
-                                        {selectedCustomer.phone && (
+                                        ) : null}
+                                        {selectedCustomer.phone ? (
                                             <span>{selectedCustomer.phone}</span>
-                                        )}
+                                        ) : null}
                                     </div>
-                                )}
+                                ) : null}
                             </div>
 
                             {/* Búsqueda de productos - PROMINENTE */}
@@ -625,11 +568,11 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                             Productos ({items.length})
                                         </span>
                                     </div>
-                                    {items.length > 0 && (
+                                    {items.length > 0 ? (
                                         <span className="text-xs text-muted-foreground">
                                             Subtotal: {formatCurrency(subtotal)}
                                         </span>
-                                    )}
+                                    ) : null}
                                 </div>
 
                                 <div className="flex-1 overflow-auto p-2">
@@ -657,7 +600,7 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                             </div>
                                                             <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                                                                 <span>{formatCurrency(item?.unitPrice || 0)} c/u</span>
-                                                                {item?.stock !== undefined && (
+                                                                {item?.stock === undefined ? null : (
                                                                     <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">
                                                                         Stock: {item.stock}
                                                                     </span>
@@ -686,7 +629,7 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                                         value={field.value}
                                                                         onFocus={(e) => e.target.select()}
                                                                         onChange={(e) => {
-                                                                            const val = parseInt(e.target.value) || 1;
+                                                                            const val = Number.parseInt(e.target.value) || 1;
                                                                             const maxStock = item?.stock;
                                                                             if (maxStock !== undefined && val > maxStock) {
                                                                                 toast.error(`Stock máximo: ${maxStock}`);
@@ -743,7 +686,7 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                         <FileText className="h-3 w-3" />
                                         {showNotes ? 'Ocultar notas' : 'Agregar notas'}
                                     </button>
-                                    {showNotes && (
+                                    {showNotes ? (
                                         <div className="p-3 pt-0">
                                             <FormField
                                                 control={form.control}
@@ -758,7 +701,7 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                 )}
                                             />
                                         </div>
-                                    )}
+                                    ) : null}
                                 </div>
                             </div>
                         </div>
@@ -803,7 +746,7 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                     className="h-8 w-20 text-right bg-white/10 border-white/20 text-white"
                                                     value={discountPercentage}
                                                     onFocus={(e) => e.target.select()}
-                                                    onChange={(e) => setDiscountPercentage(e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
+                                                    onChange={(e) => setDiscountPercentage(e.target.value === '' ? '' : Number.parseFloat(e.target.value) || '')}
                                                 />
                                             ) : (
                                                 <FormField
@@ -814,16 +757,16 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                             className="h-8 w-20 text-right bg-white/10 border-white/20 text-white"
                                                             value={field.value}
                                                             onFocus={(e) => e.target.select()}
-                                                            onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                                            onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number.parseFloat(e.target.value) || 0)}
                                                         />
                                                     )}
                                                 />
                                             )}
-                                            {discount > 0 && (
+                                            {discount > 0 ? (
                                                 <span className="text-red-400 text-sm">
                                                     -{formatCurrency(discount)}
                                                 </span>
-                                            )}
+                                            ) : null}
                                         </div>
                                     </div>
 
@@ -855,7 +798,7 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                     className="h-8 w-20 text-right bg-white/10 border-white/20 text-white"
                                                     value={surchargePercentage}
                                                     onFocus={(e) => e.target.select()}
-                                                    onChange={(e) => setSurchargePercentage(e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
+                                                    onChange={(e) => setSurchargePercentage(e.target.value === '' ? '' : Number.parseFloat(e.target.value) || '')}
                                                 />
                                             ) : (
                                                 <FormField
@@ -866,21 +809,21 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                             className="h-8 w-20 text-right bg-white/10 border-white/20 text-white"
                                                             value={field.value}
                                                             onFocus={(e) => e.target.select()}
-                                                            onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                                            onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number.parseFloat(e.target.value) || 0)}
                                                         />
                                                     )}
                                                 />
                                             )}
-                                            {surcharge > 0 && (
+                                            {surcharge > 0 ? (
                                                 <span className="text-green-400 text-sm">
                                                     +{formatCurrency(surcharge)}
                                                 </span>
-                                            )}
+                                            ) : null}
                                         </div>
                                     </div>
 
                                     {/* Impuestos */}
-                                    {!isMonotributista && (
+                                    {isMonotributista ? null : (
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-sm opacity-80">Impuestos</span>
@@ -946,11 +889,11 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                         </div>
                                     )}
 
-                                    {isMonotributista && totalTaxAmount === 0 && (
+                                    {isMonotributista && totalTaxAmount === 0 ? (
                                         <div className="text-xs opacity-50 text-center py-1">
                                             Sin impuestos (Monotributista)
                                         </div>
-                                    )}
+                                    ) : null}
 
                                     <Separator className="bg-white/20" />
 
@@ -1024,36 +967,13 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                             />
 
                             {/* Métodos de Pago */}
-                            {!isOnAccount && (
+                            {isOnAccount ? null : (
                                 <div className="bg-card border rounded-xl p-4 flex-1 flex flex-col">
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-2">
                                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                                             <span className="font-medium text-sm">Forma de Pago</span>
                                         </div>
-                                    </div>
-
-                                    {/* Botones rápidos de pago */}
-                                    {/* Botones rápidos de pago */}
-                                    <div className="grid grid-cols-4 gap-2 mb-4">
-                                        {paymentMethods?.map((method) => (
-                                            <button
-                                                key={method.id}
-                                                type="button"
-                                                onClick={() => handleQuickPayment(method.code)}
-                                                className={cn(
-                                                    "flex flex-col items-center gap-1 p-2 rounded-lg transition-all text-xs",
-                                                    payments?.some(p => p.paymentMethod === method.code as any)
-                                                        ? getPaymentMethodColor(method.code)
-                                                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                                                )}
-                                            >
-                                                {getPaymentMethodIcon(method.code)}
-                                                <span className="text-[10px] font-medium">
-                                                    {method.name}
-                                                </span>
-                                            </button>
-                                        ))}
                                     </div>
 
                                     {/* Lista de pagos */}
@@ -1095,11 +1015,11 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                             className="h-9 w-28 text-right font-medium"
                                                             value={field.value}
                                                             onFocus={(e) => e.target.select()}
-                                                            onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                                            onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number.parseFloat(e.target.value) || 0)}
                                                         />
                                                     )}
                                                 />
-                                                {paymentFields.length > 1 && (
+                                                {paymentFields.length > 1 ? (
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
@@ -1109,7 +1029,7 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                     >
                                                         <X className="h-4 w-4" />
                                                     </Button>
-                                                )}
+                                                ) : null}
                                             </div>
                                         ))}
 

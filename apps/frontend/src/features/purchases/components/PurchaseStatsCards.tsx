@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { purchasesApi } from '../api/purchases.api';
 
 interface PurchaseStatsCardsProps {
-    startDate?: string;
-    endDate?: string;
+    readonly startDate?: string;
+    readonly endDate?: string;
 }
 
 /**

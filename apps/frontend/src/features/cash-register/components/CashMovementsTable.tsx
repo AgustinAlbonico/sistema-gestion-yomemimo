@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { CashMovementDetailDialog } from './CashMovementDetailDialog';
 
 interface CashMovementsTableProps {
-    movements: CashMovement[];
+    readonly movements: CashMovement[];
 }
 
 export function CashMovementsTable({ movements }: CashMovementsTableProps) {

@@ -15,7 +15,7 @@ export class TaxType {
         nullable: true,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => (value ? parseFloat(value) : null),
+            from: (value: string) => (value ? Number.parseFloat(value) : null),
         },
     })
     percentage!: number | null; // Porcentaje por defecto (si aplica)

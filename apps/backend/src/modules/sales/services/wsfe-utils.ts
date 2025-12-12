@@ -53,7 +53,7 @@ export async function parseFECompUltimoResponse(xml: string): Promise<number> {
             throw new Error(`Error WSFE: ${error.Msg || 'Error desconocido'}`);
         }
 
-        return parseInt(response.CbteNro || '0', 10);
+        return Number.parseInt(response.CbteNro || '0', 10);
     } catch (error) {
         throw new Error(`Error al parsear respuesta WSFE: ${(error as Error).message}`);
     }
@@ -241,7 +241,7 @@ export async function parseFECAEResponse(xml: string): Promise<WSFEAuthResponse>
                 success: true,
                 cae: detResponse.CAE,
                 caeExpirationDate: detResponse.CAEFchVto,
-                invoiceNumber: parseInt(detResponse.CbteDesde, 10),
+                invoiceNumber: Number.parseInt(detResponse.CbteDesde, 10),
                 observations: observations.length > 0 ? observations : undefined,
             };
         } else {

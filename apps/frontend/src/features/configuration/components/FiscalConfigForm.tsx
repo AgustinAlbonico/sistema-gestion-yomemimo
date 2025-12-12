@@ -406,7 +406,7 @@ export function FiscalConfigForm() {
                                                 <NumericInput
                                                     allowDecimals={false}
                                                     value={field.value}
-                                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                                    onChange={(e) => field.onChange(Number.parseInt(e.target.value) || 1)}
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -593,20 +593,20 @@ export function FiscalConfigForm() {
  * Card de certificados por entorno
  */
 interface CertificateCardProps {
-    title: string;
-    environment: AfipEnvironment;
-    isReady: boolean;
-    uploadedAt?: string | null;
-    expiresAt?: string | null;
-    fingerprint?: string | null;
-    isActive: boolean;
-    onUpload: (cert: File, key: File) => void;
-    onGenerate: () => void;
-    onDelete: () => void;
-    isDeleting: boolean;
-    isGenerating: boolean;
-    disabled?: boolean;
-    disabledReason?: string;
+    readonly title: string;
+    readonly environment: AfipEnvironment;
+    readonly isReady: boolean;
+    readonly uploadedAt?: string | null;
+    readonly expiresAt?: string | null;
+    readonly fingerprint?: string | null;
+    readonly isActive: boolean;
+    readonly onUpload: (cert: File, key: File) => void;
+    readonly onGenerate: () => void;
+    readonly onDelete: () => void;
+    readonly isDeleting: boolean;
+    readonly isGenerating: boolean;
+    readonly disabled?: boolean;
+    readonly disabledReason?: string;
 }
 
 function CertificateCard({

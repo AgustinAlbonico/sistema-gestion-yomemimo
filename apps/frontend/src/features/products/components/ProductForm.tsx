@@ -30,10 +30,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Category } from '../types';
 
 interface ProductFormProps {
-    initialData?: ProductFormValues;
-    onSubmit: (data: ProductFormValues) => void;
-    isLoading?: boolean;
-    isEditing?: boolean;
+    readonly initialData?: ProductFormValues;
+    readonly onSubmit: (data: ProductFormValues) => void;
+    readonly isLoading?: boolean;
+    readonly isEditing?: boolean;
 }
 
 /**
@@ -204,7 +204,7 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing }: Pro
                                     <NumericInput
                                         placeholder="0.00"
                                         value={field.value}
-                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number.parseFloat(e.target.value) || 0)}
                                     />
                                 </FormControl>
                                 <FormDescription>Precio de compra</FormDescription>
@@ -224,7 +224,7 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing }: Pro
                                         allowDecimals={false}
                                         placeholder="0"
                                         value={field.value}
-                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number.parseInt(e.target.value) || 0)}
                                     />
                                 </FormControl>
                                 <FormDescription>Cantidad disponible</FormDescription>
@@ -292,7 +292,7 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing }: Pro
                             </div>
 
                             {/* Campo de margen personalizado - visible solo si está activo */}
-                            {field.value && (
+                            {field.value ? (
                                 <div className="mt-4 pt-4 border-t">
                                     <FormField
                                         control={form.control}
@@ -306,7 +306,7 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing }: Pro
                                                             placeholder="Ej: 50"
                                                             className="max-w-[150px]"
                                                             value={marginField.value ?? ''}
-                                                            onChange={(e) => marginField.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value) || 0)}
+                                                            onChange={(e) => marginField.onChange(e.target.value === '' ? undefined : Number.parseFloat(e.target.value) || 0)}
                                                         />
                                                     </FormControl>
                                                     <span className="text-muted-foreground">%</span>
@@ -322,7 +322,7 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing }: Pro
                                         )}
                                     />
                                 </div>
-                            )}
+                            ) : null}
                         </FormItem>
                     )}
                 />

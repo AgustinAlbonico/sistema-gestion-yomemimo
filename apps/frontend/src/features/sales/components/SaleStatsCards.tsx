@@ -9,8 +9,8 @@ import { salesApi } from '../api/sales.api';
 import { SaleStatus } from '../types';
 
 interface SaleStatsCardsProps {
-    startDate?: string;
-    endDate?: string;
+    readonly startDate?: string;
+    readonly endDate?: string;
 }
 
 /**

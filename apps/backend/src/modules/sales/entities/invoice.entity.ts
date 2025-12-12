@@ -117,7 +117,7 @@ export class Invoice {
         scale: 2,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     subtotal!: number;
@@ -129,7 +129,7 @@ export class Invoice {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     discount!: number;
@@ -141,7 +141,7 @@ export class Invoice {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     otherTaxes!: number;
@@ -152,7 +152,7 @@ export class Invoice {
         scale: 2,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     total!: number;
@@ -165,7 +165,7 @@ export class Invoice {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     netAmount!: number; // Importe neto gravado
@@ -177,7 +177,7 @@ export class Invoice {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     iva21!: number;
@@ -189,7 +189,7 @@ export class Invoice {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     iva105!: number;
@@ -201,7 +201,7 @@ export class Invoice {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     iva27!: number;
@@ -213,7 +213,7 @@ export class Invoice {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     netAmountExempt!: number; // Importe no gravado

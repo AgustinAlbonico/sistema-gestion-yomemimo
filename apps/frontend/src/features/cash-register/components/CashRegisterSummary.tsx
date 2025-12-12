@@ -4,7 +4,7 @@ import { CashRegister, CashRegisterTotals } from '../types';
 import { getPaymentMethodIcon } from '@/features/configuration/utils/payment-method-utils';
 
 interface CashRegisterSummaryProps {
-    register: CashRegister;
+    readonly register: CashRegister;
 }
 
 export function CashRegisterSummary({ register }: CashRegisterSummaryProps) {
@@ -79,11 +79,11 @@ export function CashRegisterSummary({ register }: CashRegisterSummaryProps) {
                                 </div>
                             );
                         })}
-                        {totalIncome === 0 && (
+                        {totalIncome === 0 ? (
                             <div className="p-4 text-center text-muted-foreground text-sm">
                                 Sin ingresos registrados
                             </div>
-                        )}
+                        ) : null}
                     </div>
                 </CardContent>
             </Card>
@@ -114,11 +114,11 @@ export function CashRegisterSummary({ register }: CashRegisterSummaryProps) {
                                 </div>
                             );
                         })}
-                        {totalExpense === 0 && (
+                        {totalExpense === 0 ? (
                             <div className="p-4 text-center text-muted-foreground text-sm">
                                 Sin egresos registrados
                             </div>
-                        )}
+                        ) : null}
                     </div>
                 </CardContent>
             </Card>

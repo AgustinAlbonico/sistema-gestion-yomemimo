@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 
 interface GuestRouteProps {
-    children: React.ReactNode;
+    readonly children: React.ReactNode;
 }
 
 export function GuestRoute({ children }: GuestRouteProps) {

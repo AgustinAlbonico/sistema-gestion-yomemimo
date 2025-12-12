@@ -53,7 +53,7 @@ export class ProductsService {
         }
 
         // 2. Margen de la categoría
-        if (category && category.profitMargin !== null && category.profitMargin !== undefined) {
+        if (category?.profitMargin !== null && category?.profitMargin !== undefined) {
             return category.profitMargin;
         }
 
@@ -150,48 +150,70 @@ export class ProductsService {
 
         // Actualizar categoría si se proporciona
         if (dto.categoryId !== undefined) {
-            if (dto.categoryId) {
-                const category = await this.categoriesRepository.findOne({
-                    where: { id: dto.categoryId },
-                });
-                if (!category) {
-                    throw new NotFoundException('Categoría no encontrada');
-                }
-                product.category = category;
-                product.categoryId = dto.categoryId;
-            } else {
-                // Quitar categoría
-                product.category = null;
-                product.categoryId = null;
-            }
+            await this.updateProductCategory(product, dto.categoryId);
         }
 
-        // Manejar cambio de margen personalizado
+        // Manejar cambio de margen y recalcular precio si es necesario
+        await this.handlePriceRecalculation(product, dto);
+
+        // Actualizar campos básicos
+        if (dto.name !== undefined) product.name = dto.name;
+        if (dto.cost !== undefined) product.cost = dto.cost;
+        if (dto.stock !== undefined) product.stock = dto.stock;
+        if (dto.isActive !== undefined) product.isActive = dto.isActive;
+
+        return this.productsRepository.save(product);
+    }
+
+    /**
+     * Actualiza la categoría de un producto
+     */
+    private async updateProductCategory(product: Product, categoryId: string | null): Promise<void> {
+        if (categoryId) {
+            const category = await this.categoriesRepository.findOne({
+                where: { id: categoryId },
+            });
+            if (!category) {
+                throw new NotFoundException('Categoría no encontrada');
+            }
+            product.category = category;
+            product.categoryId = categoryId;
+        } else {
+            // Quitar categoría
+            product.category = null;
+            product.categoryId = null;
+        }
+    }
+
+    /**
+     * Maneja el recálculo del precio según cambios en margen, costo o categoría
+     */
+    private async handlePriceRecalculation(product: Product, dto: UpdateProductDTO): Promise<void> {
+        // Caso 1: Cambio en useCustomMargin
         if (dto.useCustomMargin !== undefined) {
             product.useCustomMargin = dto.useCustomMargin;
 
             if (dto.useCustomMargin && dto.customProfitMargin !== undefined) {
-                // Usar margen personalizado
                 product.profitMargin = dto.customProfitMargin;
             } else if (!dto.useCustomMargin) {
-                // Volver a la jerarquía: categoría > general
-                product.profitMargin = await this.getEffectiveProfitMargin(
-                    false,
-                    undefined,
-                    product.category,
-                );
+                product.profitMargin = await this.getEffectiveProfitMargin(false, undefined, product.category);
             }
 
-            // Recalcular precio con el nuevo margen
             const cost = dto.cost ?? product.cost;
             product.price = this.calculatePrice(cost, product.profitMargin ?? 0);
-        } else if (dto.customProfitMargin !== undefined && product.useCustomMargin) {
-            // Solo actualizar el margen si ya tiene margen personalizado activo
+            return;
+        }
+
+        // Caso 2: Actualización de margen personalizado existente
+        if (dto.customProfitMargin !== undefined && product.useCustomMargin) {
             product.profitMargin = dto.customProfitMargin;
             const cost = dto.cost ?? product.cost;
             product.price = this.calculatePrice(cost, product.profitMargin);
-        } else if (dto.cost !== undefined && dto.cost !== product.cost) {
-            // Si solo cambia el costo, recalcular precio con el margen actual
+            return;
+        }
+
+        // Caso 3: Solo cambio de costo
+        if (dto.cost !== undefined && dto.cost !== product.cost) {
             const margin = await this.getEffectiveProfitMargin(
                 product.useCustomMargin,
                 product.profitMargin ?? undefined,
@@ -199,24 +221,15 @@ export class ProductsService {
             );
             product.price = this.calculatePrice(dto.cost, margin);
             product.profitMargin = margin;
-        } else if (dto.categoryId !== undefined && !product.useCustomMargin) {
-            // Si cambió la categoría y no tiene margen personalizado, recalcular
-            const margin = await this.getEffectiveProfitMargin(
-                false,
-                undefined,
-                product.category,
-            );
+            return;
+        }
+
+        // Caso 4: Cambio de categoría sin margen personalizado
+        if (dto.categoryId !== undefined && !product.useCustomMargin) {
+            const margin = await this.getEffectiveProfitMargin(false, undefined, product.category);
             product.profitMargin = margin;
             product.price = this.calculatePrice(product.cost, margin);
         }
-
-        // Actualizar campos
-        if (dto.name !== undefined) product.name = dto.name;
-        if (dto.cost !== undefined) product.cost = dto.cost;
-        if (dto.stock !== undefined) product.stock = dto.stock;
-        if (dto.isActive !== undefined) product.isActive = dto.isActive;
-
-        return this.productsRepository.save(product);
     }
 
     async remove(id: string) {

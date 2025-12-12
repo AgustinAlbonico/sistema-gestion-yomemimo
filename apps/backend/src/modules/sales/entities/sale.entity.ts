@@ -54,27 +54,8 @@ export class Sale {
     customerName!: string | null; // Nombre rápido si no hay cliente registrado
 
     @Column({
-        type: 'date',
-        default: () => 'CURRENT_DATE',
-        transformer: {
-            // PostgreSQL devuelve date como string 'YYYY-MM-DD', lo convertimos a Date
-            to: (value: Date | string) => {
-                if (value instanceof Date) {
-                    return value;
-                }
-                return value; // TypeORM maneja la conversión al guardar
-            },
-            from: (value: string | Date) => {
-                if (value instanceof Date) {
-                    return value;
-                }
-                if (typeof value === 'string') {
-                    const [year, month, day] = value.split('-').map(Number);
-                    return new Date(year, month - 1, day);
-                }
-                return value;
-            },
-        },
+        type: 'timestamp',
+        default: () => 'CURRENT_TIMESTAMP',
     })
     saleDate!: Date;
 
@@ -85,7 +66,7 @@ export class Sale {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     subtotal!: number; // Suma de todos los items sin descuento
@@ -97,7 +78,7 @@ export class Sale {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     discount!: number; // Descuento total aplicado
@@ -109,7 +90,7 @@ export class Sale {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     surcharge!: number; // Recargo total aplicado
@@ -121,7 +102,7 @@ export class Sale {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     tax!: number; // IVA u otros impuestos
@@ -133,7 +114,7 @@ export class Sale {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     total!: number; // subtotal - discount + surcharge + tax

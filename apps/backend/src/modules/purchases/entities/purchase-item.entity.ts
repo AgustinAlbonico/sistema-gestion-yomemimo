@@ -46,7 +46,7 @@ export class PurchaseItem {
         scale: 2,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     unitPrice!: number; // Precio unitario de compra
@@ -57,7 +57,7 @@ export class PurchaseItem {
         scale: 2,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     subtotal!: number; // quantity * unitPrice

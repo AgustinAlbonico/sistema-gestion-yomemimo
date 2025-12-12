@@ -27,18 +27,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { expenseCategoriesApi } from '../api/expenses.api';
-import { paymentMethodsApi } from '@/features/configuration/api/payment-methods.api';
-import { getPaymentMethodIcon } from '@/features/configuration/utils/payment-method-utils';
-import { Loader2, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { PaymentMethodSelect } from '@/components/shared/PaymentMethodSelect';
 
 interface ExpenseFormProps {
-    initialData?: Partial<ExpenseFormValues>;
-    onSubmit: (data: ExpenseFormValues) => void;
-    isLoading?: boolean;
-    isEditing?: boolean;
+    readonly initialData?: Partial<ExpenseFormValues>;
+    readonly onSubmit: (data: ExpenseFormValues) => void;
+    readonly isLoading?: boolean;
+    readonly isEditing?: boolean;
 }
 
 /**
@@ -56,24 +53,7 @@ export function ExpenseForm({
         queryFn: expenseCategoriesApi.getAll,
     });
 
-    // Obtener métodos de pago
-    const { data: paymentMethods, isLoading: loadingPaymentMethods } = useQuery({
-        queryKey: ['payment-methods'],
-        queryFn: paymentMethodsApi.getAll,
-    });
-
-    const queryClient = useQueryClient();
-
-    const seedPaymentMethodsMutation = useMutation({
-        mutationFn: paymentMethodsApi.seed,
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['payment-methods'] });
-            toast.success(`${data.created} métodos de pago inicializados`);
-        },
-        onError: () => {
-            toast.error('Error al inicializar métodos de pago');
-        },
-    });
+    // Los métodos de pago ahora se manejan en PaymentMethodSelect
 
     // Fecha de hoy en formato YYYY-MM-DD (usando zona horaria local)
     const today = getTodayLocal();
@@ -160,7 +140,7 @@ export function ExpenseForm({
                                     <NumericInput
                                         placeholder="0.00"
                                         value={field.value}
-                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number.parseFloat(e.target.value) || 0)}
                                     />
                                 </FormControl>
                                 <FormMessage />
@@ -183,61 +163,19 @@ export function ExpenseForm({
                     />
                 </div>
 
-                {/* Método de pago */}
+                {/* Método de pago - Componente compartido */}
                 <FormField
                     control={form.control}
                     name="paymentMethodId"
                     render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>
-                                Método de pago{' '}
-                                {isPaid && <span className="text-red-500">*</span>}
-                            </FormLabel>
-                            <Select
-                                onValueChange={field.onChange}
-                                value={field.value ?? ''}
-                                disabled={loadingPaymentMethods || !isPaid}
-                            >
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione método de pago" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {(!paymentMethods || paymentMethods.length === 0) && (
-                                        <div className="p-2 flex justify-center">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="w-full text-xs h-8"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    seedPaymentMethodsMutation.mutate();
-                                                }}
-                                                disabled={seedPaymentMethodsMutation.isPending}
-                                            >
-                                                {seedPaymentMethodsMutation.isPending ? (
-                                                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                                ) : (
-                                                    <RefreshCw className="mr-2 h-3 w-3" />
-                                                )}
-                                                Inicializar métodos
-                                            </Button>
-                                        </div>
-                                    )}
-                                    {paymentMethods?.map((method) => (
-                                        <SelectItem key={method.id} value={method.id}>
-                                            <div className="flex items-center gap-2">
-                                                {getPaymentMethodIcon(method.code)}
-                                                <span>{method.name}</span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
+                        <PaymentMethodSelect
+                            value={field.value}
+                            onChange={field.onChange}
+                            label="Método de pago"
+                            required={isPaid}
+                            disabled={!isPaid}
+                            variant="select"
+                        />
                     )}
                 />
 
@@ -312,7 +250,7 @@ export function ExpenseForm({
                 )}
 
                 <Button type="submit" disabled={isLoading} className="w-full">
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {isEditing ? 'Actualizar Gasto' : 'Registrar Gasto'}
                 </Button>
             </form>

@@ -41,9 +41,9 @@ import { toast } from 'sonner';
 import { MarkAsPaidDialog } from './MarkAsPaidDialog';
 
 interface ExpenseListProps {
-    filters?: ExpenseFilters;
-    onEdit: (expense: Expense) => void;
-    onDelete: (id: string) => void;
+    readonly filters?: ExpenseFilters;
+    readonly onEdit: (expense: Expense) => void;
+    readonly onDelete: (id: string) => void;
 }
 
 /**
@@ -109,22 +109,22 @@ function ExpenseDetailDialog({
                     </div>
 
                     {/* Método de pago */}
-                    {expense.paymentMethod && (
+                    {expense.paymentMethod ? (
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Método de pago</span>
                             <span className="font-medium">
                                 {expense.paymentMethod.name}
                             </span>
                         </div>
-                    )}
+                    ) : null}
 
                     {/* Nro. Comprobante */}
-                    {expense.receiptNumber && (
+                    {expense.receiptNumber ? (
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Nro. Comprobante</span>
                             <span className="font-medium">{expense.receiptNumber}</span>
                         </div>
-                    )}
+                    ) : null}
 
                     {/* Estado */}
                     <div className="flex justify-between items-center">
@@ -142,24 +142,24 @@ function ExpenseDetailDialog({
                     </div>
 
                     {/* Notas */}
-                    {expense.notes && (
+                    {expense.notes ? (
                         <div>
                             <span className="text-sm text-muted-foreground">Notas</span>
                             <p className="text-sm mt-1 p-2 bg-muted rounded">
                                 {expense.notes}
                             </p>
                         </div>
-                    )}
+                    ) : null}
 
                     {/* Creado por */}
-                    {expense.createdBy && (
+                    {expense.createdBy ? (
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">Registrado por</span>
                             <span>
                                 {expense.createdBy.firstName} {expense.createdBy.lastName}
                             </span>
                         </div>
-                    )}
+                    ) : null}
                 </div>
             </DialogContent>
         </Dialog>
@@ -180,7 +180,7 @@ export function ExpenseList({ filters, onEdit, onDelete }: ExpenseListProps) {
     });
 
     const markAsPaidMutation = useMutation({
-        mutationFn: ({ id, paymentMethodId }: { id: string; paymentMethodId: string }) => 
+        mutationFn: ({ id, paymentMethodId }: { id: string; paymentMethodId: string }) =>
             expensesApi.markAsPaid(id, paymentMethodId),
         onSuccess: () => {
             toast.success('Gasto marcado como pagado');
@@ -303,15 +303,15 @@ export function ExpenseList({ filters, onEdit, onDelete }: ExpenseListProps) {
                                 <Eye className="mr-2 h-4 w-4" />
                                 Ver Detalle
                             </DropdownMenuItem>
-                            {!expense.isPaid && (
-                                <DropdownMenuItem 
+                            {!expense.isPaid ? (
+                                <DropdownMenuItem
                                     onClick={() => setExpenseToMarkPaid(expense)}
                                     className="text-green-600"
                                 >
                                     <CreditCard className="mr-2 h-4 w-4" />
                                     Marcar como Pagado
                                 </DropdownMenuItem>
-                            )}
+                            ) : null}
                             <DropdownMenuItem onClick={() => onEdit(expense)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Editar

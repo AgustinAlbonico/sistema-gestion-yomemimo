@@ -12,11 +12,10 @@ import {
     ValidateNested,
     Min,
     MaxLength,
-    IsBoolean,
     ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PurchaseStatus, PaymentMethod } from '../entities/purchase.entity';
+import { PurchaseStatus } from '../entities/purchase.entity';
 
 /**
  * DTO para un item de compra

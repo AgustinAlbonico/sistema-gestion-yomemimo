@@ -273,7 +273,7 @@ export class FiscalConfigurationService implements OnModuleInit {
      */
     async testAfipConnection(): Promise<AfipConnectionStatusDto> {
         const config = await this.getConfiguration();
-        const { ready, missingFields } = await this.isReadyForInvoicing();
+        const { missingFields } = await this.isReadyForInvoicing();
 
         const isHomologacion = config.afipEnvironment === AfipEnvironment.HOMOLOGACION;
         const certificatesReady = isHomologacion
@@ -287,12 +287,7 @@ export class FiscalConfigurationService implements OnModuleInit {
                 success: false,
                 message: `Configuración incompleta. Faltan: ${missingFields.join(', ')}`,
             };
-        } else if (!certificatesReady) {
-            connectionResult = {
-                success: false,
-                message: `No hay certificados configurados para el entorno ${config.afipEnvironment}`,
-            };
-        } else {
+        } else if (certificatesReady) {
             // Simular test de conexión exitoso
             // En producción, aquí se haría la autenticación real con WSAA
             connectionResult = {

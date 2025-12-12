@@ -33,11 +33,11 @@ import {
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 interface PurchaseListProps {
-    filters: PurchaseFilters;
-    onView?: (purchase: Purchase) => void;
-    onEdit?: (purchase: Purchase) => void;
-    onDelete?: (id: string) => void;
-    onPay?: (purchase: Purchase) => void;
+    readonly filters: PurchaseFilters;
+    readonly onView?: (purchase: Purchase) => void;
+    readonly onEdit?: (purchase: Purchase) => void;
+    readonly onDelete?: (id: string) => void;
+    readonly onPay?: (purchase: Purchase) => void;
 }
 
 /**
@@ -116,11 +116,11 @@ export function PurchaseList({
                             <TableCell>
                                 <div>
                                     <p className="font-medium">{purchase.providerName}</p>
-                                    {purchase.invoiceNumber && (
+                                    {purchase.invoiceNumber ? (
                                         <p className="text-xs text-muted-foreground">
                                             Factura: {purchase.invoiceNumber}
                                         </p>
-                                    )}
+                                    ) : null}
                                 </div>
                             </TableCell>
                             <TableCell>
@@ -135,11 +135,11 @@ export function PurchaseList({
                                 <Badge className={PurchaseStatusColors[purchase.status]}>
                                     {PurchaseStatusLabels[purchase.status]}
                                 </Badge>
-                                {purchase.inventoryUpdated && (
+                                {purchase.inventoryUpdated ? (
                                     <Badge variant="outline" className="ml-1 text-xs">
                                         Stock ✓
                                     </Badge>
-                                )}
+                                ) : null}
                             </TableCell>
                             <TableCell className="text-right">
                                 <DropdownMenu>
@@ -149,28 +149,28 @@ export function PurchaseList({
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        {onView && (
+                                        {onView ? (
                                             <DropdownMenuItem onClick={() => onView(purchase)}>
                                                 <Eye className="mr-2 h-4 w-4" />
                                                 Ver Detalle
                                             </DropdownMenuItem>
-                                        )}
-                                        {onEdit && purchase.status === PurchaseStatus.PENDING && (
+                                        ) : null}
+                                        {onEdit && purchase.status === PurchaseStatus.PENDING ? (
                                             <DropdownMenuItem onClick={() => onEdit(purchase)}>
                                                 <Edit className="mr-2 h-4 w-4" />
                                                 Editar
                                             </DropdownMenuItem>
-                                        )}
+                                        ) : null}
                                         <DropdownMenuSeparator />
-                                        {onPay && purchase.status === PurchaseStatus.PENDING && (
+                                        {onPay && purchase.status === PurchaseStatus.PENDING ? (
                                             <DropdownMenuItem onClick={() => onPay(purchase)}>
                                                 <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
                                                 Marcar Pagada
                                             </DropdownMenuItem>
-                                        )}
+                                        ) : null}
                                         {/* Only allow delete on pending purchases */}
                                         <DropdownMenuSeparator />
-                                        {onDelete && purchase.status === PurchaseStatus.PENDING && (
+                                        {onDelete && purchase.status === PurchaseStatus.PENDING ? (
                                             <DropdownMenuItem
                                                 onClick={() => onDelete(purchase.id)}
                                                 className="text-destructive"
@@ -178,7 +178,7 @@ export function PurchaseList({
                                                 <Trash2 className="mr-2 h-4 w-4" />
                                                 Eliminar
                                             </DropdownMenuItem>
-                                        )}
+                                        ) : null}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </TableCell>

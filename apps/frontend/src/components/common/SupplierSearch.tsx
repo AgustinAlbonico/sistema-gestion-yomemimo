@@ -19,16 +19,16 @@ import { suppliersApi } from '@/features/suppliers/api/suppliers.api';
 import { Supplier } from '@/features/suppliers/types';
 
 interface SupplierSearchProps {
-    value?: string; // ID del proveedor seleccionado
-    onSelect: (supplierId: string, supplier: Supplier) => void;
-    onClear?: () => void;
-    placeholder?: string;
-    showClearButton?: boolean;
-    limit?: number;
-    className?: string;
-    disabled?: boolean;
-    allowCreate?: boolean; // Permite crear proveedores
-    onCreateClick?: () => void;
+    readonly value?: string; // ID del proveedor seleccionado
+    readonly onSelect: (supplierId: string, supplier: Supplier) => void;
+    readonly onClear?: () => void;
+    readonly placeholder?: string;
+    readonly showClearButton?: boolean;
+    readonly limit?: number;
+    readonly className?: string;
+    readonly disabled?: boolean;
+    readonly allowCreate?: boolean; // Permite crear proveedores
+    readonly onCreateClick?: () => void;
 }
 
 export function SupplierSearch({

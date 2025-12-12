@@ -15,7 +15,7 @@ import type { CashRegister, CashRegisterStatus } from '../types';
 import { CashHistoryDetailDialog } from './CashHistoryDetailDialog';
 
 interface CashHistoryTableProps {
-    history: CashRegister[];
+    readonly history: CashRegister[];
 }
 
 const statusLabels: Record<CashRegisterStatus, string> = {

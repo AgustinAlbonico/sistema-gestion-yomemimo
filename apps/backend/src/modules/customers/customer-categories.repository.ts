@@ -7,7 +7,7 @@ import { CustomerCategory } from './entities/customer-category.entity';
 
 @Injectable()
 export class CustomerCategoriesRepository extends Repository<CustomerCategory> {
-    constructor(private dataSource: DataSource) {
+    constructor(private readonly dataSource: DataSource) {
         super(CustomerCategory, dataSource.createEntityManager());
     }
 
@@ -47,7 +47,7 @@ export class CustomerCategoriesRepository extends Repository<CustomerCategory> {
             .select('COUNT(customer.id)', 'count')
             .getRawOne();
 
-        return parseInt(result?.count || '0');
+        return Number.parseInt(result?.count || '0', 10);
     }
 }
 

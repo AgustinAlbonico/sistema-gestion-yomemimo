@@ -53,7 +53,7 @@ export class SaleItem {
         scale: 2,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     unitPrice!: number; // Precio de venta unitario
@@ -65,7 +65,7 @@ export class SaleItem {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     discount!: number; // Descuento por item
@@ -77,7 +77,7 @@ export class SaleItem {
         default: 0,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     discountPercent!: number; // Porcentaje de descuento
@@ -88,7 +88,7 @@ export class SaleItem {
         scale: 2,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     subtotal!: number; // (quantity * unitPrice) - discount

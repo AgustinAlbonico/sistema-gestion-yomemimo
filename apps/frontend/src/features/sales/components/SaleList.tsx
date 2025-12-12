@@ -9,7 +9,6 @@ import {
     Ban,
     CreditCard,
     MoreVertical,
-    Loader2,
     AlertTriangle,
     FileCheck,
     FileX,
@@ -47,11 +46,11 @@ import {
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface SaleListProps {
-    filters?: SaleFilters;
-    onView?: (sale: Sale) => void;
-    onDelete?: (id: string) => void;
-    onCancel?: (id: string) => void;
-    onPay?: (sale: Sale) => void;
+    readonly filters?: SaleFilters;
+    readonly onView?: (sale: Sale) => void;
+    readonly onDelete?: (id: string) => void;
+    readonly onCancel?: (id: string) => void;
+    readonly onPay?: (sale: Sale) => void;
 }
 
 /**
@@ -297,7 +296,7 @@ export function SaleList({
                                             Ver Detalle
                                         </DropdownMenuItem>
 
-                                        {sale.status === SaleStatus.PENDING && (
+                                        {sale.status === SaleStatus.PENDING ? (
                                             <DropdownMenuItem
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -307,11 +306,11 @@ export function SaleList({
                                                 <CreditCard className="mr-2 h-4 w-4" />
                                                 Registrar Pago
                                             </DropdownMenuItem>
-                                        )}
+                                        ) : null}
 
                                         <DropdownMenuSeparator />
 
-                                        {sale.status !== SaleStatus.CANCELLED && (
+                                        {sale.status !== SaleStatus.CANCELLED ? (
                                             <DropdownMenuItem
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -322,9 +321,9 @@ export function SaleList({
                                                 <Ban className="mr-2 h-4 w-4" />
                                                 Cancelar
                                             </DropdownMenuItem>
-                                        )}
+                                        ) : null}
 
-                                        {!sale.inventoryUpdated && (
+                                        {!sale.inventoryUpdated ? (
                                             <DropdownMenuItem
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -335,7 +334,7 @@ export function SaleList({
                                                 <Trash2 className="mr-2 h-4 w-4" />
                                                 Eliminar
                                             </DropdownMenuItem>
-                                        )}
+                                        ) : null}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </TableCell>
@@ -345,14 +344,14 @@ export function SaleList({
             </Table>
 
             {/* Información de paginación */}
-            {data.total > 0 && (
+            {data.total > 0 ? (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
                     <p className="text-sm text-muted-foreground">
                         Mostrando {((currentPage - 1) * limit) + 1} a {Math.min(currentPage * limit, data.total)} de {data.total} {data.total === 1 ? 'venta' : 'ventas'}
                     </p>
 
                     {/* Controles de navegación - solo si hay más de una página */}
-                    {data.totalPages > 1 && (
+                    {data.totalPages > 1 ? (
                         <div className="flex items-center gap-2">
                             {/* Botón anterior */}
                             <Button
@@ -407,9 +406,9 @@ export function SaleList({
                                 <ChevronRight className="h-4 w-4 ml-1" />
                             </Button>
                         </div>
-                    )}
+                    ) : null}
                 </div>
-            )}
+            ) : null}
         </div>
     );
 }

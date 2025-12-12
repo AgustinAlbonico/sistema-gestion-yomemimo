@@ -66,10 +66,10 @@ interface PieChartData {
 }
 
 interface PieChartCardProps {
-    title: string;
-    data: PieChartData[];
-    isLoading?: boolean;
-    valueFormatter?: (value: number) => string;
+    readonly title: string;
+    readonly data: PieChartData[];
+    readonly isLoading?: boolean;
+    readonly valueFormatter?: (value: number) => string;
 }
 
 export function PieChartCard({ title, data, isLoading, valueFormatter = formatCurrency }: PieChartCardProps) {
@@ -136,13 +136,13 @@ interface BarChartData {
 }
 
 interface BarChartCardProps {
-    title: string;
-    data: BarChartData[];
-    dataKey?: string;
-    isLoading?: boolean;
-    valueFormatter?: (value: number) => string;
-    color?: string;
-    layout?: 'horizontal' | 'vertical';
+    readonly title: string;
+    readonly data: BarChartData[];
+    readonly dataKey?: string;
+    readonly isLoading?: boolean;
+    readonly valueFormatter?: (value: number) => string;
+    readonly color?: string;
+    readonly layout?: 'horizontal' | 'vertical';
 }
 
 export function BarChartCard({
@@ -216,9 +216,9 @@ interface LineChartData {
 }
 
 interface LineChartCardProps {
-    title: string;
-    data: LineChartData[];
-    lines: { dataKey: string; color: string; name: string }[];
+    readonly title: string;
+    readonly data: LineChartData[];
+    readonly lines: { dataKey: string; color: string; name: string }[];
     isLoading?: boolean;
     valueFormatter?: (value: number) => string;
 }
@@ -285,9 +285,9 @@ export function LineChartCard({
 // ============================================
 
 interface AreaChartCardProps {
-    title: string;
-    data: LineChartData[];
-    areas: { dataKey: string; color: string; name: string }[];
+    readonly title: string;
+    readonly data: LineChartData[];
+    readonly areas: { dataKey: string; color: string; name: string }[];
     isLoading?: boolean;
     valueFormatter?: (value: number) => string;
 }
@@ -354,9 +354,9 @@ export function AreaChartCard({
 // ============================================
 
 interface ComposedChartCardProps {
-    title: string;
-    data: LineChartData[];
-    bars: { dataKey: string; color: string; name: string }[];
+    readonly title: string;
+    readonly data: LineChartData[];
+    readonly bars: { dataKey: string; color: string; name: string }[];
     lines: { dataKey: string; color: string; name: string }[];
     isLoading?: boolean;
     valueFormatter?: (value: number) => string;

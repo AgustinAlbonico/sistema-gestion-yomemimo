@@ -18,6 +18,7 @@ import {
 import { CashRegisterService } from '../cash-register/cash-register.service';
 import { CustomerAccountsService } from '../customer-accounts/customer-accounts.service';
 import { parseLocalDate } from '../../common/utils/date.utils';
+import { resolveIsPaidStatus, resolvePaidDate } from '../../common/utils/payment.utils';
 
 interface IncomeStats {
     totalIncomes: number;
@@ -68,9 +69,12 @@ export class IncomesService {
             );
         }
 
+        // Determinar estado de pago usando utilidades compartidas
+        const isOnAccount = dto.isOnAccount || false;
+        const isPaid = isOnAccount ? false : resolveIsPaidStatus(dto.isPaid);
+
         // Si está pagado y no es a cuenta corriente, validar que haya caja abierta
-        const isPaidIncome = !dto.isOnAccount && (dto.isPaid ?? true);
-        if (isPaidIncome) {
+        if (isPaid && !isOnAccount) {
             const openCashRegister = await this.cashRegisterService.getOpenRegister();
             if (!openCashRegister) {
                 throw new BadRequestException(
@@ -91,19 +95,23 @@ export class IncomesService {
             }
         }
 
+        // Determinar fecha de pago
+        const incomeDate = parseLocalDate(dto.incomeDate);
+        const paidAt = resolvePaidDate(isPaid && !isOnAccount, undefined, new Date());
+
         // Crear el ingreso
         const income = this.incomeRepo.create({
             description: dto.description,
             amount: dto.amount,
-            incomeDate: parseLocalDate(dto.incomeDate),
+            incomeDate,
             categoryId: dto.categoryId || null,
             customerId: dto.customerId || null,
             customerName: dto.customerName || null,
-            isOnAccount: dto.isOnAccount || false,
-            paymentMethodId: dto.isOnAccount ? null : dto.paymentMethodId,
+            isOnAccount,
+            paymentMethodId: isOnAccount ? null : dto.paymentMethodId,
             receiptNumber: dto.receiptNumber || null,
-            isPaid: dto.isOnAccount ? false : (dto.isPaid ?? true),
-            paidAt: (dto.isPaid ?? true) && !dto.isOnAccount ? new Date() : null,
+            isPaid,
+            paidAt,
             notes: dto.notes || null,
             createdById: userId || null,
         });
@@ -383,14 +391,14 @@ export class IncomesService {
         const byCategory = await byCategoryQuery.getRawMany();
 
         return {
-            totalIncomes: parseInt(totals.totalIncomes) || 0,
-            totalAmount: parseFloat(totals.totalAmount) || 0,
-            totalPending: parseFloat(totals.totalPending) || 0,
+            totalIncomes: Number.parseInt(totals.totalIncomes, 10) || 0,
+            totalAmount: Number.parseFloat(totals.totalAmount) || 0,
+            totalPending: Number.parseFloat(totals.totalPending) || 0,
             byCategory: byCategory.map((cat) => ({
                 categoryId: cat.categoryId || 'none',
                 categoryName: cat.categoryName,
-                count: parseInt(cat.count) || 0,
-                total: parseFloat(cat.total) || 0,
+                count: Number.parseInt(cat.count, 10) || 0,
+                total: Number.parseFloat(cat.total) || 0,
             })),
         };
     }

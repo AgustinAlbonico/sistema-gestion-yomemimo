@@ -71,7 +71,6 @@ export class CategoriesService {
 
         // Verificar si cambió el margen de ganancia
         const marginChanged = dto.profitMargin !== undefined && dto.profitMargin !== category.profitMargin;
-        const oldMargin = category.profitMargin;
 
         Object.assign(category, dto);
         const savedCategory = await this.categoriesRepository.save(category);

@@ -49,12 +49,11 @@ import { purchasesApi } from '../api/purchases.api';
 import { createPurchaseSchema, CreatePurchaseFormValues } from '../schemas/purchase.schema';
 import { PurchaseStatus } from '../types';
 import { getTodayLocal } from '@/lib/date-utils';
-import { paymentMethodsApi } from '@/features/configuration/api/payment-methods.api';
-import { getPaymentMethodIcon } from '@/features/configuration/utils/payment-method-utils';
+import { PaymentMethodSelect } from '@/components/shared/PaymentMethodSelect';
 
 interface PurchaseFormProps {
-    onSubmit: (data: CreatePurchaseFormValues) => void;
-    isLoading?: boolean;
+    readonly onSubmit: (data: CreatePurchaseFormValues) => void;
+    readonly isLoading?: boolean;
 }
 
 /**
@@ -111,10 +110,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
         queryFn: suppliersApi.getActive,
     });
 
-    const { data: paymentMethods } = useQuery({
-        queryKey: ['payment-methods'],
-        queryFn: paymentMethodsApi.getAll,
-    });
+    // Los métodos de pago ahora se manejan en PaymentMethodSelect
 
     // expenseCategories query removed
 
@@ -301,36 +297,14 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
                                 control={form.control}
                                 name="paymentMethodId"
                                 render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>
-                                            Método de Pago{' '}
-                                            {status === PurchaseStatus.PAID && (
-                                                <span className="text-red-500">*</span>
-                                            )}
-                                        </FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            defaultValue={field.value}
-                                            disabled={status !== PurchaseStatus.PAID}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Seleccionar" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {paymentMethods?.map((method) => (
-                                                    <SelectItem key={method.id} value={method.id}>
-                                                        <div className="flex items-center gap-2">
-                                                            {getPaymentMethodIcon(method.code)}
-                                                            <span>{method.name}</span>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
+                                    <PaymentMethodSelect
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        label="Método de Pago"
+                                        required={status === PurchaseStatus.PAID}
+                                        disabled={status !== PurchaseStatus.PAID}
+                                        variant="select"
+                                    />
                                 )}
                             />
                         </div>
@@ -409,7 +383,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
                                                                     allowDecimals={false}
                                                                     value={field.value}
                                                                     onChange={(e) =>
-                                                                        field.onChange(parseInt(e.target.value) || 1)
+                                                                        field.onChange(Number.parseInt(e.target.value) || 1)
                                                                     }
                                                                 />
                                                             </FormControl>
@@ -431,7 +405,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
                                                                 <NumericInput
                                                                     value={field.value}
                                                                     onChange={(e) =>
-                                                                        field.onChange(parseFloat(e.target.value) || 0)
+                                                                        field.onChange(Number.parseFloat(e.target.value) || 0)
                                                                     }
                                                                 />
                                                             </FormControl>
@@ -454,7 +428,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
 
                                             {/* Eliminar */}
                                             <div className="col-span-1">
-                                                {fields.length > 1 && (
+                                                {fields.length > 1 ? (
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
@@ -464,7 +438,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
-                                                )}
+                                                ) : null}
                                             </div>
                                         </div>
                                     </CardContent>
@@ -485,7 +459,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
                                         <NumericInput
                                             value={field.value}
                                             onChange={(e) =>
-                                                field.onChange(parseFloat(e.target.value) || 0)
+                                                field.onChange(Number.parseFloat(e.target.value) || 0)
                                             }
                                         />
                                     </FormControl>
@@ -503,7 +477,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
                                         <NumericInput
                                             value={field.value}
                                             onChange={(e) =>
-                                                field.onChange(parseFloat(e.target.value) || 0)
+                                                field.onChange(Number.parseFloat(e.target.value) || 0)
                                             }
                                         />
                                     </FormControl>
@@ -550,7 +524,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
                     {/* Botón submit */}
                     <div className="flex justify-end gap-2 pt-4">
                         <Button type="submit" disabled={isLoading || !form.formState.isValid}>
-                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Registrar Compra
                         </Button>
                     </div>

@@ -273,7 +273,7 @@ export default function ProductsPage() {
                                                     id="categoryMargin"
                                                     placeholder="Ej: 30"
                                                     value={newCategoryMargin ?? ''}
-                                                    onChange={(e) => setNewCategoryMargin(e.target.value === '' ? undefined : parseFloat(e.target.value) || 0)}
+                                                    onChange={(e) => setNewCategoryMargin(e.target.value === '' ? undefined : Number.parseFloat(e.target.value) || 0)}
                                                 />
                                                 <Button
                                                     onClick={handleCreateCategory}
@@ -317,7 +317,7 @@ export default function ProductsPage() {
                                             id="editCategoryMargin"
                                             placeholder="Ej: 30 (dejar vacío para usar margen general)"
                                             value={editCategoryMargin ?? ''}
-                                            onChange={(e) => setEditCategoryMargin(e.target.value === '' ? undefined : parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => setEditCategoryMargin(e.target.value === '' ? undefined : Number.parseFloat(e.target.value) || 0)}
                                         />
                                         <span className="text-muted-foreground">%</span>
                                     </div>

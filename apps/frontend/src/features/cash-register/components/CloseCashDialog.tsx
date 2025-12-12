@@ -31,9 +31,9 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { getPaymentMethodIcon } from '@/features/configuration/utils/payment-method-utils';
 
 interface CloseCashDialogProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    currentRegister: CashRegister | null;
+    readonly open: boolean;
+    readonly onOpenChange: (open: boolean) => void;
+    readonly currentRegister: CashRegister | null;
 }
 
 
@@ -206,7 +206,7 @@ export function CloseCashDialog({
                                                     <NumericInput
                                                         placeholder="0.00"
                                                         value={field.value}
-                                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number.parseFloat(e.target.value) || 0)}
                                                         autoFocus
                                                     />
                                                 </FormControl>
@@ -296,9 +296,9 @@ export function CloseCashDialog({
 
 // Componente para arqueo de cada método de pago
 interface PaymentMethodArqueoProps {
-    total: CashRegisterTotals;
-    actualAmount: number;
-    onActualAmountChange: (amount: number) => void;
+    readonly total: CashRegisterTotals;
+    readonly actualAmount: number;
+    readonly onActualAmountChange: (amount: number) => void;
 }
 
 function PaymentMethodArqueo({ total, actualAmount, onActualAmountChange }: PaymentMethodArqueoProps) {
@@ -333,7 +333,7 @@ function PaymentMethodArqueo({ total, actualAmount, onActualAmountChange }: Paym
                     <label className="text-muted-foreground">Real</label>
                     <NumericInput
                         value={actualAmount}
-                        onChange={(e) => onActualAmountChange(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => onActualAmountChange(Number.parseFloat(e.target.value) || 0)}
                         className="h-7 text-xs"
                     />
                 </div>

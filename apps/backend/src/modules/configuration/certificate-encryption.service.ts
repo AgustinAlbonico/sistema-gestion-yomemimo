@@ -4,7 +4,7 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 
 @Injectable()
 export class CertificateEncryptionService {
@@ -12,7 +12,7 @@ export class CertificateEncryptionService {
     private readonly algorithm = 'aes-256-gcm';
     private readonly key: Buffer | null;
 
-    constructor(private configService: ConfigService) {
+    constructor(private readonly configService: ConfigService) {
         const keyBase64 = this.configService.get<string>('AFIP_ENCRYPTION_KEY');
         
         if (keyBase64) {

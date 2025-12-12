@@ -28,10 +28,10 @@ import { usePaymentMethods } from '@/features/configuration/hooks/use-payment-me
 import type { CreatePaymentDto } from '../types';
 
 interface PaymentDialogProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    customerId: string;
-    currentDebt: number;
+    readonly open: boolean;
+    readonly onOpenChange: (open: boolean) => void;
+    readonly customerId: string;
+    readonly currentDebt: number;
 }
 
 export function PaymentDialog({

@@ -9,9 +9,9 @@ import { TopCustomer } from '../types';
 import { User, Mail, Phone } from 'lucide-react';
 
 interface TopCustomersTableProps {
-    customers: TopCustomer[];
-    isLoading?: boolean;
-    title?: string;
+    readonly customers: TopCustomer[];
+    readonly isLoading?: boolean;
+    readonly title?: string;
 }
 
 export function TopCustomersTable({ customers, isLoading, title = 'Top Clientes' }: TopCustomersTableProps) {

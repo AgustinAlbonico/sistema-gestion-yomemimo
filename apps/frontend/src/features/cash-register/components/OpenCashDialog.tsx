@@ -30,8 +30,8 @@ import { useOpenCashRegisterMutation, useSuggestedInitialAmount } from '../hooks
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface OpenCashDialogProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
+    readonly open: boolean;
+    readonly onOpenChange: (open: boolean) => void;
 }
 
 export function OpenCashDialog({ open, onOpenChange }: OpenCashDialogProps) {
@@ -135,7 +135,7 @@ export function OpenCashDialog({ open, onOpenChange }: OpenCashDialogProps) {
                                         <NumericInput
                                             placeholder="0.00"
                                             value={field.value}
-                                            onChange={(e) => handleAmountChange(parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => handleAmountChange(Number.parseFloat(e.target.value) || 0)}
                                             className={showAdjustmentWarning ? 'border-yellow-500 focus-visible:ring-yellow-500' : ''}
                                             autoFocus
                                         />

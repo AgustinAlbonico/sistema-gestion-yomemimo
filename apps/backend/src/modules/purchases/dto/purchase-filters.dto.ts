@@ -42,13 +42,13 @@ export class PurchaseFiltersDto {
     search?: string; // Búsqueda general
 
     @IsOptional()
-    @Transform(({ value }) => parseInt(value, 10))
+    @Transform(({ value }) => Number.parseInt(value, 10))
     @IsNumber()
     @Min(1)
     page?: number;
 
     @IsOptional()
-    @Transform(({ value }) => parseInt(value, 10))
+    @Transform(({ value }) => Number.parseInt(value, 10))
     @IsNumber()
     @Min(1)
     @Max(100)

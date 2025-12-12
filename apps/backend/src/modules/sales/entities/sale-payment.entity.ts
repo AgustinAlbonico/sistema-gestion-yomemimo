@@ -41,7 +41,7 @@ export class SalePayment {
         scale: 2,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value) || 0,
+            from: (value: string) => Number.parseFloat(value) || 0,
         },
     })
     amount!: number; // Monto de este pago

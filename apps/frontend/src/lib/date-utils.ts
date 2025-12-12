@@ -134,7 +134,7 @@ export function formatDateForDisplay(
 export function formatDateTimeForDisplay(dateString: string): string {
     const date = new Date(dateString);
     
-    if (isNaN(date.getTime())) {
+    if (Number.isNaN(date.getTime())) {
         return dateString;
     }
     
@@ -157,6 +157,6 @@ export function isValidDateString(dateString: string): boolean {
     if (!regex.test(dateString)) return false;
     
     const date = parseLocalDate(dateString);
-    return date instanceof Date && !isNaN(date.getTime());
+    return date instanceof Date && !Number.isNaN(date.getTime());
 }
 

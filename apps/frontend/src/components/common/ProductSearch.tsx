@@ -24,21 +24,21 @@ import { Product } from '@/features/products/types';
 import { formatCurrency } from '@/lib/utils';
 
 interface ProductSearchProps {
-    value?: string; // ID del producto seleccionado
-    onSelect: (productId: string, product: Product) => void;
-    onClear?: () => void;
-    placeholder?: string;
-    showClearButton?: boolean;
-    showStock?: boolean;
-    showCost?: boolean;
-    showSKU?: boolean;
-    limit?: number;
-    className?: string;
-    disabled?: boolean;
-    allowCreate?: boolean; // Si permite crear productos nuevos
-    onCreateClick?: () => void; // Callback cuando se clickea "Crear producto"
-    excludeIds?: string[]; // IDs de productos a excluir de los resultados
-    excludeOutOfStock?: boolean; // Si true, excluye productos con stock 0
+    readonly value?: string; // ID del producto seleccionado
+    readonly onSelect: (productId: string, product: Product) => void;
+    readonly onClear?: () => void;
+    readonly placeholder?: string;
+    readonly showClearButton?: boolean;
+    readonly showStock?: boolean;
+    readonly showCost?: boolean;
+    readonly showSKU?: boolean;
+    readonly limit?: number;
+    readonly className?: string;
+    readonly disabled?: boolean;
+    readonly allowCreate?: boolean; // Si permite crear productos nuevos
+    readonly onCreateClick?: () => void; // Callback cuando se clickea "Crear producto"
+    readonly excludeIds?: string[]; // IDs de productos a excluir de los resultados
+    readonly excludeOutOfStock?: boolean; // Si true, excluye productos con stock 0
 }
 
 /**

@@ -27,9 +27,9 @@ import { formatCurrency } from '@/lib/utils';
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 interface StockHistoryDialogProps {
-    product: Product | null;
-    open: boolean;
-    onClose: () => void;
+    readonly product: Product | null;
+    readonly open: boolean;
+    readonly onClose: () => void;
 }
 
 /**

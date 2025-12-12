@@ -4,12 +4,11 @@
  */
 import {
     Injectable,
-    NotFoundException,
     BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, DataSource } from 'typeorm';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { CustomerAccount, AccountStatus } from './entities/customer-account.entity';
 import { AccountMovement, MovementType } from './entities/account-movement.entity';
 import { CreateChargeDto, CreatePaymentDto, UpdateAccountDto, AccountFiltersDto } from './dto';
@@ -242,12 +241,7 @@ export class CustomerAccountsService {
             totalCharges,
             totalPayments,
             currentBalance,
-            customerPosition:
-                currentBalance > 0
-                    ? 'customer_owes'
-                    : currentBalance < 0
-                        ? 'business_owes'
-                        : 'settled',
+            customerPosition: this.getCustomerPosition(currentBalance),
         };
 
         return {
@@ -456,5 +450,14 @@ export class CustomerAccountsService {
         } else {
             console.log('[CustomerAccounts] No hay clientes morosos');
         }
+    }
+
+    /**
+     * Determina la posición del cliente según el balance
+     */
+    private getCustomerPosition(balance: number): 'customer_owes' | 'business_owes' | 'settled' {
+        if (balance > 0) return 'customer_owes';
+        if (balance < 0) return 'business_owes';
+        return 'settled';
     }
 }

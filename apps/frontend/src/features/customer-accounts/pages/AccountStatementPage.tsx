@@ -268,7 +268,7 @@ export function AccountStatementPage() {
                                     <Select
                                         value={selectedMonth.toString()}
                                         onValueChange={(v) => {
-                                            setSelectedMonth(parseInt(v));
+                                            setSelectedMonth(Number.parseInt(v));
                                             setShowAllMovements(false);
                                         }}
                                         disabled={showAllMovements}
@@ -288,7 +288,7 @@ export function AccountStatementPage() {
                                     <Select
                                         value={selectedYear.toString()}
                                         onValueChange={(v) => {
-                                            setSelectedYear(parseInt(v));
+                                            setSelectedYear(Number.parseInt(v));
                                             setShowAllMovements(false);
                                         }}
                                         disabled={showAllMovements}

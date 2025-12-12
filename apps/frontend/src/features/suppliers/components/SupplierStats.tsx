@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SupplierStats as SupplierStatsType } from '../types';
 
 interface SupplierStatsProps {
-    stats: SupplierStatsType;
+    readonly stats: SupplierStatsType;
 }
 
 export function SupplierStats({ stats }: SupplierStatsProps) {

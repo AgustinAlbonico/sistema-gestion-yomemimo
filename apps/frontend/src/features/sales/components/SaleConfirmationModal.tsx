@@ -35,9 +35,9 @@ import { api } from '@/lib/axios';
 import { toast } from 'sonner';
 
 interface SaleConfirmationModalProps {
-    sale: Sale | null;
-    open: boolean;
-    onClose: () => void;
+    readonly sale: Sale | null;
+    readonly open: boolean;
+    readonly onClose: () => void;
 }
 
 /**

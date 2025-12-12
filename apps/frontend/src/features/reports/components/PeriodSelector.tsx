@@ -12,10 +12,10 @@ import { ReportPeriod } from '../types';
 import { periodLabels } from '../hooks/useReports';
 
 interface PeriodSelectorProps {
-    period: ReportPeriod;
-    startDate?: string;
-    endDate?: string;
-    onChange: (period: ReportPeriod, startDate?: string, endDate?: string) => void;
+    readonly period: ReportPeriod;
+    readonly startDate?: string;
+    readonly endDate?: string;
+    readonly onChange: (period: ReportPeriod, startDate?: string, endDate?: string) => void;
 }
 
 const periodOptions = [

@@ -8,7 +8,7 @@ import {
     IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MovementType, PaymentMethod } from '../entities/cash-movement.entity';
+import { MovementType } from '../entities/cash-movement.entity';
 
 export class CreateCashMovementDto {
     @ApiProperty({

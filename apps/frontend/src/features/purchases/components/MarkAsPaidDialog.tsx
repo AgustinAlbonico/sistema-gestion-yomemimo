@@ -22,11 +22,11 @@ import { Loader2, CreditCard, CheckCircle2, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MarkAsPaidDialogProps {
-    purchase: Purchase | null;
-    open: boolean;
-    onClose: () => void;
-    onConfirm: (purchaseId: string, paymentMethodId: string) => void;
-    isLoading?: boolean;
+    readonly purchase: Purchase | null;
+    readonly open: boolean;
+    readonly onClose: () => void;
+    readonly onConfirm: (purchaseId: string, paymentMethodId: string) => void;
+    readonly isLoading?: boolean;
 }
 
 export function MarkAsPaidDialog({

@@ -10,9 +10,9 @@ import { TopProduct } from '../types';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface TopProductsTableProps {
-    products: TopProduct[];
-    isLoading?: boolean;
-    title?: string;
+    readonly products: TopProduct[];
+    readonly isLoading?: boolean;
+    readonly title?: string;
 }
 
 export function TopProductsTable({ products, isLoading, title = 'Top Productos Más Vendidos' }: TopProductsTableProps) {

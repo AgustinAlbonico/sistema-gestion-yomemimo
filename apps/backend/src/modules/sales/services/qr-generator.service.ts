@@ -42,7 +42,7 @@ export class QrGeneratorService {
         const qrData: QrDataAfip = {
             ver: 1,
             fecha: this.formatDate(invoice.issueDate),
-            cuit: parseInt(invoice.emitterCuit),
+            cuit: Number.parseInt(invoice.emitterCuit),
             ptoVta: invoice.pointOfSale,
             tipoCmp: invoice.invoiceType,
             nroCmp: invoice.invoiceNumber,
@@ -50,13 +50,13 @@ export class QrGeneratorService {
             moneda: 'PES',
             ctz: 1,
             tipoCodAut: 'E', // CAE
-            codAut: parseInt(invoice.cae),
+            codAut: Number.parseInt(invoice.cae),
         };
 
         // Agregar datos del receptor si tiene documento
         if (invoice.receiverDocumentNumber && invoice.receiverDocumentType !== 99) {
             qrData.tipoDocRec = invoice.receiverDocumentType;
-            qrData.nroDocRec = parseInt(invoice.receiverDocumentNumber);
+            qrData.nroDocRec = Number.parseInt(invoice.receiverDocumentNumber);
         }
 
         // Convertir a JSON y luego a Base64

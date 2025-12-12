@@ -19,7 +19,7 @@ import {
 import { SaleDetailDialog } from './SaleDetailDialog';
 
 interface CustomerSalesHistoryProps {
-    customerId: string;
+    readonly customerId: string;
 }
 
 export function CustomerSalesHistory({ customerId }: CustomerSalesHistoryProps) {

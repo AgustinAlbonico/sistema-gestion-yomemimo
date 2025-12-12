@@ -125,7 +125,7 @@ export class CreateSaleDto {
 
     @IsString()
     @IsOptional()
-    saleDate?: string; // YYYY-MM-DD
+    saleDate?: string; // ISO 8601 (YYYY-MM-DDTHH:mm:ss o YYYY-MM-DD)
 
     @IsNumber()
     @Min(0)

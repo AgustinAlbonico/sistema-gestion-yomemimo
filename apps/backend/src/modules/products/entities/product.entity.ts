@@ -38,7 +38,7 @@ export class Product {
         scale: 2,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value),
+            from: (value: string) => Number.parseFloat(value),
         },
     })
     cost!: number;
@@ -50,7 +50,7 @@ export class Product {
         nullable: true,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => parseFloat(value),
+            from: (value: string) => Number.parseFloat(value),
         },
     })
     price?: number | null;
@@ -62,7 +62,7 @@ export class Product {
         nullable: true,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => value ? parseFloat(value) : null,
+            from: (value: string) => value ? Number.parseFloat(value) : null,
         },
     })
     profitMargin?: number | null;
