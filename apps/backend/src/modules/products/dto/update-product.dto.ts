@@ -13,11 +13,17 @@ export type UpdateProductDTO = z.infer<typeof UpdateProductSchema>;
  * Opcional: margen de ganancia personalizado
  */
 export class UpdateProductDto {
-    @ApiPropertyOptional({ example: 'Coca Cola 500ml' })
+    @ApiPropertyOptional({ example: 'Shampoo Sedal 400ml' })
     @IsOptional()
     @IsString()
     @Length(1, 255)
     name?: string;
+
+    @ApiPropertyOptional({ example: 'Shampoo reparador para cabello dañado', description: 'Descripción del producto' })
+    @IsOptional()
+    @IsString()
+    @Length(0, 1000)
+    description?: string | null;
 
     @ApiPropertyOptional({ example: 100.00 })
     @IsOptional()
@@ -46,7 +52,7 @@ export class UpdateProductDto {
     @IsBoolean()
     useCustomMargin?: boolean;
 
-    @ApiPropertyOptional({ example: 40.00, description: 'Margen de ganancia personalizado (%)' })
+    @ApiPropertyOptional({ example: 40, description: 'Margen de ganancia personalizado (%)' })
     @IsOptional()
     @IsNumber()
     @Min(0)

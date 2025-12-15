@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
-import { CashRegister, CashRegisterTotals } from '../types';
+import { CashRegister} from '../types';
 import { getPaymentMethodIcon } from '@/features/configuration/utils/payment-method-utils';
 
 interface CashRegisterSummaryProps {

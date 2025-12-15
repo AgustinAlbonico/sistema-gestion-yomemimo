@@ -18,8 +18,10 @@ import {
 import { CashRegisterService } from './cash-register.service';
 import { OpenCashRegisterDto } from './dto/open-cash-register.dto';
 import { CloseCashRegisterDto } from './dto/close-cash-register.dto';
+import { CreateCashMovementDto } from './dto/create-cash-movement.dto';
 
 import { CashFlowReportFiltersDto } from './dto/cash-flow-report-filters.dto';
+import { CashHistoryFiltersDto } from './dto/cash-history-filters.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 interface RequestWithUser {
@@ -86,8 +88,13 @@ export class CashRegisterController {
         return this.cashRegisterService.getCashStatus();
     }
 
-
-
+    @Post('movements')
+    @ApiOperation({ summary: 'Crear movimiento manual de caja (retiro/ingreso)' })
+    @ApiResponse({ status: 201, description: 'Movimiento creado exitosamente' })
+    @ApiResponse({ status: 400, description: 'No hay caja abierta' })
+    async createMovement(@Body() dto: CreateCashMovementDto, @Request() req: RequestWithUser) {
+        return this.cashRegisterService.createManualMovement(dto, req.user.userId);
+    }
 
     // ===== SPRINT 1: Reportes por Rango =====
 
@@ -99,17 +106,20 @@ export class CashRegisterController {
     }
 
     @Get('history')
-    @ApiOperation({ summary: 'Obtener historial de cajas' })
-    @ApiQuery({ name: 'startDate', required: false, type: String })
-    @ApiQuery({ name: 'endDate', required: false, type: String })
+    @ApiOperation({ summary: 'Obtener historial de cajas con paginación' })
     @ApiResponse({ status: 200, description: 'Historial obtenido exitosamente' })
-    async getHistory(
-        @Query('startDate') startDate?: string,
-        @Query('endDate') endDate?: string,
-    ) {
-        const start = startDate ? new Date(startDate) : undefined;
-        const end = endDate ? new Date(endDate) : undefined;
-        return this.cashRegisterService.findAll(start, end);
+    async getHistory(@Query() filters: CashHistoryFiltersDto) {
+        const { data, total } = await this.cashRegisterService.findAll(filters);
+
+        return {
+            data,
+            meta: {
+                total,
+                page: filters.page || 1,
+                limit: filters.limit || 10,
+                totalPages: Math.ceil(total / (filters.limit || 10)),
+            },
+        };
     }
 
     @Get('stats')
@@ -121,9 +131,7 @@ export class CashRegisterController {
         @Query('startDate') startDate?: string,
         @Query('endDate') endDate?: string,
     ) {
-        const start = startDate ? new Date(startDate) : undefined;
-        const end = endDate ? new Date(endDate) : undefined;
-        return this.cashRegisterService.getStats(start, end);
+        return this.cashRegisterService.getStats(startDate, endDate);
     }
 
     @Get(':id')

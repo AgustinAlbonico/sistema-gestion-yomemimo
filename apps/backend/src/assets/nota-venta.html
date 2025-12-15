@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
 	<title>Nota de Venta</title>
 	<style type="text/css">
@@ -42,7 +42,6 @@
 			border: 1px solid;
 			border-top: 1px solid; 
 			border-bottom: 1px solid; 
-			margin-right: -30px;
 			background: #f0f0f0;
 			width: 60px;
 			height: 50px;
@@ -51,6 +50,7 @@
 			right: 0;
 			top: -1px;
 			margin: auto;
+			margin-right: -30px;
 			text-align: center;
 			font-size: 28px;
 			font-weight: 600;
@@ -173,6 +173,13 @@
 </head>
 <body>
 	<table class="bill-container">
+		<thead style="display:none">
+			<tr>
+				<th scope="col">Sección</th>
+				<th scope="col">Detalle</th>
+			</tr>
+		</thead>
+		<tbody>
 		<tr class="bill-emitter-row">
 			<td>
 				<div class="bill-type">
@@ -241,28 +248,32 @@
 			<td colspan="2">
 				<div>
 					<table>
-						<tr>
-							<td>Código</td>
-							<td>Producto / Servicio</td>
-							<td>Cantidad</td>
-							<td>U. Medida</td>
-							<td>Precio Unit.</td>
-							<td>% Bonif.</td>
-							<td>Imp. Bonif.</td>
-							<td>Subtotal</td>
-						</tr>
-						{{#each items}}
-						<tr>
-							<td>{{this.code}}</td>
-							<td>{{this.description}}</td>
-							<td>{{this.quantity}}</td>
-							<td>{{this.unitOfMeasure}}</td>
-							<td>{{this.unitPrice}}</td>
-							<td>{{this.discountPercent}}</td>
-							<td>{{this.discountAmount}}</td>
-							<td>{{this.subtotal}}</td>
-						</tr>
-						{{/each}}
+						<thead>
+							<tr>
+								<th scope="col">Código</th>
+								<th scope="col">Producto / Servicio</th>
+								<th scope="col">Cantidad</th>
+								<th scope="col">U. Medida</th>
+								<th scope="col">Precio Unit.</th>
+								<th scope="col">% Bonif.</th>
+								<th scope="col">Imp. Bonif.</th>
+								<th scope="col">Subtotal</th>
+							</tr>
+						</thead>
+						<tbody>
+							{{#each items}}
+							<tr>
+								<td>{{this.code}}</td>
+								<td>{{this.description}}</td>
+								<td>{{this.quantity}}</td>
+								<td>{{this.unitOfMeasure}}</td>
+								<td>{{this.unitPrice}}</td>
+								<td>{{this.discountPercent}}</td>
+								<td>{{this.discountAmount}}</td>
+								<td>{{this.subtotal}}</td>
+							</tr>
+							{{/each}}
+						</tbody>
 					</table>
 				</div>
 			</td>
@@ -334,6 +345,7 @@
 				</p>
 			</td>
 		</tr>
+	</tbody>
 	</table>
 </body>
 </html>

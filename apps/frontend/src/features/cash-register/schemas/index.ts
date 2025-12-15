@@ -36,12 +36,12 @@ export const closeCashRegisterSchema = z.object({
 });
 
 export const createCashMovementSchema = z.object({
-    movementType: z.enum(['income', 'expense', 'withdrawal', 'deposit', 'adjustment'], {
+    movementType: z.enum(['income', 'expense'], {
         required_error: 'El tipo de movimiento es requerido',
     }),
-    paymentMethod: z.enum(['cash', 'debit_card', 'credit_card', 'transfer', 'qr', 'check', 'other'], {
+    paymentMethodId: z.string({
         required_error: 'El método de pago es requerido',
-    }),
+    }).uuid('El método de pago es inválido'),
     amount: z.coerce
         .number({
             required_error: 'El monto es requerido',

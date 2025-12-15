@@ -4,17 +4,10 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { Plus, Truck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { FormDialog } from '@/components/ui/form-dialog';
 
 import { SupplierList } from '@/features/suppliers/components/SupplierList';
 import { SupplierForm } from '@/features/suppliers/components/SupplierForm';
@@ -62,15 +55,16 @@ export default function SuppliersPage() {
         },
     });
 
-    const deleteMutation = useMutation({
-        mutationFn: suppliersApi.delete,
-        onSuccess: () => {
+    const toggleStatusMutation = useMutation({
+        mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+            suppliersApi.update(id, { isActive }),
+        onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['suppliers'] });
             queryClient.invalidateQueries({ queryKey: ['suppliers-stats'] });
-            toast.success('Proveedor desactivado');
+            toast.success(variables.isActive ? 'Proveedor activado' : 'Proveedor desactivado');
         },
         onError: () => {
-            toast.error('Error al desactivar proveedor');
+            toast.error('Error al cambiar estado del proveedor');
         },
     });
 
@@ -84,9 +78,13 @@ export default function SuppliersPage() {
         updateMutation.mutate({ id: editingSupplier.id, data });
     };
 
-    const handleDelete = (id: string) => {
-        if (confirm('¿Estás seguro de desactivar este proveedor?')) {
-            deleteMutation.mutate(id);
+    const handleToggleStatus = async (id: string) => {
+        const supplier = await suppliersApi.getOne(id);
+        const newStatus = !supplier.isActive;
+        const action = newStatus ? 'activar' : 'desactivar';
+
+        if (confirm(`¿Estás seguro de ${action} este proveedor?`)) {
+            toggleStatusMutation.mutate({ id, isActive: newStatus });
         }
     };
 
@@ -106,49 +104,50 @@ export default function SuppliersPage() {
                 </div>
 
                 {/* Botón crear proveedor */}
-                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                    <DialogTrigger asChild>
-                        <Button>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Nuevo Proveedor
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                            <DialogTitle>Nuevo Proveedor</DialogTitle>
-                            <DialogDescription>
-                                Ingresa los datos del nuevo proveedor
-                            </DialogDescription>
-                        </DialogHeader>
-                        <SupplierForm
-                            onSubmit={handleCreate}
-                            isLoading={createMutation.isPending}
-                        />
-                    </DialogContent>
-                </Dialog>
+                <Button onClick={() => setIsCreateOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nuevo Proveedor
+                </Button>
             </div>
 
             {/* Estadísticas */}
-            {stats && <SupplierStats stats={stats} />}
+            {stats ? <SupplierStats stats={stats} /> : null}
 
             {/* Lista de proveedores */}
             <div className="bg-card rounded-lg border shadow-sm p-6">
-                <SupplierList onEdit={handleEdit} onDelete={handleDelete} />
+                <SupplierList onEdit={handleEdit} onDelete={handleToggleStatus} />
             </div>
 
-            {/* Modal de edición */}
-            <Dialog
+            {/* Modal de creación premium */}
+            <FormDialog
+                open={isCreateOpen}
+                onOpenChange={setIsCreateOpen}
+                title="Nuevo Proveedor"
+                description="Ingresa los datos del nuevo proveedor"
+                icon={Truck}
+                variant="info"
+                maxWidth="lg"
+            >
+                <div className="max-h-[60vh] overflow-y-auto pr-2">
+                    <SupplierForm
+                        onSubmit={handleCreate}
+                        isLoading={createMutation.isPending}
+                    />
+                </div>
+            </FormDialog>
+
+            {/* Modal de edición premium */}
+            <FormDialog
                 open={!!editingSupplier}
                 onOpenChange={(open) => !open && setEditingSupplier(null)}
+                title="Editar Proveedor"
+                description="Modifica los datos del proveedor"
+                icon={Truck}
+                variant="info"
+                maxWidth="lg"
             >
-                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Editar Proveedor</DialogTitle>
-                        <DialogDescription>
-                            Modifica los datos del proveedor
-                        </DialogDescription>
-                    </DialogHeader>
-                    {editingSupplier && (
+                <div className="max-h-[60vh] overflow-y-auto pr-2">
+                    {editingSupplier ? (
                         <SupplierForm
                             initialData={{
                                 name: editingSupplier.name,
@@ -173,9 +172,10 @@ export default function SuppliersPage() {
                             isLoading={updateMutation.isPending}
                             isEditing
                         />
-                    )}
-                </DialogContent>
-            </Dialog>
+                    ) : null}
+                </div>
+            </FormDialog>
         </div>
     );
 }
+

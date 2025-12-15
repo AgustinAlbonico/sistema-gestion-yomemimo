@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { expenseSchema, ExpenseFormValues } from '../schemas/expense.schema';
 
+import { Loader2 } from 'lucide-react';
 import { getTodayLocal } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
 import {

@@ -49,6 +49,19 @@ export class CashMovement {
     @JoinColumn({ name: 'created_by' })
     createdBy?: User;
 
+    // Campos para movimientos manuales (solo se usan cuando referenceType = 'manual')
+    @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+    manualAmount?: number;
+
+    @Column({ type: 'varchar', length: 200, nullable: true })
+    manualDescription?: string;
+
+    @Column({ type: 'uuid', nullable: true, name: 'manual_payment_method_id' })
+    manualPaymentMethodId?: string;
+
+    @Column({ type: 'varchar', length: 1000, nullable: true })
+    manualNotes?: string;
+
     @CreateDateColumn()
     createdAt!: Date;
 

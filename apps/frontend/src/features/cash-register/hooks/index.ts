@@ -6,14 +6,15 @@ import type {
     CloseCashRegisterDto,
     CreateCashMovementDto,
     CashFlowReportFilters,
+    CashHistoryFilters,
 } from '../types';
 
 const QUERY_KEYS = {
     current: ['cash-register', 'current'] as const,
     status: ['cash-register', 'status'] as const,
     suggestedInitial: ['cash-register', 'suggested-initial'] as const,
-    history: (params?: { startDate?: string; endDate?: string }) =>
-        ['cash-register', 'history', params] as const,
+    history: (filters?: CashHistoryFilters) =>
+        ['cash-register', 'history', filters] as const,
     stats: (params?: { startDate?: string; endDate?: string }) =>
         ['cash-register', 'stats', params] as const,
     detail: (id: string) => ['cash-register', 'detail', id] as const,
@@ -126,12 +127,12 @@ export function useCreateCashMovementMutation() {
 }
 
 /**
- * Hook para obtener el historial de cajas
+ * Hook para obtener el historial de cajas con paginación
  */
-export function useCashHistory(params?: { startDate?: string; endDate?: string }) {
+export function useCashHistory(filters?: CashHistoryFilters) {
     return useQuery({
-        queryKey: QUERY_KEYS.history(params),
-        queryFn: () => cashRegisterApi.getHistory(params),
+        queryKey: QUERY_KEYS.history(filters),
+        queryFn: () => cashRegisterApi.getHistory(filters),
     });
 }
 

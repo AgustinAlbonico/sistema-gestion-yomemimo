@@ -10,6 +10,8 @@ import ExpensesPage from './pages/expenses/ExpensesPage';
 import PurchasesPage from './pages/purchases/PurchasesPage';
 import SalesPage from './pages/sales/SalesPage';
 import SettingsPage from './pages/settings/SettingsPage';
+import UsersManagementPage from './pages/settings/UsersManagementPage';
+import BackupPage from './pages/settings/BackupPage';
 import FiscalConfigPage from './pages/configuration/FiscalConfigPage';
 import { CashRegisterPage } from './pages/CashRegisterPage';
 import { CustomerAccountsPage, AccountStatementPage } from './features/customer-accounts';
@@ -68,6 +70,8 @@ function App() {
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="settings/fiscal" element={<FiscalConfigPage />} />
+            <Route path="settings/users" element={<UsersManagementPage />} />
+            <Route path="settings/backup" element={<BackupPage />} />
           </Route>
 
           {/* Ruta 404 */}

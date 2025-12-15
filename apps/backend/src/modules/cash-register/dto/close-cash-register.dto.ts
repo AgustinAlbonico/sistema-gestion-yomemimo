@@ -6,37 +6,31 @@ export class ActualAmountsDto {
     @ApiPropertyOptional({ description: 'Monto real contado en débito', example: 5000 })
     @IsNumber()
     @IsOptional()
-    @Min(0)
     debit_card?: number;
 
     @ApiPropertyOptional({ description: 'Monto real contado en crédito', example: 3000 })
     @IsNumber()
     @IsOptional()
-    @Min(0)
     credit_card?: number;
 
     @ApiPropertyOptional({ description: 'Monto real en transferencias', example: 2000 })
     @IsNumber()
     @IsOptional()
-    @Min(0)
     transfer?: number;
 
     @ApiPropertyOptional({ description: 'Monto real en QR', example: 1000 })
     @IsNumber()
     @IsOptional()
-    @Min(0)
     qr?: number;
 
     @ApiPropertyOptional({ description: 'Monto real en cheques', example: 0 })
     @IsNumber()
     @IsOptional()
-    @Min(0)
     check?: number;
 
     @ApiPropertyOptional({ description: 'Monto real en otros métodos', example: 0 })
     @IsNumber()
     @IsOptional()
-    @Min(0)
     other?: number;
 }
 

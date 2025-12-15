@@ -32,7 +32,7 @@ export class AppService {
     try {
       await this.dataSource.query('SELECT 1');
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

@@ -33,6 +33,8 @@ import { AddStockMovementSource1733100001000 } from '../migrations/1733100001000
 import { CreateCustomerAccountsTables1733535600000 } from '../migrations/1733535600000-CreateCustomerAccountsTables';
 import { SeparateWsaaTokensByEnvironment1733866700000 } from '../migrations/1733866700000-SeparateWsaaTokensByEnvironment';
 import { CategoryProfitMarginAndManyToOne1733877600000 } from '../migrations/1733877600000-CategoryProfitMarginAndManyToOne';
+import { RemoveExpenseCategoryFields1734095590000 } from '../migrations/1734095590000-RemoveExpenseCategoryFields';
+import { AddDescriptionToProducts1734110000000 } from '../migrations/1734110000000-AddDescriptionToProducts';
 
 // Cargar variables de entorno
 config();
@@ -79,12 +81,14 @@ const dataSource = new DataSource({
         CreateCustomerAccountsTables1733535600000,
         SeparateWsaaTokensByEnvironment1733866700000,
         CategoryProfitMarginAndManyToOne1733877600000,
+        RemoveExpenseCategoryFields1734095590000,
+        AddDescriptionToProducts1734110000000,
     ],
     synchronize: false,
     logging: true,
 });
 
-async function runMigrations() {
+(async () => {
     try {
         console.log('🔄 Conectando a la base de datos...');
         await dataSource.initialize();
@@ -110,19 +114,15 @@ async function runMigrations() {
             });
         }
 
-        await dataSource.destroy();
         console.log('\n🎉 Proceso completado');
-        process.exit(0);
+        process.exitCode = 0;
 
     } catch (error) {
         console.error('❌ Error ejecutando migraciones:', error);
-        try {
+        process.exitCode = 1;
+    } finally {
+        if (dataSource.isInitialized) {
             await dataSource.destroy();
-        } catch (e) {
-            // Ignorar error de destroy si la conexión no se estableció
         }
-        process.exit(1);
     }
-}
-
-runMigrations();
+})();

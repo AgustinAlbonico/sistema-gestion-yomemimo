@@ -19,6 +19,8 @@ import {
 import { CashRegisterService } from '../cash-register/cash-register.service';
 import { parseLocalDate } from '../../common/utils/date.utils';
 import { resolveIsPaidStatus, resolvePaidDate } from '../../common/utils/payment.utils';
+import { AuditService } from '../audit/audit.service';
+import { AuditEntityType, AuditAction } from '../audit/enums';
 
 export interface ExpenseStats {
     totalExpenses: number;
@@ -48,6 +50,7 @@ export class ExpensesService {
         @InjectRepository(ExpenseCategory)
         private readonly categoryRepo: Repository<ExpenseCategory>,
         private readonly cashRegisterService: CashRegisterService,
+        private readonly auditService: AuditService,
     ) { }
 
     /**
@@ -115,10 +118,30 @@ export class ExpensesService {
             } catch (error_) {
                 // Si falla el registro en caja, solo loguear el error
                 // No queremos que falle el gasto por esto
-                handleCashRegisterError(error_, 'ExpensesService');
+                console.warn(`[ExpensesService] No se pudo registrar egreso en caja: ${(error_ as Error).message}`);
             }
         } else {
             console.log(`[ExpensesService] No se registra en caja. isPaid: ${isPaid}, paymentMethodId: ${dto.paymentMethodId}`);
+        }
+
+        // Log de auditoría
+        if (userId) {
+            await this.auditService.logSilent({
+                entityType: AuditEntityType.EXPENSE,
+                entityId: savedExpense.id,
+                action: AuditAction.CREATE,
+                userId,
+                newValues: {
+                    description: savedExpense.description,
+                    amount: savedExpense.amount,
+                    categoryId: savedExpense.categoryId,
+                    isPaid: savedExpense.isPaid,
+                },
+                description: AuditService.generateDescription(
+                    AuditAction.CREATE,
+                    AuditEntityType.EXPENSE
+                ),
+            });
         }
 
         return savedExpense;
@@ -215,26 +238,7 @@ export class ExpensesService {
     async update(id: string, dto: UpdateExpenseDto): Promise<Expense> {
         const expense = await this.findOne(id);
 
-        // Manejar categoría (puede ser null para eliminar categoría)
-        if (dto.categoryId !== undefined) {
-            if (dto.categoryId === null || dto.categoryId === '') {
-                // Eliminar categoría
-                expense.category = null;
-                expense.categoryId = null;
-            } else if (dto.categoryId !== expense.categoryId) {
-                // Cambiar categoría, validar que existe
-                const category = await this.categoryRepo.findOne({
-                    where: { id: dto.categoryId },
-                });
-
-                if (!category) {
-                    throw new NotFoundException('Categoría no encontrada');
-                }
-
-                expense.category = category;
-                expense.categoryId = dto.categoryId;
-            }
-        }
+        await this.applyExpenseCategoryUpdate(expense, dto.categoryId);
 
         // Actualizar campos
         if (dto.description !== undefined) expense.description = dto.description;
@@ -245,24 +249,78 @@ export class ExpensesService {
         if (dto.notes !== undefined) expense.notes = dto.notes ?? null;
 
         // Manejar estado de pago
-        if (dto.isPaid !== undefined) {
-            expense.isPaid = dto.isPaid;
-            if (dto.isPaid && !expense.paidAt) {
-                expense.paidAt = dto.paidAt ? parseLocalDate(dto.paidAt) : expense.expenseDate;
-            } else if (!dto.isPaid) {
-                expense.paidAt = null;
-            }
-        }
+        this.applyExpensePaidUpdate(expense, dto);
 
         return this.expenseRepo.save(expense);
+    }
+
+    private async applyExpenseCategoryUpdate(
+        expense: Expense,
+        categoryId: string | null | undefined,
+    ): Promise<void> {
+        if (categoryId === undefined) return;
+
+        if (categoryId === null || categoryId === '') {
+            expense.category = null;
+            expense.categoryId = null;
+            return;
+        }
+
+        if (categoryId === expense.categoryId) return;
+
+        const category = await this.categoryRepo.findOne({
+            where: { id: categoryId },
+        });
+
+        if (!category) {
+            throw new NotFoundException('Categoría no encontrada');
+        }
+
+        expense.category = category;
+        expense.categoryId = categoryId;
+    }
+
+    private applyExpensePaidUpdate(expense: Expense, dto: UpdateExpenseDto): void {
+        if (dto.isPaid === undefined) return;
+
+        expense.isPaid = dto.isPaid;
+
+        if (!dto.isPaid) {
+            expense.paidAt = null;
+            return;
+        }
+
+        if (!expense.paidAt) {
+            expense.paidAt = dto.paidAt ? parseLocalDate(dto.paidAt) : expense.expenseDate;
+        }
     }
 
     /**
      * Elimina un gasto (soft delete)
      */
-    async remove(id: string): Promise<{ message: string }> {
+    async remove(id: string, userId?: string): Promise<{ message: string }> {
         const expense = await this.findOne(id);
         await this.expenseRepo.softDelete(expense.id);
+
+        // Log de auditoría
+        if (userId) {
+            await this.auditService.logSilent({
+                entityType: AuditEntityType.EXPENSE,
+                entityId: id,
+                action: AuditAction.DELETE,
+                userId,
+                previousValues: {
+                    description: expense.description,
+                    amount: expense.amount,
+                    isPaid: expense.isPaid,
+                },
+                description: AuditService.generateDescription(
+                    AuditAction.DELETE,
+                    AuditEntityType.EXPENSE
+                ),
+            });
+        }
+
         return { message: 'Gasto eliminado' };
     }
 
@@ -308,6 +366,20 @@ export class ExpensesService {
                 `Error al registrar el egreso en caja: ${error_ instanceof Error ? error_.message : 'Error desconocido'}`
             );
         }
+
+        // Log de auditoría
+        await this.auditService.logSilent({
+            entityType: AuditEntityType.EXPENSE,
+            entityId: id,
+            action: AuditAction.PAY,
+            userId,
+            previousValues: { isPaid: false },
+            newValues: { isPaid: true, paidAt: savedExpense.paidAt },
+            description: AuditService.generateDescription(
+                AuditAction.PAY,
+                AuditEntityType.EXPENSE
+            ),
+        });
 
         return savedExpense;
     }

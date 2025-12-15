@@ -98,15 +98,7 @@ export function createFECAESolicitarRequest(
     request: WSFEAuthRequest
 ): string {
     // Limpiar número de documento: solo dígitos (sin guiones ni espacios)
-    const cleanDocNumber = request.docNumber.replace(/[^0-9]/g, '');
-
-    console.log('Creating FECAESolicitar request with:', {
-        token: token.substring(0, 50) + '...',
-        sign: sign.substring(0, 50) + '...',
-        cuit,
-        request,
-        cleanDocNumber
-    });
+    const cleanDocNumber = request.docNumber.replaceAll(/\D/g, '');
 
     // Construir items de IVA
     const ivaItemsXml = request.ivaItems.map(item => `
@@ -187,14 +179,14 @@ export async function parseFECAEResponse(xml: string): Promise<WSFEAuthResponse>
         const errors: string[] = [];
         const observations: string[] = [];
 
+        const toArray = <T>(value: T | T[] | undefined | null): T[] => {
+            if (!value) return [];
+            return Array.isArray(value) ? value : [value];
+        };
+
         // Errores generales
-        if (response.Errors) {
-            const errorList = Array.isArray(response.Errors.Err)
-                ? response.Errors.Err
-                : [response.Errors.Err];
-            errorList.forEach((err: { Msg?: string }) => {
-                if (err && err.Msg) errors.push(err.Msg);
-            });
+        for (const err of toArray<{ Msg?: string }>(response.Errors?.Err)) {
+            if (err?.Msg) errors.push(err.Msg);
         }
 
         // Detalle del comprobante
@@ -211,29 +203,19 @@ export async function parseFECAEResponse(xml: string): Promise<WSFEAuthResponse>
         const resultado = detResponse.Resultado;
 
         // Observaciones
-        if (detResponse.Observaciones) {
-            const obsList = Array.isArray(detResponse.Observaciones.Obs)
-                ? detResponse.Observaciones.Obs
-                : [detResponse.Observaciones.Obs];
-            obsList.forEach((obs: { Code?: string; Msg?: string }) => {
-                if (obs && obs.Msg) {
-                    const code = obs.Code ? `[${obs.Code}] ` : '';
-                    observations.push(`${code}${obs.Msg}`);
-                }
-            });
+        for (const obs of toArray<{ Code?: string; Msg?: string }>(detResponse.Observaciones?.Obs)) {
+            const msg = obs?.Msg;
+            if (!msg) continue;
+            const codePrefix = obs?.Code ? `[${obs.Code}] ` : '';
+            observations.push(`${codePrefix}${msg}`);
         }
 
         // Errores del detalle del comprobante
-        if (detResponse.Errores) {
-            const detErrorList = Array.isArray(detResponse.Errores.Err)
-                ? detResponse.Errores.Err
-                : [detResponse.Errores.Err];
-            detErrorList.forEach((err: { Code?: string; Msg?: string }) => {
-                if (err && err.Msg) {
-                    const code = err.Code ? `[${err.Code}] ` : '';
-                    errors.push(`${code}${err.Msg}`);
-                }
-            });
+        for (const err of toArray<{ Code?: string; Msg?: string }>(detResponse.Errores?.Err)) {
+            const msg = err?.Msg;
+            if (!msg) continue;
+            const codePrefix = err?.Code ? `[${err.Code}] ` : '';
+            errors.push(`${codePrefix}${msg}`);
         }
 
         if (resultado === 'A') {
@@ -244,20 +226,21 @@ export async function parseFECAEResponse(xml: string): Promise<WSFEAuthResponse>
                 invoiceNumber: Number.parseInt(detResponse.CbteDesde, 10),
                 observations: observations.length > 0 ? observations : undefined,
             };
-        } else {
-            // Si no hay errores específicos, usar observaciones o dar contexto
-            const finalErrors = errors.length > 0
-                ? errors
-                : observations.length > 0
-                    ? [`Rechazado (${resultado}): ${observations.join('; ')}`]
-                    : [`Comprobante rechazado por AFIP (Resultado: ${resultado})`];
-
-            return {
-                success: false,
-                errors: finalErrors,
-                observations: observations.length > 0 ? observations : undefined,
-            };
         }
+
+        // Si no hay errores específicos, usar observaciones o dar contexto
+        if (errors.length === 0 && observations.length > 0) {
+            errors.push(`Rechazado (${resultado}): ${observations.join('; ')}`);
+        }
+        if (errors.length === 0) {
+            errors.push(`Comprobante rechazado por AFIP (Resultado: ${resultado})`);
+        }
+
+        return {
+            success: false,
+            errors,
+            observations: observations.length > 0 ? observations : undefined,
+        };
 
     } catch (error) {
         throw new Error(`Error al parsear respuesta WSFE: ${(error as Error).message}`);

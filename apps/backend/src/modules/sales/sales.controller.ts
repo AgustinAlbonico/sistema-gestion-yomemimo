@@ -22,19 +22,18 @@ import {
     SaleFiltersDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { Sale } from './entities/sale.entity';
 
 @Controller('sales')
 @UseGuards(JwtAuthGuard)
 export class SalesController {
-    constructor(private readonly salesService: SalesService) {}
+    constructor(private readonly salesService: SalesService) { }
 
     /**
      * Crea una nueva venta
      */
     @Post()
     create(@Body() dto: CreateSaleDto, @Request() req: any) {
-        return this.salesService.create(dto, req.user?.id);
+        return this.salesService.create(dto, req.user?.userId);
     }
 
     /**
@@ -78,17 +77,18 @@ export class SalesController {
     @Patch(':id')
     update(
         @Param('id', ParseUUIDPipe) id: string,
-        @Body() dto: UpdateSaleDto
+        @Body() dto: UpdateSaleDto,
+        @Request() req: any,
     ) {
-        return this.salesService.update(id, dto);
+        return this.salesService.update(id, dto, req.user?.userId);
     }
 
     /**
      * Cancela una venta
      */
     @Patch(':id/cancel')
-    cancel(@Param('id', ParseUUIDPipe) id: string) {
-        return this.salesService.cancel(id);
+    cancel(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+        return this.salesService.cancel(id, req.user?.userId);
     }
 
     /**
@@ -97,17 +97,18 @@ export class SalesController {
     @Patch(':id/pay')
     markAsPaid(
         @Param('id', ParseUUIDPipe) id: string,
-        @Body() body: { payments: any[] }
+        @Body() body: { payments: any[] },
+        @Request() req: any,
     ) {
-        return this.salesService.markAsPaid(id, body.payments || []);
+        return this.salesService.markAsPaid(id, body.payments || [], req.user?.userId);
     }
 
     /**
      * Elimina una venta (soft delete)
      */
     @Delete(':id')
-    remove(@Param('id', ParseUUIDPipe) id: string) {
-        return this.salesService.remove(id);
+    remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+        return this.salesService.remove(id, req.user?.userId);
     }
 }
 

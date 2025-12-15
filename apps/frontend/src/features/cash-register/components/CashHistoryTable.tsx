@@ -9,13 +9,15 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
-import { Eye } from 'lucide-react';
-import type { CashRegister, CashRegisterStatus } from '../types';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { CashRegister, CashRegisterStatus, PaginationMeta } from '../types';
 import { CashHistoryDetailDialog } from './CashHistoryDetailDialog';
 
 interface CashHistoryTableProps {
     readonly history: CashRegister[];
+    readonly meta?: PaginationMeta;
+    readonly onPageChange?: (page: number) => void;
 }
 
 const statusLabels: Record<CashRegisterStatus, string> = {
@@ -28,13 +30,25 @@ const statusVariants: Record<CashRegisterStatus, 'default' | 'secondary'> = {
     closed: 'secondary',
 };
 
-export function CashHistoryTable({ history }: CashHistoryTableProps) {
+export function CashHistoryTable({ history, meta, onPageChange }: CashHistoryTableProps) {
     const [selectedRegisterId, setSelectedRegisterId] = useState<string | null>(null);
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
     const handleViewDetail = (registerId: string) => {
         setSelectedRegisterId(registerId);
         setDetailDialogOpen(true);
+    };
+
+    const handlePreviousPage = () => {
+        if (meta && meta.page > 1 && onPageChange) {
+            onPageChange(meta.page - 1);
+        }
+    };
+
+    const handleNextPage = () => {
+        if (meta && meta.page < meta.totalPages && onPageChange) {
+            onPageChange(meta.page + 1);
+        }
     };
 
     if (history.length === 0) {
@@ -64,7 +78,10 @@ export function CashHistoryTable({ history }: CashHistoryTableProps) {
                     </TableHeader>
                     <TableBody>
                         {history.map((register) => {
-                            const difference = register.difference ? Number(register.difference) : 0;
+                            // La diferencia solo tiene sentido si la caja está cerrada
+                            const isClosed = register.status === 'closed';
+                            const hasDifference = register.difference !== null && register.difference !== undefined;
+                            const difference = hasDifference ? Number(register.difference) : 0;
 
                             return (
                                 <TableRow key={register.id}>
@@ -98,16 +115,22 @@ export function CashHistoryTable({ history }: CashHistoryTableProps) {
                                         -{formatCurrency(register.totalExpense)}
                                     </TableCell>
                                     <TableCell
-                                        className={`text-right font-semibold ${difference > 0
-                                            ? 'text-green-600'
-                                            : difference < 0
-                                                ? 'text-red-600'
-                                                : 'text-muted-foreground'
+                                        className={`text-right font-semibold ${!isClosed
+                                                ? 'text-muted-foreground'
+                                                : difference > 0
+                                                    ? 'text-green-600'
+                                                    : difference < 0
+                                                        ? 'text-red-600'
+                                                        : 'text-muted-foreground'
                                             }`}
                                     >
-                                        {difference === 0
+                                        {!isClosed
                                             ? '-'
-                                            : `${difference > 0 ? '+' : ''}${formatCurrency(difference)}`}
+                                            : hasDifference
+                                                ? difference === 0
+                                                    ? 'Exacto'
+                                                    : `${difference > 0 ? '+' : ''}${formatCurrency(difference)}`
+                                                : 'Sin dato'}
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant={statusVariants[register.status]}>
@@ -130,6 +153,38 @@ export function CashHistoryTable({ history }: CashHistoryTableProps) {
                     </TableBody>
                 </Table>
             </div>
+
+            {/* Controles de paginación */}
+            {meta && meta.totalPages > 1 ? (
+                <div className="flex items-center justify-between px-2 py-4">
+                    <div className="text-sm text-muted-foreground">
+                        Mostrando {((meta.page - 1) * meta.limit) + 1} a {Math.min(meta.page * meta.limit, meta.total)} de {meta.total} registros
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handlePreviousPage}
+                            disabled={meta.page === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Anterior
+                        </Button>
+                        <div className="text-sm font-medium">
+                            Página {meta.page} de {meta.totalPages}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleNextPage}
+                            disabled={meta.page === meta.totalPages}
+                        >
+                            Siguiente
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                    </div>
+                </div>
+            ) : null}
 
             {/* Diálogo de detalle */}
             <CashHistoryDetailDialog

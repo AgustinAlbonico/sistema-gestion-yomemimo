@@ -5,11 +5,12 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Filter, Package, RotateCcw } from 'lucide-react';
+import { Plus, Filter, Package, RotateCcw, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FormDialog } from '@/components/ui/form-dialog';
 import {
     Dialog,
     DialogContent,
@@ -299,21 +300,22 @@ export default function PurchasesPage() {
                         Nueva Compra
                     </Button>
 
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                            <DialogHeader>
-                                <DialogTitle>Registrar Compra</DialogTitle>
-                                <DialogDescription>
-                                    Completa los datos de la compra. El stock se actualizará al marcar
-                                    como pagada.
-                                </DialogDescription>
-                            </DialogHeader>
+                    <FormDialog
+                        open={isCreateOpen}
+                        onOpenChange={setIsCreateOpen}
+                        title="Registrar Compra"
+                        description="Completa los datos de la compra. El stock se actualizará al marcar como pagada."
+                        icon={ShoppingCart}
+                        variant="warning"
+                        maxWidth="2xl"
+                    >
+                        <div className="max-h-[60vh] overflow-y-auto pr-2">
                             <PurchaseForm
                                 onSubmit={handleCreate}
                                 isLoading={createMutation.isPending}
                             />
-                        </DialogContent>
-                    </Dialog>
+                        </div>
+                    </FormDialog>
                 </div>
             </div>
 

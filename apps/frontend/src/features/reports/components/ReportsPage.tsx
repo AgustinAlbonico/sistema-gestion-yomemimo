@@ -19,6 +19,7 @@ import {
     AlertTriangle,
     BarChart3,
     PieChartIcon,
+    Briefcase,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
@@ -29,7 +30,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 // Componentes
 import { PeriodSelector } from './PeriodSelector';
 import { MetricCard } from './MetricCard';
-import { PieChartCard, BarChartCard, LineChartCard, AreaChartCard, ComposedChartCard } from './Charts';
+import { PieChartCard, BarChartCard, LineChartCard, ComposedChartCard } from './Charts';
 import { TopProductsTable } from './TopProductsTable';
 import { TopCustomersTable } from './TopCustomersTable';
 
@@ -180,12 +181,20 @@ export function ReportsPage() {
                 {/* TAB: RESUMEN FINANCIERO */}
                 <TabsContent value="overview" className="space-y-6">
                     {/* Métricas principales */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <MetricCard
-                            title="Ingresos Totales"
+                            title="Ingresos Ventas"
                             value={financial?.revenue.totalRevenue || 0}
                             subtitle={`${financial?.revenue.totalSales || 0} ventas`}
                             icon={DollarSign}
+                            variant="success"
+                            isLoading={loadingFinancial}
+                        />
+                        <MetricCard
+                            title="Ingresos Servicios"
+                            value={financial?.incomes?.totalServiceIncome || 0}
+                            subtitle={`${financial?.incomes?.paidIncomes || 0} ingresos`}
+                            icon={Briefcase}
                             variant="success"
                             isLoading={loadingFinancial}
                         />
@@ -223,10 +232,19 @@ export function ReportsPage() {
                             isLoading={loadingFinancial}
                         />
                         <PieChartCard
-                            title="Ventas por Método de Pago"
-                            data={sales?.current.byPaymentMethod.map(pm => ({ name: pm.methodName, value: pm.total })) || []}
-                            isLoading={loadingSales}
+                            title="Ingresos por Categoría"
+                            data={financial?.incomes?.byCategory?.map(c => ({ name: c.categoryName, value: c.total })) || []}
+                            isLoading={loadingFinancial}
                         />
+                        <div className="md:col-span-2">
+                            <BarChartCard
+                                title="Ventas por Método de Pago"
+                                data={sales?.current.byPaymentMethod.map(pm => ({ name: pm.methodName, value: pm.total })) || []}
+                                color="#3b82f6"
+                                layout="vertical"
+                                isLoading={loadingSales}
+                            />
+                        </div>
                     </div>
 
                     {/* Resumen Financiero Card */}
@@ -248,6 +266,18 @@ export function ReportsPage() {
                                         <span className="text-muted-foreground">Ingresos por Ventas</span>
                                         <span className="font-medium text-emerald-600">
                                             {formatCurrency(financial?.revenue.totalRevenue || 0)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between py-2 border-b">
+                                        <span className="text-muted-foreground">Ingresos por Servicios</span>
+                                        <span className="font-medium text-emerald-600">
+                                            {formatCurrency(financial?.incomes?.totalServiceIncome || 0)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between py-2 border-b bg-emerald-50 dark:bg-emerald-950/30 -mx-6 px-6">
+                                        <span className="font-medium">Total Ingresos</span>
+                                        <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                                            {formatCurrency(financial?.summary.totalRevenue || 0)}
                                         </span>
                                     </div>
                                     <div className="flex justify-between py-2 border-b">

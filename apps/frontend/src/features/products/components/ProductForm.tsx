@@ -27,7 +27,6 @@ import { formatCurrency } from '@/lib/utils';
 import { useEffect, useState, useMemo } from 'react';
 import { Percent, Info } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Category } from '../types';
 
 interface ProductFormProps {
     readonly initialData?: ProductFormValues;
@@ -59,6 +58,7 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing }: Pro
         resolver: zodResolver(productSchema),
         defaultValues: initialData || {
             name: '',
+            description: null,
             cost: 0,
             stock: 0,
             categoryId: null,
@@ -127,11 +127,31 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing }: Pro
                             <FormLabel>Nombre del Producto <span className="text-red-500">*</span></FormLabel>
                             <FormControl>
                                 <Input
-                                    placeholder="Ej: Coca Cola 500ml"
+                                    placeholder="Ej: Shampoo Sedal 400ml"
                                     {...field}
                                     autoFocus
                                 />
                             </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                {/* Descripción del producto */}
+                <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Descripción</FormLabel>
+                            <FormControl>
+                                <Input
+                                    placeholder="Ej: Shampoo reparador para cabello dañado"
+                                    {...field}
+                                    value={field.value || ''}
+                                />
+                            </FormControl>
+                            <FormDescription>Información adicional sobre el producto (opcional)</FormDescription>
                             <FormMessage />
                         </FormItem>
                     )}

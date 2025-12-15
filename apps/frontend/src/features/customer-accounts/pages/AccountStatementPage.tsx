@@ -2,9 +2,9 @@
  * Página de Estado de Cuenta de un cliente
  * Muestra el detalle de movimientos, historial de compras y permite registrar pagos
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, DollarSign, Calendar, AlertTriangle, ExternalLink, Filter } from 'lucide-react';
+import { ArrowLeft, DollarSign, Calendar, AlertTriangle, ExternalLink, Filter, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,10 +16,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { useAccountStatement } from '../hooks/use-customer-accounts';
+import { toast } from 'sonner';
+import { useAccountStatement, useSyncMissingCharges } from '../hooks/use-customer-accounts';
+import { useOpenCashRegister } from '@/features/cash-register/hooks';
 import { PaymentDialog } from '../components/PaymentDialog';
 import { CustomerSalesHistory } from '../components/CustomerSalesHistory';
 import { SaleDetailDialog } from '../components/SaleDetailDialog';
+import { ApplySurchargeDialog } from '../components/ApplySurchargeDialog';
 import { MovementType, type CustomerPosition } from '../types';
 import { format, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -40,16 +43,47 @@ export function AccountStatementPage() {
     const { customerId } = useParams<{ customerId: string }>();
     const navigate = useNavigate();
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+    const [surchargeDialogOpen, setSurchargeDialogOpen] = useState(false);
     const [saleDetailOpen, setSaleDetailOpen] = useState(false);
     const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
 
-    // Estado para filtro de fecha (por defecto: mes actual)
+    // Estado para filtro de fecha (por defecto: mostrar todos)
     const currentDate = new Date();
     const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth());
     const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
-    const [showAllMovements, setShowAllMovements] = useState(false);
+    const [showAllMovements, setShowAllMovements] = useState(true); // Por defecto mostrar todos
+
+    // Estado para paginación
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 15; // Movimientos por página
 
     const { data: statement, isLoading } = useAccountStatement(customerId);
+    const { data: openCashRegister } = useOpenCashRegister();
+    const syncMutation = useSyncMissingCharges();
+
+    // Verificar si hay caja abierta
+    const isCashRegisterOpen = !!openCashRegister;
+
+    // Ref para evitar sincronización duplicada
+    const hasSyncedRef = useRef(false);
+
+    // Sincronizar cargos faltantes automáticamente al cargar la página
+    useEffect(() => {
+        // Solo sincronizar una vez, cuando tenemos customerId y la data ya cargó
+        if (customerId && !isLoading && !hasSyncedRef.current) {
+            hasSyncedRef.current = true;
+            // Ejecutar sincronización en segundo plano (sin toast si no hay cambios)
+            syncMutation.mutate(customerId, {
+                onSuccess: (result) => {
+                    // Solo mostrar notificación si se crearon cargos
+                    // (la mutación ya maneja esto internamente)
+                    if (result.chargesCreated > 0) {
+                        console.log(`[AccountStatement] Sincronizados ${result.chargesCreated} cargos automáticamente`);
+                    }
+                },
+            });
+        }
+    }, [customerId, isLoading, syncMutation]);
 
     // Extraer datos del statement (con valores por defecto para evitar error de hooks)
     const account = statement?.account;
@@ -81,6 +115,19 @@ export function AccountStatementPage() {
                 new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             );
     }, [movements, selectedMonth, selectedYear, showAllMovements]);
+
+    // Calcular paginación
+    const totalPages = Math.ceil(filteredMovements.length / itemsPerPage);
+    const paginatedMovements = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return filteredMovements.slice(startIndex, endIndex);
+    }, [filteredMovements, currentPage, itemsPerPage]);
+
+    // Resetear a página 1 cuando cambian los filtros
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [showAllMovements, selectedMonth, selectedYear]);
 
     // Returns condicionales DESPUÉS de todos los hooks
     if (isLoading) {
@@ -232,12 +279,27 @@ export function AccountStatementPage() {
                     </div>
 
                     {/* Acciones */}
-                    <div className="mt-6 flex gap-2 border-t pt-6">
+                    <div className="mt-6 flex flex-wrap gap-2 border-t pt-6">
                         <Button
-                            onClick={() => setPaymentDialogOpen(true)}
+                            onClick={() => {
+                                if (!isCashRegisterOpen) {
+                                    toast.error('No puedes registrar pagos sin tener la caja abierta. Por favor, abre la caja primero.');
+                                    return;
+                                }
+                                setPaymentDialogOpen(true);
+                            }}
                             disabled={Number(account.balance) <= 0}
                         >
                             Registrar Pago
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setSurchargeDialogOpen(true)}
+                            disabled={Number(account.balance) <= 0}
+                            className="border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                        >
+                            <TrendingUp className="h-4 w-4 mr-2 text-orange-500" />
+                            Aplicar Recargo
                         </Button>
                         {Number(account.balance) <= 0 && (
                             <p className="flex items-center text-sm text-muted-foreground">
@@ -325,120 +387,154 @@ export function AccountStatementPage() {
                         </CardHeader>
                         <CardContent>
                             {filteredMovements.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead>
-                                            <tr className="border-b">
-                                                <th className="py-3 text-left">Fecha</th>
-                                                <th className="py-3 text-left">Descripción</th>
-                                                <th className="py-3 text-left">Tipo</th>
-                                                <th className="py-3 text-right">Debe</th>
-                                                <th className="py-3 text-right">Haber</th>
-                                                <th className="py-3 text-right">Saldo</th>
-                                                <th className="py-3 text-center">Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredMovements.map((movement) => {
-                                                // Verificar si es un cargo con venta asociada
-                                                const hasSaleReference =
-                                                    movement.movementType === MovementType.CHARGE &&
-                                                    movement.referenceType === 'sale' &&
-                                                    movement.referenceId;
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b">
+                                                    <th className="py-3 text-left">Fecha</th>
+                                                    <th className="py-3 text-left">Descripción</th>
+                                                    <th className="py-3 text-left">Tipo</th>
+                                                    <th className="py-3 text-right">Debe</th>
+                                                    <th className="py-3 text-right">Haber</th>
+                                                    <th className="py-3 text-right">Saldo</th>
+                                                    <th className="py-3 text-center">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {paginatedMovements.map((movement) => {
+                                                    // Verificar si es un cargo con venta asociada
+                                                    const hasSaleReference =
+                                                        movement.movementType === MovementType.CHARGE &&
+                                                        movement.referenceType === 'sale' &&
+                                                        movement.referenceId;
 
-                                                return (
-                                                    <tr
-                                                        key={movement.id}
-                                                        className={`border-b ${hasSaleReference ? 'hover:bg-muted/50 cursor-pointer' : ''}`}
-                                                        onClick={() => {
-                                                            if (hasSaleReference) {
-                                                                setSelectedSaleId(movement.referenceId);
-                                                                setSaleDetailOpen(true);
-                                                            }
-                                                        }}
-                                                    >
-                                                        <td className="py-3">
-                                                            {format(
-                                                                new Date(movement.createdAt),
-                                                                'dd/MM/yyyy HH:mm',
-                                                                { locale: es }
-                                                            )}
-                                                        </td>
-                                                        <td className="py-3">
-                                                            <div className="flex items-center gap-2">
-                                                                <span>{movement.description}</span>
-                                                                {movement.paymentMethod && (
-                                                                    <span className="text-xs text-muted-foreground">
-                                                                        ({movement.paymentMethod.name})
+                                                    return (
+                                                        <tr
+                                                            key={movement.id}
+                                                            className={`border-b ${hasSaleReference ? 'hover:bg-muted/50 cursor-pointer' : ''}`}
+                                                            onClick={() => {
+                                                                if (hasSaleReference) {
+                                                                    setSelectedSaleId(movement.referenceId);
+                                                                    setSaleDetailOpen(true);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <td className="py-3">
+                                                                {format(
+                                                                    new Date(movement.createdAt),
+                                                                    'dd/MM/yyyy HH:mm',
+                                                                    { locale: es }
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>{movement.description}</span>
+                                                                    {movement.paymentMethod && (
+                                                                        <span className="text-xs text-muted-foreground">
+                                                                            ({movement.paymentMethod.name})
+                                                                        </span>
+                                                                    )}
+                                                                    {hasSaleReference && (
+                                                                        <ExternalLink className="h-3.5 w-3.5 text-blue-500" />
+                                                                    )}
+                                                                </div>
+                                                                {movement.notes && (
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {movement.notes}
+                                                                    </p>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3">
+                                                                <Badge
+                                                                    variant={
+                                                                        movement.movementType ===
+                                                                            MovementType.PAYMENT
+                                                                            ? 'default'
+                                                                            : movement.movementType ===
+                                                                                MovementType.CHARGE
+                                                                                ? 'destructive'
+                                                                                : 'secondary'
+                                                                    }
+                                                                >
+                                                                    {movement.movementType === MovementType.CHARGE && 'Cargo'}
+                                                                    {movement.movementType === MovementType.PAYMENT && 'Pago'}
+                                                                    {movement.movementType === MovementType.ADJUSTMENT && 'Ajuste'}
+                                                                    {movement.movementType === MovementType.DISCOUNT && 'Descuento'}
+                                                                    {movement.movementType === MovementType.INTEREST && 'Interés'}
+                                                                </Badge>
+                                                            </td>
+                                                            <td className="py-3 text-right">
+                                                                {Number(movement.amount) > 0 && (
+                                                                    <span className="text-red-600">
+                                                                        ${Number(movement.amount).toFixed(2)}
                                                                     </span>
                                                                 )}
-                                                                {hasSaleReference && (
-                                                                    <ExternalLink className="h-3.5 w-3.5 text-blue-500" />
+                                                            </td>
+                                                            <td className="py-3 text-right">
+                                                                {Number(movement.amount) < 0 && (
+                                                                    <span className="text-green-600">
+                                                                        ${Math.abs(Number(movement.amount)).toFixed(2)}
+                                                                    </span>
                                                                 )}
-                                                            </div>
-                                                            {movement.notes && (
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {movement.notes}
-                                                                </p>
-                                                            )}
-                                                        </td>
-                                                        <td className="py-3">
-                                                            <Badge
-                                                                variant={
-                                                                    movement.movementType ===
-                                                                        MovementType.PAYMENT
-                                                                        ? 'default'
-                                                                        : movement.movementType ===
-                                                                            MovementType.CHARGE
-                                                                            ? 'destructive'
-                                                                            : 'secondary'
-                                                                }
-                                                            >
-                                                                {movement.movementType === MovementType.CHARGE && 'Cargo'}
-                                                                {movement.movementType === MovementType.PAYMENT && 'Pago'}
-                                                                {movement.movementType === MovementType.ADJUSTMENT && 'Ajuste'}
-                                                                {movement.movementType === MovementType.DISCOUNT && 'Descuento'}
-                                                                {movement.movementType === MovementType.INTEREST && 'Interés'}
-                                                            </Badge>
-                                                        </td>
-                                                        <td className="py-3 text-right">
-                                                            {Number(movement.amount) > 0 && (
-                                                                <span className="text-red-600">
-                                                                    ${Number(movement.amount).toFixed(2)}
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        <td className="py-3 text-right">
-                                                            {Number(movement.amount) < 0 && (
-                                                                <span className="text-green-600">
-                                                                    ${Math.abs(Number(movement.amount)).toFixed(2)}
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        <td className="py-3 text-right font-semibold">
-                                                            ${Math.abs(Number(movement.balanceAfter)).toFixed(2)}
-                                                        </td>
-                                                        <td className="py-3 text-center">
-                                                            {hasSaleReference && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="ghost"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setSelectedSaleId(movement.referenceId);
-                                                                        setSaleDetailOpen(true);
-                                                                    }}
-                                                                >
-                                                                    Ver Venta
-                                                                </Button>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                            </td>
+                                                            <td className="py-3 text-right font-semibold">
+                                                                ${Math.abs(Number(movement.balanceAfter)).toFixed(2)}
+                                                            </td>
+                                                            <td className="py-3 text-center">
+                                                                {hasSaleReference && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setSelectedSaleId(movement.referenceId);
+                                                                            setSaleDetailOpen(true);
+                                                                        }}
+                                                                    >
+                                                                        Ver Venta
+                                                                    </Button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Controles de paginación */}
+                                    {totalPages > 1 && (
+                                        <div className="flex items-center justify-between border-t pt-4 mt-4">
+                                            <p className="text-sm text-muted-foreground">
+                                                Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredMovements.length)} de {filteredMovements.length} movimientos
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                                    disabled={currentPage === 1}
+                                                >
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                    Anterior
+                                                </Button>
+                                                <span className="text-sm text-muted-foreground px-2">
+                                                    Página {currentPage} de {totalPages}
+                                                </span>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                                    disabled={currentPage === totalPages}
+                                                >
+                                                    Siguiente
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-12">
                                     <DollarSign className="mb-4 h-12 w-12 text-muted-foreground" />
@@ -470,14 +566,16 @@ export function AccountStatementPage() {
             </Tabs>
 
             {/* Diálogo de Pago */}
-            {customerId && (
-                <PaymentDialog
-                    open={paymentDialogOpen}
-                    onOpenChange={setPaymentDialogOpen}
-                    customerId={customerId}
-                    currentDebt={Number(account.balance)}
-                />
-            )}
+            {
+                customerId && (
+                    <PaymentDialog
+                        open={paymentDialogOpen}
+                        onOpenChange={setPaymentDialogOpen}
+                        customerId={customerId}
+                        currentDebt={Number(account.balance)}
+                    />
+                )
+            }
 
             {/* Diálogo de Detalle de Venta */}
             <SaleDetailDialog
@@ -485,6 +583,18 @@ export function AccountStatementPage() {
                 onOpenChange={setSaleDetailOpen}
                 saleId={selectedSaleId}
             />
-        </div>
+
+            {/* Diálogo de Recargo */}
+            {
+                customerId && (
+                    <ApplySurchargeDialog
+                        open={surchargeDialogOpen}
+                        onOpenChange={setSurchargeDialogOpen}
+                        customerId={customerId}
+                        currentBalance={Number(account.balance)}
+                    />
+                )
+            }
+        </div >
     );
 }

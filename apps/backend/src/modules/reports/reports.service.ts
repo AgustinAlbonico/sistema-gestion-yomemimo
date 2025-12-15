@@ -4,7 +4,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Sale, SaleStatus } from '../sales/entities/sale.entity';
 import { SaleItem } from '../sales/entities/sale-item.entity';
 import { SalePayment } from '../sales/entities/sale-payment.entity';
@@ -14,6 +14,10 @@ import { Product } from '../products/entities/product.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { CustomerAccount } from '../customer-accounts/entities/customer-account.entity';
 import { ReportPeriod } from './dto';
+import { CashRegisterService } from '../cash-register/cash-register.service';
+import { ConfigurationService } from '../configuration/configuration.service';
+import { Income } from '../incomes/entities/income.entity';
+import { AccountMovement, MovementType } from '../customer-accounts/entities/account-movement.entity';
 
 // ============================================
 // INTERFACES PARA REPORTES
@@ -49,6 +53,20 @@ export interface ExpensesData {
     }>;
 }
 
+export interface IncomesData {
+    totalServiceIncome: number;
+    totalIncomes: number;
+    paidIncomes: number;
+    pendingIncomes: number;
+    byCategory: Array<{
+        categoryId: string | null;
+        categoryName: string;
+        count: number;
+        total: number;
+        percentage: number;
+    }>;
+}
+
 export interface ProfitabilityData {
     grossProfit: number;
     grossMargin: number;
@@ -60,11 +78,13 @@ export interface ProfitabilityData {
 export interface FinancialReport {
     period: { startDate: Date; endDate: Date };
     revenue: RevenueData;
+    incomes: IncomesData;
     costs: CostsData;
     expenses: ExpensesData;
     profitability: ProfitabilityData;
     summary: {
         totalRevenue: number;
+        totalServiceIncome: number;
         totalCosts: number;
         netProfit: number;
         profitColor: 'green' | 'red' | 'yellow';
@@ -235,6 +255,32 @@ export interface DashboardSummary {
         totalDebt: number;
         overdueAccounts: number;
     };
+    // Nuevos campos para dashboard profesional
+    cashRegister: {
+        isOpen: boolean;
+        balance: number;
+        openedBy: string | null;
+        openedAt: Date | null;
+    };
+    charts: {
+        last7Days: Array<{
+            date: string;
+            revenue: number;
+            salesCount: number;
+        }>;
+    };
+    topProducts: Array<{
+        productId: string;
+        productName: string;
+        quantitySold: number;
+        revenue: number;
+    }>;
+    alerts: {
+        cashClosed: boolean;
+        lowStockCount: number;
+        outOfStockCount: number;
+        overdueAccountsCount: number;
+    };
 }
 
 @Injectable()
@@ -250,13 +296,19 @@ export class ReportsService {
         private readonly purchaseRepo: Repository<Purchase>,
         @InjectRepository(Expense)
         private readonly expenseRepo: Repository<Expense>,
+        @InjectRepository(Income)
+        private readonly incomeRepo: Repository<Income>,
         @InjectRepository(Product)
         private readonly productRepo: Repository<Product>,
         @InjectRepository(Customer)
         private readonly customerRepo: Repository<Customer>,
         @InjectRepository(CustomerAccount)
         private readonly accountRepo: Repository<CustomerAccount>,
-    ) {}
+        @InjectRepository(AccountMovement)
+        private readonly accountMovementRepo: Repository<AccountMovement>,
+        private readonly cashRegisterService: CashRegisterService,
+        private readonly configurationService: ConfigurationService,
+    ) { }
 
     // ============================================
     // HELPERS PARA FECHAS
@@ -268,77 +320,103 @@ export class ReportsService {
         endDate?: string
     ): { start: Date; end: Date } {
         const now = new Date();
-        let start: Date;
-        let end: Date;
-
         if (period && period !== ReportPeriod.CUSTOM) {
-            switch (period) {
-                case ReportPeriod.TODAY:
-                    start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                    end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-                    break;
-                case ReportPeriod.YESTERDAY:
-                    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-                    end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
-                    break;
-                case ReportPeriod.THIS_WEEK:
-                    const dayOfWeek = now.getDay();
-                    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
-                    end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-                    break;
-                case ReportPeriod.LAST_WEEK:
-                    const currentDayOfWeek = now.getDay();
-                    const diffToLastMonday = currentDayOfWeek === 0 ? 13 : currentDayOfWeek + 6;
-                    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToLastMonday);
-                    end = new Date(start.getTime());
-                    end.setDate(end.getDate() + 6);
-                    end.setHours(23, 59, 59, 999);
-                    break;
-                case ReportPeriod.THIS_MONTH:
-                    start = new Date(now.getFullYear(), now.getMonth(), 1);
-                    end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-                    break;
-                case ReportPeriod.LAST_MONTH:
-                    start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                    end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-                    break;
-                case ReportPeriod.THIS_QUARTER:
-                    const currentQuarter = Math.floor(now.getMonth() / 3);
-                    start = new Date(now.getFullYear(), currentQuarter * 3, 1);
-                    end = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0, 23, 59, 59, 999);
-                    break;
-                case ReportPeriod.LAST_QUARTER:
-                    const lastQuarter = Math.floor(now.getMonth() / 3) - 1;
-                    const year = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear();
-                    const quarterIndex = lastQuarter < 0 ? 3 : lastQuarter;
-                    start = new Date(year, quarterIndex * 3, 1);
-                    end = new Date(year, (quarterIndex + 1) * 3, 0, 23, 59, 59, 999);
-                    break;
-                case ReportPeriod.THIS_YEAR:
-                    start = new Date(now.getFullYear(), 0, 1);
-                    end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-                    break;
-                case ReportPeriod.LAST_YEAR:
-                    start = new Date(now.getFullYear() - 1, 0, 1);
-                    end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
-                    break;
-                default:
-                    start = new Date(now.getFullYear(), now.getMonth(), 1);
-                    end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-            }
-        } else if (startDate && endDate) {
-            start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-        } else {
-            // Por defecto: mes actual
-            start = new Date(now.getFullYear(), now.getMonth(), 1);
-            end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            return this.getPresetPeriodDates(period, now);
         }
 
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            return { start, end };
+        }
+
+        // Por defecto: mes actual
+        return this.getCurrentMonthPeriodDates(now);
+    }
+
+    private getCurrentMonthPeriodDates(now: Date): { start: Date; end: Date } {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         return { start, end };
+    }
+
+    private getPresetPeriodDates(period: ReportPeriod, now: Date): { start: Date; end: Date } {
+        switch (period) {
+            case ReportPeriod.TODAY: {
+                const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+                return { start, end };
+            }
+            case ReportPeriod.YESTERDAY: {
+                const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+                const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+                return { start, end };
+            }
+            case ReportPeriod.THIS_WEEK: {
+                const dayOfWeek = now.getDay();
+                const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+                const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+                return { start, end };
+            }
+            case ReportPeriod.LAST_WEEK: {
+                const currentDayOfWeek = now.getDay();
+                const diffToLastMonday = currentDayOfWeek === 0 ? 13 : currentDayOfWeek + 6;
+                const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToLastMonday);
+                const end = new Date(start);
+                end.setDate(end.getDate() + 6);
+                end.setHours(23, 59, 59, 999);
+                return { start, end };
+            }
+            case ReportPeriod.THIS_MONTH:
+            default: {
+                return this.getCurrentMonthPeriodDates(now);
+            }
+            case ReportPeriod.LAST_MONTH: {
+                const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+                return { start, end };
+            }
+            case ReportPeriod.THIS_QUARTER: {
+                const currentQuarter = Math.floor(now.getMonth() / 3);
+                const start = new Date(now.getFullYear(), currentQuarter * 3, 1);
+                const end = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0, 23, 59, 59, 999);
+                return { start, end };
+            }
+            case ReportPeriod.LAST_QUARTER: {
+                const lastQuarter = Math.floor(now.getMonth() / 3) - 1;
+                const year = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear();
+                const quarterIndex = lastQuarter < 0 ? 3 : lastQuarter;
+                const start = new Date(year, quarterIndex * 3, 1);
+                const end = new Date(year, (quarterIndex + 1) * 3, 0, 23, 59, 59, 999);
+                return { start, end };
+            }
+            case ReportPeriod.THIS_YEAR: {
+                const start = new Date(now.getFullYear(), 0, 1);
+                const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+                return { start, end };
+            }
+            case ReportPeriod.LAST_YEAR: {
+                const start = new Date(now.getFullYear() - 1, 0, 1);
+                const end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+                return { start, end };
+            }
+        }
+    }
+
+    private calculateGrowthPercentage(current: number, previous: number): number {
+        if (previous > 0) {
+            return ((current - previous) / previous) * 100;
+        }
+        return current > 0 ? 100 : 0;
+    }
+
+    private getProfitColor(netProfit: number): 'green' | 'red' | 'yellow' {
+        if (netProfit > 0) return 'green';
+        if (netProfit < 0) return 'red';
+        return 'yellow';
     }
 
     private getPreviousPeriod(start: Date, end: Date): { start: Date; end: Date } {
@@ -365,7 +443,7 @@ export class ReportsService {
         const startStr = start.toISOString().split('T')[0];
         const endStr = end.toISOString().split('T')[0];
 
-        // 1. INGRESOS (Ventas completadas)
+        // 1. INGRESOS POR VENTAS (Ventas completadas)
         const sales = await this.saleRepo
             .createQueryBuilder('sale')
             .where('sale.deletedAt IS NULL')
@@ -376,10 +454,45 @@ export class ReportsService {
         const pendingSales = sales.filter(s => s.status === SaleStatus.PENDING);
         const cancelledSales = sales.filter(s => s.status === SaleStatus.CANCELLED);
 
-        const totalRevenue = completedSales.reduce((sum, s) => sum + Number(s.total), 0);
-        const averageTicket = completedSales.length > 0 ? totalRevenue / completedSales.length : 0;
+        const salesRevenue = completedSales.reduce((sum, s) => sum + Number(s.total), 0);
+        const averageTicket = completedSales.length > 0 ? salesRevenue / completedSales.length : 0;
 
-        // 2. COSTOS (Compras pagadas)
+        // 2. INGRESOS POR SERVICIOS (Income)
+        const incomes = await this.incomeRepo
+            .createQueryBuilder('income')
+            .leftJoinAndSelect('income.category', 'category')
+            .where('income.deletedAt IS NULL')
+            .andWhere('DATE(income.incomeDate) BETWEEN :start AND :end', { start: startStr, end: endStr })
+            .getMany();
+
+        const paidIncomes = incomes.filter(i => i.isPaid);
+        const pendingIncomesArr = incomes.filter(i => !i.isPaid);
+        const totalServiceIncome = paidIncomes.reduce((sum, i) => sum + Number(i.amount), 0);
+
+        // Agrupar ingresos por categoría
+        const incomeCategoryMap = new Map<string, { name: string; count: number; total: number }>();
+        for (const income of paidIncomes) {
+            const categoryId = income.categoryId ?? 'uncategorized';
+            const categoryName = income.category?.name ?? 'Sin categoría';
+            if (!incomeCategoryMap.has(categoryId)) {
+                incomeCategoryMap.set(categoryId, { name: categoryName, count: 0, total: 0 });
+            }
+            const cat = incomeCategoryMap.get(categoryId)!;
+            cat.count++;
+            cat.total += Number(income.amount);
+        }
+
+        const incomesByCategory = Array.from(incomeCategoryMap.entries())
+            .map(([categoryId, data]) => ({
+                categoryId: categoryId === 'uncategorized' ? null : categoryId,
+                categoryName: data.name,
+                count: data.count,
+                total: data.total,
+                percentage: totalServiceIncome > 0 ? (data.total / totalServiceIncome) * 100 : 0,
+            }))
+            .sort((a, b) => b.total - a.total);
+
+        // 3. COSTOS (Compras pagadas)
         const purchases = await this.purchaseRepo
             .createQueryBuilder('purchase')
             .where('purchase.deletedAt IS NULL')
@@ -390,7 +503,7 @@ export class ReportsService {
         const pendingPurchases = purchases.filter(p => p.status === PurchaseStatus.PENDING);
         const costOfGoodsSold = paidPurchases.reduce((sum, p) => sum + Number(p.total), 0);
 
-        // 3. GASTOS OPERATIVOS
+        // 4. GASTOS OPERATIVOS
         const expenses = await this.expenseRepo
             .createQueryBuilder('expense')
             .leftJoinAndSelect('expense.category', 'category')
@@ -401,7 +514,6 @@ export class ReportsService {
         const paidExpenses = expenses.filter(e => e.isPaid);
         const pendingExpensesArr = expenses.filter(e => !e.isPaid);
         const operatingExpenses = paidExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-        const pendingExpensesAmount = pendingExpensesArr.reduce((sum, e) => sum + Number(e.amount), 0);
 
         // Agrupar gastos por categoría
         const categoryMap = new Map<string, { name: string; count: number; total: number }>();
@@ -426,7 +538,8 @@ export class ReportsService {
             }))
             .sort((a, b) => b.total - a.total);
 
-        // 4. CÁLCULOS DE RENTABILIDAD
+        // 5. CÁLCULOS DE RENTABILIDAD (ventas + ingresos por servicios)
+        const totalRevenue = salesRevenue + totalServiceIncome;
         const grossProfit = totalRevenue - costOfGoodsSold;
         const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
         const netProfit = grossProfit - operatingExpenses;
@@ -437,12 +550,19 @@ export class ReportsService {
         return {
             period: { startDate: start, endDate: end },
             revenue: {
-                totalRevenue,
+                totalRevenue: salesRevenue, // Solo ventas para este campo
                 totalSales: sales.length,
                 averageTicket,
                 completedSales: completedSales.length,
                 pendingSales: pendingSales.length,
                 cancelledSales: cancelledSales.length,
+            },
+            incomes: {
+                totalServiceIncome,
+                totalIncomes: incomes.length,
+                paidIncomes: paidIncomes.length,
+                pendingIncomes: pendingIncomesArr.length,
+                byCategory: incomesByCategory,
             },
             costs: {
                 costOfGoodsSold,
@@ -466,9 +586,10 @@ export class ReportsService {
             },
             summary: {
                 totalRevenue,
+                totalServiceIncome,
                 totalCosts,
                 netProfit,
-                profitColor: netProfit > 0 ? 'green' : netProfit < 0 ? 'red' : 'yellow',
+                profitColor: this.getProfitColor(netProfit),
             },
         };
     }
@@ -518,66 +639,18 @@ export class ReportsService {
         const previousAvgTicket = previousCount > 0 ? previousRevenue / previousCount : 0;
 
         // Crecimiento
-        const revenueGrowth = previousRevenue > 0 
-            ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
-            : currentRevenue > 0 ? 100 : 0;
-        const salesGrowth = previousCount > 0 
-            ? ((currentCount - previousCount) / previousCount) * 100 
-            : currentCount > 0 ? 100 : 0;
-        const ticketGrowth = previousAvgTicket > 0 
-            ? ((currentAvgTicket - previousAvgTicket) / previousAvgTicket) * 100 
-            : currentAvgTicket > 0 ? 100 : 0;
+        const revenueGrowth = this.calculateGrowthPercentage(currentRevenue, previousRevenue);
+        const salesGrowth = this.calculateGrowthPercentage(currentCount, previousCount);
+        const ticketGrowth = this.calculateGrowthPercentage(currentAvgTicket, previousAvgTicket);
 
         // Ventas por método de pago
-        const paymentMap = new Map<string, { name: string; total: number; count: number }>();
-        for (const sale of currentSales) {
-            for (const payment of sale.payments || []) {
-                const methodId = payment.paymentMethodId ?? 'unknown';
-                const methodName = payment.paymentMethod?.name ?? 'Desconocido';
-                if (!paymentMap.has(methodId)) {
-                    paymentMap.set(methodId, { name: methodName, total: 0, count: 0 });
-                }
-                const method = paymentMap.get(methodId)!;
-                method.total += Number(payment.amount);
-                method.count++;
-            }
-        }
-
-        const byPaymentMethod = Array.from(paymentMap.entries())
-            .map(([methodId, data]) => ({
-                methodId,
-                methodName: data.name,
-                total: data.total,
-                count: data.count,
-                percentage: currentRevenue > 0 ? (data.total / currentRevenue) * 100 : 0,
-            }))
-            .sort((a, b) => b.total - a.total);
+        const byPaymentMethod = this.buildPaymentMethodBreakdown(currentSales, currentRevenue);
 
         // Ventas por estado
-        const byStatus: Record<string, number> = {};
-        for (const sale of currentSales) {
-            byStatus[sale.status] = (byStatus[sale.status] || 0) + 1;
-        }
+        const byStatus = this.countSalesByStatus(currentSales);
 
         // Datos diarios
-        const dailyMap = new Map<string, { revenue: number; count: number }>();
-        for (const sale of currentSales) {
-            const dateStr = new Date(sale.saleDate).toISOString().split('T')[0];
-            if (!dailyMap.has(dateStr)) {
-                dailyMap.set(dateStr, { revenue: 0, count: 0 });
-            }
-            const day = dailyMap.get(dateStr)!;
-            day.revenue += Number(sale.total);
-            day.count++;
-        }
-
-        const dailyData = Array.from(dailyMap.entries())
-            .map(([date, data]) => ({
-                date,
-                revenue: data.revenue,
-                salesCount: data.count,
-            }))
-            .sort((a, b) => a.date.localeCompare(b.date));
+        const dailyData = this.buildDailySalesData(currentSales);
 
         return {
             period: { startDate: start, endDate: end },
@@ -601,6 +674,63 @@ export class ReportsService {
             },
             dailyData,
         };
+    }
+
+    private buildPaymentMethodBreakdown(
+        sales: Sale[],
+        totalRevenue: number
+    ): Array<{ methodId: string; methodName: string; total: number; count: number; percentage: number }> {
+        const paymentMap = new Map<string, { name: string; total: number; count: number }>();
+
+        for (const sale of sales) {
+            for (const payment of sale.payments || []) {
+                const methodId = payment.paymentMethodId ?? 'unknown';
+                const methodName = payment.paymentMethod?.name ?? 'Desconocido';
+
+                const current = paymentMap.get(methodId) ?? { name: methodName, total: 0, count: 0 };
+                current.total += Number(payment.amount);
+                current.count++;
+                paymentMap.set(methodId, current);
+            }
+        }
+
+        return Array.from(paymentMap.entries())
+            .map(([methodId, data]) => ({
+                methodId,
+                methodName: data.name,
+                total: data.total,
+                count: data.count,
+                percentage: totalRevenue > 0 ? (data.total / totalRevenue) * 100 : 0,
+            }))
+            .sort((a, b) => b.total - a.total);
+    }
+
+    private countSalesByStatus(sales: Sale[]): Record<string, number> {
+        const byStatus: Record<string, number> = {};
+        for (const sale of sales) {
+            byStatus[sale.status] = (byStatus[sale.status] || 0) + 1;
+        }
+        return byStatus;
+    }
+
+    private buildDailySalesData(sales: Sale[]): Array<{ date: string; revenue: number; salesCount: number }> {
+        const dailyMap = new Map<string, { revenue: number; count: number }>();
+
+        for (const sale of sales) {
+            const dateStr = new Date(sale.saleDate).toISOString().split('T')[0];
+            const current = dailyMap.get(dateStr) ?? { revenue: 0, count: 0 };
+            current.revenue += Number(sale.total);
+            current.count++;
+            dailyMap.set(dateStr, current);
+        }
+
+        return Array.from(dailyMap.entries())
+            .map(([date, data]) => ({
+                date,
+                revenue: data.revenue,
+                salesCount: data.count,
+            }))
+            .sort((a, b) => a.date.localeCompare(b.date));
     }
 
     // ============================================
@@ -683,13 +813,12 @@ export class ReportsService {
         endDate?: string
     ): Promise<ProductsReport> {
         const { start, end } = this.getPeriodDates(period, startDate, endDate);
-        const startStr = start.toISOString().split('T')[0];
-        const endStr = end.toISOString().split('T')[0];
 
         // Top productos
         const topProducts = await this.getTopProducts(period, startDate, endDate, 20);
 
         // Estadísticas de inventario
+        const globalMinStockForProducts = await this.configurationService.getMinStockAlert();
         const allProducts = await this.productRepo.find({
             where: { isActive: true },
         });
@@ -697,7 +826,7 @@ export class ReportsService {
         const totalProducts = allProducts.length;
         const productsWithStock = allProducts.filter(p => p.stock > 0).length;
         const productsOutOfStock = allProducts.filter(p => p.stock === 0).length;
-        const productsLowStock = allProducts.filter(p => p.stock > 0 && p.stock <= p.minStock).length;
+        const productsLowStock = allProducts.filter(p => p.stock > 0 && p.stock <= globalMinStockForProducts).length;
         const totalStockValue = allProducts.reduce((sum, p) => sum + (p.stock * Number(p.cost)), 0);
         const totalSaleValue = allProducts.reduce((sum, p) => sum + (p.stock * Number(p.price)), 0);
 
@@ -823,8 +952,8 @@ export class ReportsService {
         const topDebtors = accountsWithDebt
             .map(a => ({
                 customerId: a.customerId,
-                customerName: a.customer 
-                    ? `${a.customer.firstName} ${a.customer.lastName}`.trim() 
+                customerName: a.customer
+                    ? `${a.customer.firstName} ${a.customer.lastName}`.trim()
                     : 'Cliente desconocido',
                 balance: Number(a.balance),
                 daysOverdue: a.daysOverdue,
@@ -959,12 +1088,8 @@ export class ReportsService {
             .sort((a, b) => a.month.localeCompare(b.month));
 
         // Crecimiento
-        const amountGrowth = previousTotal > 0 
-            ? ((currentTotal - previousTotal) / previousTotal) * 100 
-            : currentTotal > 0 ? 100 : 0;
-        const countGrowth = previousExpenses.length > 0 
-            ? ((currentExpenses.length - previousExpenses.length) / previousExpenses.length) * 100 
-            : currentExpenses.length > 0 ? 100 : 0;
+        const amountGrowth = this.calculateGrowthPercentage(currentTotal, previousTotal);
+        const countGrowth = this.calculateGrowthPercentage(currentExpenses.length, previousExpenses.length);
 
         return {
             period: { startDate: start, endDate: end },
@@ -1095,10 +1220,9 @@ export class ReportsService {
 
     async getDashboardSummary(): Promise<DashboardSummary> {
         const now = new Date();
-        
+
         // Fechas
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         const todayStr = todayStart.toISOString().split('T')[0];
 
         const weekStart = new Date(todayStart);
@@ -1132,6 +1256,13 @@ export class ReportsService {
             .andWhere('sale.status = :status', { status: SaleStatus.COMPLETED })
             .getMany();
 
+        const todayIncomes = await this.incomeRepo
+            .createQueryBuilder('income')
+            .where('income.deletedAt IS NULL')
+            .andWhere('DATE(income.incomeDate) = :date', { date: todayStr })
+            .andWhere('income.isPaid = true')
+            .getMany();
+
         const todayExpenses = await this.expenseRepo
             .createQueryBuilder('expense')
             .where('expense.deletedAt IS NULL')
@@ -1146,9 +1277,24 @@ export class ReportsService {
             .andWhere('purchase.status = :status', { status: PurchaseStatus.PAID })
             .getMany();
 
-        const todaySalesRevenue = todaySales.reduce((sum, s) => sum + Number(s.total), 0);
+        const todaySalesRevenue = todaySales.reduce((sum, s) => sum + Number(s.total), 0) + todayIncomes.reduce((sum, i) => sum + Number(i.amount), 0);
         const todayExpensesAmount = todayExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
         const todayPurchasesAmount = todayPurchases.reduce((sum, p) => sum + Number(p.total), 0);
+
+        // Pagos de Cuenta Corriente (Ingresos Reales)
+        const todayAccountPayments = await this.accountMovementRepo
+            .createQueryBuilder('movement')
+            .where('movement.deletedAt IS NULL')
+            .andWhere('DATE(movement.createdAt) = :date', { date: todayStr })
+            .andWhere('movement.movementType = :type', { type: MovementType.PAYMENT })
+            .getMany();
+
+        const todayAccountPaymentsAmount = todayAccountPayments.reduce((sum, m) => sum + Math.abs(Number(m.amount)), 0);
+
+        // Ajuste de flujo de caja: Consideramos Ventas + Ingresos + Cobros de Deuda - Gastos - Compras
+        // Nota: Si la venta fue a crédito hoy, se suma en SalesRevenue. Idealmente deberíamos restar la parte a crédito para netCashFlow puro,
+        // pero por simplicidad y para responder al usuario, sumamos los cobros de deuda al flujo.
+        const todayNetCashFlow = todaySalesRevenue + todayAccountPaymentsAmount - todayExpensesAmount - todayPurchasesAmount;
 
         // SEMANA
         const weekSales = await this.saleRepo
@@ -1158,11 +1304,25 @@ export class ReportsService {
             .andWhere('sale.status = :status', { status: SaleStatus.COMPLETED })
             .getMany();
 
+        const weekIncomes = await this.incomeRepo
+            .createQueryBuilder('income')
+            .where('income.deletedAt IS NULL')
+            .andWhere('DATE(income.incomeDate) BETWEEN :start AND :end', { start: weekStartStr, end: todayStr })
+            .andWhere('income.isPaid = true')
+            .getMany();
+
         const lastWeekSales = await this.saleRepo
             .createQueryBuilder('sale')
             .where('sale.deletedAt IS NULL')
             .andWhere('DATE(sale.saleDate) BETWEEN :start AND :end', { start: lastWeekStartStr, end: lastWeekEndStr })
             .andWhere('sale.status = :status', { status: SaleStatus.COMPLETED })
+            .getMany();
+
+        const lastWeekIncomes = await this.incomeRepo
+            .createQueryBuilder('income')
+            .where('income.deletedAt IS NULL')
+            .andWhere('DATE(income.incomeDate) BETWEEN :start AND :end', { start: lastWeekStartStr, end: lastWeekEndStr })
+            .andWhere('income.isPaid = true')
             .getMany();
 
         const weekExpenses = await this.expenseRepo
@@ -1179,10 +1339,18 @@ export class ReportsService {
             .andWhere('expense.isPaid = true')
             .getMany();
 
-        const weekSalesRevenue = weekSales.reduce((sum, s) => sum + Number(s.total), 0);
-        const lastWeekSalesRevenue = lastWeekSales.reduce((sum, s) => sum + Number(s.total), 0);
+        const weekSalesRevenue = weekSales.reduce((sum, s) => sum + Number(s.total), 0) + weekIncomes.reduce((sum, i) => sum + Number(i.amount), 0);
+        const lastWeekSalesRevenue = lastWeekSales.reduce((sum, s) => sum + Number(s.total), 0) + lastWeekIncomes.reduce((sum, i) => sum + Number(i.amount), 0);
         const weekExpensesAmount = weekExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
         const lastWeekExpensesAmount = lastWeekExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+
+        const weekAccountPayments = await this.accountMovementRepo
+            .createQueryBuilder('movement')
+            .where('movement.deletedAt IS NULL')
+            .andWhere('DATE(movement.createdAt) BETWEEN :start AND :end', { start: weekStartStr, end: todayStr })
+            .andWhere('movement.movementType = :type', { type: MovementType.PAYMENT })
+            .getMany();
+        const weekAccountPaymentsAmount = weekAccountPayments.reduce((sum, m) => sum + Math.abs(Number(m.amount)), 0);
 
         // MES
         const monthSales = await this.saleRepo
@@ -1192,11 +1360,32 @@ export class ReportsService {
             .andWhere('sale.status = :status', { status: SaleStatus.COMPLETED })
             .getMany();
 
+        const monthIncomes = await this.incomeRepo
+            .createQueryBuilder('income')
+            .where('income.deletedAt IS NULL')
+            .andWhere('DATE(income.incomeDate) BETWEEN :start AND :end', { start: monthStartStr, end: monthEndStr })
+            .andWhere('income.isPaid = true')
+            .getMany();
+
+        const monthPurchases = await this.purchaseRepo
+            .createQueryBuilder('purchase')
+            .where('purchase.deletedAt IS NULL')
+            .andWhere('DATE(purchase.purchaseDate) BETWEEN :start AND :end', { start: monthStartStr, end: monthEndStr })
+            .andWhere('purchase.status = :status', { status: PurchaseStatus.PAID })
+            .getMany();
+
         const lastMonthSales = await this.saleRepo
             .createQueryBuilder('sale')
             .where('sale.deletedAt IS NULL')
             .andWhere('DATE(sale.saleDate) BETWEEN :start AND :end', { start: lastMonthStartStr, end: lastMonthEndStr })
             .andWhere('sale.status = :status', { status: SaleStatus.COMPLETED })
+            .getMany();
+
+        const lastMonthIncomes = await this.incomeRepo
+            .createQueryBuilder('income')
+            .where('income.deletedAt IS NULL')
+            .andWhere('DATE(income.incomeDate) BETWEEN :start AND :end', { start: lastMonthStartStr, end: lastMonthEndStr })
+            .andWhere('income.isPaid = true')
             .getMany();
 
         const monthExpenses = await this.expenseRepo
@@ -1213,15 +1402,10 @@ export class ReportsService {
             .andWhere('expense.isPaid = true')
             .getMany();
 
-        const monthPurchases = await this.purchaseRepo
-            .createQueryBuilder('purchase')
-            .where('purchase.deletedAt IS NULL')
-            .andWhere('DATE(purchase.purchaseDate) BETWEEN :start AND :end', { start: monthStartStr, end: monthEndStr })
-            .andWhere('purchase.status = :status', { status: PurchaseStatus.PAID })
-            .getMany();
 
-        const monthSalesRevenue = monthSales.reduce((sum, s) => sum + Number(s.total), 0);
-        const lastMonthSalesRevenue = lastMonthSales.reduce((sum, s) => sum + Number(s.total), 0);
+
+        const monthSalesRevenue = monthSales.reduce((sum, s) => sum + Number(s.total), 0) + monthIncomes.reduce((sum, i) => sum + Number(i.amount), 0);
+        const lastMonthSalesRevenue = lastMonthSales.reduce((sum, s) => sum + Number(s.total), 0) + lastMonthIncomes.reduce((sum, i) => sum + Number(i.amount), 0);
         const monthExpensesAmount = monthExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
         const lastMonthExpensesAmount = lastMonthExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
         const monthPurchasesAmount = monthPurchases.reduce((sum, p) => sum + Number(p.total), 0);
@@ -1230,9 +1414,10 @@ export class ReportsService {
         const monthNetMargin = monthSalesRevenue > 0 ? (monthNetProfit / monthSalesRevenue) * 100 : 0;
 
         // INVENTARIO
+        const globalMinStock = await this.configurationService.getMinStockAlert();
         const products = await this.productRepo.find({ where: { isActive: true } });
         const totalProducts = products.length;
-        const lowStock = products.filter(p => p.stock > 0 && p.stock <= p.minStock).length;
+        const lowStock = products.filter(p => p.stock > 0 && p.stock <= globalMinStock).length;
         const outOfStock = products.filter(p => p.stock === 0).length;
         const totalValue = products.reduce((sum, p) => sum + (p.stock * Number(p.cost)), 0);
 
@@ -1241,46 +1426,84 @@ export class ReportsService {
         const totalDebt = accounts.reduce((sum, a) => sum + Number(a.balance), 0);
         const overdueAccounts = accounts.filter(a => a.daysOverdue > 0).length;
 
+        // ESTADO DE CAJA
+        const openRegister = await this.cashRegisterService.getOpenRegister();
+        const cashRegister = {
+            isOpen: !!openRegister,
+            balance: openRegister
+                ? Number(openRegister.initialAmount) + Number(openRegister.totalIncome) - Number(openRegister.totalExpense)
+                : 0,
+            openedBy: openRegister?.openedBy?.firstName ?? null,
+            openedAt: openRegister?.openedAt ?? null,
+        };
+
+        // GRÁFICOS - Ventas últimos 7 días
+        const last7DaysData: Array<{ date: string; revenue: number; salesCount: number }> = [];
+        for (let i = 6; i >= 0; i--) {
+            const dayDate = new Date(todayStart);
+            dayDate.setDate(dayDate.getDate() - i);
+            const dayStr = dayDate.toISOString().split('T')[0];
+
+            const daySales = await this.saleRepo
+                .createQueryBuilder('sale')
+                .where('sale.deletedAt IS NULL')
+                .andWhere('DATE(sale.saleDate) = :date', { date: dayStr })
+                .andWhere('sale.status = :status', { status: SaleStatus.COMPLETED })
+                .getMany();
+
+            last7DaysData.push({
+                date: dayStr,
+                revenue: daySales.reduce((sum, s) => sum + Number(s.total), 0),
+                salesCount: daySales.length,
+            });
+        }
+
+        // TOP 5 PRODUCTOS DEL MES
+        const topProducts = await this.getTopProducts(
+            undefined,
+            monthStartStr,
+            monthEndStr,
+            5
+        );
+
+        // Cálculos de crecimiento
+        const calculateGrowth = (current: number, previous: number) => {
+            if (previous === 0) return current > 0 ? 100 : 0;
+            return ((current - previous) / previous) * 100;
+        };
+
         return {
             today: {
-                sales: { revenue: todaySalesRevenue, count: todaySales.length },
+                sales: { revenue: todaySalesRevenue, count: todaySales.length + todayIncomes.length },
                 expenses: { amount: todayExpensesAmount, count: todayExpenses.length },
                 purchases: { amount: todayPurchasesAmount, count: todayPurchases.length },
-                netCashFlow: todaySalesRevenue - todayPurchasesAmount - todayExpensesAmount,
+                netCashFlow: todayNetCashFlow,
             },
             week: {
-                sales: { 
-                    revenue: weekSalesRevenue, 
-                    count: weekSales.length,
-                    growth: lastWeekSalesRevenue > 0 
-                        ? ((weekSalesRevenue - lastWeekSalesRevenue) / lastWeekSalesRevenue) * 100 
-                        : weekSalesRevenue > 0 ? 100 : 0,
+                sales: {
+                    revenue: weekSalesRevenue,
+                    count: weekSales.length + weekIncomes.length,
+                    growth: calculateGrowth(weekSalesRevenue, lastWeekSalesRevenue),
                 },
-                expenses: { 
-                    amount: weekExpensesAmount, 
+                expenses: {
+                    amount: weekExpensesAmount,
                     count: weekExpenses.length,
-                    growth: lastWeekExpensesAmount > 0 
-                        ? ((weekExpensesAmount - lastWeekExpensesAmount) / lastWeekExpensesAmount) * 100 
-                        : weekExpensesAmount > 0 ? 100 : 0,
+                    growth: calculateGrowth(weekExpensesAmount, lastWeekExpensesAmount),
                 },
             },
             month: {
-                sales: { 
-                    revenue: monthSalesRevenue, 
-                    count: monthSales.length,
-                    growth: lastMonthSalesRevenue > 0 
-                        ? ((monthSalesRevenue - lastMonthSalesRevenue) / lastMonthSalesRevenue) * 100 
-                        : monthSalesRevenue > 0 ? 100 : 0,
+                sales: {
+                    revenue: monthSalesRevenue,
+                    count: monthSales.length + monthIncomes.length,
+                    growth: calculateGrowth(monthSalesRevenue, lastMonthSalesRevenue),
                 },
-                expenses: { 
-                    amount: monthExpensesAmount, 
+                expenses: {
+                    amount: monthExpensesAmount,
                     count: monthExpenses.length,
-                    growth: lastMonthExpensesAmount > 0 
-                        ? ((monthExpensesAmount - lastMonthExpensesAmount) / lastMonthExpensesAmount) * 100 
-                        : monthExpensesAmount > 0 ? 100 : 0,
+                    growth: calculateGrowth(monthExpensesAmount, lastMonthExpensesAmount),
                 },
-                netProfit: monthNetProfit,
-                netMargin: monthNetMargin,
+                netProfit: monthSalesRevenue - monthPurchasesAmount - monthExpensesAmount,
+                netMargin: monthSalesRevenue > 0 ? ((monthSalesRevenue - monthPurchasesAmount - monthExpensesAmount) / monthSalesRevenue) * 100 : 0,
             },
             inventory: {
                 totalProducts,
@@ -1291,6 +1514,22 @@ export class ReportsService {
             accounts: {
                 totalDebt,
                 overdueAccounts,
+            },
+            cashRegister,
+            charts: {
+                last7Days: last7DaysData,
+            },
+            topProducts: topProducts.map(p => ({
+                productId: p.productId,
+                productName: p.productName,
+                quantitySold: p.quantitySold,
+                revenue: p.revenue,
+            })),
+            alerts: {
+                cashClosed: !openRegister,
+                lowStockCount: lowStock,
+                outOfStockCount: outOfStock,
+                overdueAccountsCount: overdueAccounts,
             },
         };
     }

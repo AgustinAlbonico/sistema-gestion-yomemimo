@@ -8,7 +8,6 @@ import {
     Column,
     CreateDateColumn,
     UpdateDateColumn,
-    OneToMany,
     Index,
 } from 'typeorm';
 import { IvaCondition } from '../../../common/enums/iva-condition.enum';

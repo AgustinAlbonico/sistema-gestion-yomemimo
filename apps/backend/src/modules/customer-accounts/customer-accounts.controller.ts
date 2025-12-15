@@ -23,6 +23,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CustomerAccountsService } from './customer-accounts.service';
 import { CreateChargeDto, CreatePaymentDto, UpdateAccountDto, AccountFiltersDto } from './dto';
+import { ApplySurchargeDto } from './dto/apply-surcharge.dto';
 
 @ApiTags('customer-accounts')
 @ApiBearerAuth('JWT-auth')
@@ -74,6 +75,17 @@ export class CustomerAccountsController {
     }
 
     /**
+     * Obtiene las transacciones pendientes de un cliente (ventas e ingresos)
+     */
+    @Get(':customerId/pending-transactions')
+    @ApiOperation({ summary: 'Obtener transacciones pendientes de un cliente' })
+    @ApiParam({ name: 'customerId', description: 'ID del cliente' })
+    @ApiResponse({ status: 200, description: 'Lista de ventas e ingresos pendientes' })
+    async getPendingTransactions(@Param('customerId') customerId: string) {
+        return this.accountsService.getPendingTransactions(customerId);
+    }
+
+    /**
      * Obtiene el estado de cuenta de un cliente
      */
     @Get(':customerId')
@@ -119,6 +131,23 @@ export class CustomerAccountsController {
     }
 
     /**
+     * Aplica un recargo (interés) a la cuenta del cliente
+     */
+    @Post(':customerId/surcharge')
+    @ApiOperation({ summary: 'Aplicar recargo/interés a cuenta corriente' })
+    @ApiParam({ name: 'customerId', description: 'ID del cliente' })
+    @ApiResponse({ status: 201, description: 'Recargo aplicado' })
+    @ApiResponse({ status: 400, description: 'Error de validación o no hay deuda' })
+    async applySurcharge(
+        @Param('customerId') customerId: string,
+        @Body() dto: ApplySurchargeDto,
+        @Request() req: any,
+    ) {
+        const userId = req.user?.userId;
+        return this.accountsService.applySurcharge(customerId, dto, userId);
+    }
+
+    /**
      * Actualiza una cuenta corriente
      */
     @Patch(':customerId')
@@ -152,5 +181,20 @@ export class CustomerAccountsController {
     @ApiResponse({ status: 200, description: 'Cuenta reactivada' })
     async activateAccount(@Param('customerId') customerId: string) {
         return this.accountsService.activateAccount(customerId);
+    }
+
+    /**
+     * Sincroniza cargos faltantes de ventas a cuenta corriente
+     */
+    @Post(':customerId/sync-charges')
+    @ApiOperation({ summary: 'Sincronizar cargos faltantes de ventas' })
+    @ApiParam({ name: 'customerId', description: 'ID del cliente' })
+    @ApiResponse({ status: 200, description: 'Cargos sincronizados' })
+    async syncMissingCharges(
+        @Param('customerId') customerId: string,
+        @Request() req: any,
+    ) {
+        const userId = req.user?.userId;
+        return this.accountsService.syncMissingCharges(customerId, userId);
     }
 }

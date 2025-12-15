@@ -115,17 +115,20 @@ export class CustomersService {
     async update(id: string, dto: UpdateCustomerDto) {
         const customer = await this.findOne(id);
 
-        // Validar documento único si se modifica
+        await this.validateCustomerUpdate(customer, dto);
+
+        Object.assign(customer, this.buildCustomerUpdatePayload(dto));
+        return this.customersRepository.save(customer);
+    }
+
+    private async validateCustomerUpdate(customer: Customer, dto: UpdateCustomerDto): Promise<void> {
         if (dto.documentNumber && dto.documentNumber !== customer.documentNumber) {
-            const existingCustomer = await this.customersRepository.findByDocumentNumber(
-                dto.documentNumber,
-            );
+            const existingCustomer = await this.customersRepository.findByDocumentNumber(dto.documentNumber);
             if (existingCustomer) {
                 throw new ConflictException('El número de documento ya está registrado');
             }
         }
 
-        // Validar email único si se modifica
         if (dto.email && dto.email.trim() !== '' && dto.email !== customer.email) {
             const existingEmail = await this.customersRepository.findByEmail(dto.email);
             if (existingEmail) {
@@ -133,7 +136,6 @@ export class CustomersService {
             }
         }
 
-        // Validar categoría si se modifica
         if (dto.categoryId && dto.categoryId.trim() !== '') {
             const category = await this.categoriesRepository.findOne({
                 where: { id: dto.categoryId },
@@ -142,9 +144,9 @@ export class CustomersService {
                 throw new NotFoundException('Categoría no encontrada');
             }
         }
+    }
 
-        // Limpiar campos vacíos y convertir undefined a null
-        // Solo actualizar campos que vienen en el DTO
+    private buildCustomerUpdatePayload(dto: UpdateCustomerDto): Partial<Customer> {
         const cleanedDto: Partial<Customer> = {};
 
         if (dto.firstName !== undefined) cleanedDto.firstName = dto.firstName;
@@ -163,8 +165,7 @@ export class CustomersService {
         if (dto.notes !== undefined) cleanedDto.notes = dto.notes?.trim() || null;
         if (dto.isActive !== undefined) cleanedDto.isActive = dto.isActive;
 
-        Object.assign(customer, cleanedDto);
-        return this.customersRepository.save(customer);
+        return cleanedDto;
     }
 
     /**

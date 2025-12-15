@@ -25,7 +25,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { SupplierSchema, SupplierFormValues } from '../schemas/supplier.schema';
 import { Loader2 } from 'lucide-react';
-import { IvaConditionOptions, DEFAULT_IVA_CONDITION, IvaCondition } from '@/types/iva-condition';
+import { IvaConditionOptions} from '@/types/iva-condition';
 
 interface SupplierFormProps {
     readonly initialData?: SupplierFormValues;

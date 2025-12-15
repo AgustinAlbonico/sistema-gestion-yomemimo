@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { CreateCategorySchema } from './create-category.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, Length, Matches } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, Length, Matches, IsNumber, Min, Max } from 'class-validator';
 
 export const UpdateCategorySchema = CreateCategorySchema.partial();
 
@@ -25,6 +25,13 @@ export class UpdateCategoryDto implements Partial<UpdateCategoryDTO> {
     @IsString()
     @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Color inválido (formato: #RRGGBB)' })
     color?: string;
+
+    @ApiPropertyOptional({ example: 25, description: 'Porcentaje de ganancia para productos de esta categoría' })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Max(1000)
+    profitMargin?: number | null;
 
     @ApiPropertyOptional({ example: true })
     @IsOptional()

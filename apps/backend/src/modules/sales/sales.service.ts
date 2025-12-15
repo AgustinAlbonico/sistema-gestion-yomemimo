@@ -25,6 +25,8 @@ import { CashRegisterService } from '../cash-register/cash-register.service';
 import { CustomerAccountsService } from '../customer-accounts/customer-accounts.service';
 import { StockMovementType, StockMovementSource } from '../inventory/entities/stock-movement.entity';
 import { parseLocalDate } from '../../common/utils/date.utils';
+import { AuditService } from '../audit/audit.service';
+import { AuditEntityType, AuditAction } from '../audit/enums';
 
 export interface SaleStats {
     totalSales: number;
@@ -60,6 +62,7 @@ export class SalesService {
         private readonly cashRegisterService: CashRegisterService,
         private readonly customerAccountsService: CustomerAccountsService,
         private readonly dataSource: DataSource,
+        private readonly auditService: AuditService,
     ) { }
 
     // ============ Métodos auxiliares para reducir complejidad cognitiva ============
@@ -209,8 +212,8 @@ export class SalesService {
                     userId || 'system'
                 );
                 console.log(`[Ventas] Ingreso registrado en caja: ${payment.amount} (${payment.paymentMethodId})`);
-            } catch (cashErr) {
-                console.warn(`[Ventas] No se pudo registrar ingreso en caja: ${(cashErr as Error).message}`);
+            } catch (error_) {
+                console.warn(`[Ventas] No se pudo registrar ingreso en caja: ${(error_ as Error).message}`);
             }
         }
     }
@@ -312,8 +315,8 @@ export class SalesService {
                         where: { id: savedSale.id },
                         relations: ['items', 'items.product', 'payments', 'customer', 'createdBy', 'invoice'],
                     });
-                } catch (invoiceErr) {
-                    const errorMsg = (invoiceErr as Error).message;
+                } catch (error_) {
+                    const errorMsg = (error_ as Error).message;
                     console.error(`[Ventas] Error al generar factura fiscal: ${errorMsg}`);
                     savedSale.fiscalPending = true;
                     savedSale.fiscalError = errorMsg;
@@ -330,6 +333,29 @@ export class SalesService {
             // Registrar ingresos en caja (después del commit)
             if (status === SaleStatus.COMPLETED && completedSale?.payments && completedSale.payments.length > 0) {
                 await this.registerCashIncomes(completedSale.payments, userId || 'system');
+            }
+
+            // Log de auditoría para creación de venta
+            if (userId && completedSale) {
+                await this.auditService.logSilent({
+                    entityType: AuditEntityType.SALE,
+                    entityId: completedSale.id,
+                    action: AuditAction.CREATE,
+                    userId,
+                    newValues: {
+                        saleNumber: completedSale.saleNumber,
+                        total: completedSale.total,
+                        status: completedSale.status,
+                        customerId: completedSale.customerId,
+                        isOnAccount: completedSale.isOnAccount,
+                        isFiscal: completedSale.isFiscal,
+                    },
+                    description: AuditService.generateDescription(
+                        AuditAction.CREATE,
+                        AuditEntityType.SALE,
+                        completedSale.saleNumber
+                    ),
+                });
             }
 
             return completedSale!;
@@ -464,8 +490,19 @@ export class SalesService {
     /**
      * Actualiza una venta
      */
-    async update(id: string, dto: UpdateSaleDto): Promise<Sale> {
+    async update(id: string, dto: UpdateSaleDto, userId?: string): Promise<Sale> {
         const sale = await this.findOne(id);
+        const previousValues = {
+            customerId: sale.customerId,
+            customerName: sale.customerName,
+            notes: sale.notes,
+            isOnAccount: sale.isOnAccount,
+            tax: sale.tax,
+            discount: sale.discount,
+            surcharge: sale.surcharge,
+            total: sale.total,
+            status: sale.status,
+        };
 
         if (sale.status === SaleStatus.CANCELLED) {
             throw new BadRequestException('No se puede modificar una venta cancelada');
@@ -491,14 +528,42 @@ export class SalesService {
 
         await this.saleRepo.save(sale);
 
+        // Log de auditoría
+        if (userId) {
+            await this.auditService.logSilent({
+                entityType: AuditEntityType.SALE,
+                entityId: id,
+                action: AuditAction.UPDATE,
+                userId,
+                previousValues,
+                newValues: {
+                    customerId: sale.customerId,
+                    customerName: sale.customerName,
+                    notes: sale.notes,
+                    isOnAccount: sale.isOnAccount,
+                    tax: sale.tax,
+                    discount: sale.discount,
+                    surcharge: sale.surcharge,
+                    total: sale.total,
+                    status: sale.status,
+                },
+                description: AuditService.generateDescription(
+                    AuditAction.UPDATE,
+                    AuditEntityType.SALE,
+                    sale.saleNumber
+                ),
+            });
+        }
+
         return this.findOne(id);
     }
 
     /**
      * Cancela una venta
      */
-    async cancel(id: string): Promise<Sale> {
+    async cancel(id: string, userId?: string): Promise<Sale> {
         const sale = await this.findOne(id);
+        const previousStatus = sale.status;
 
         if (sale.status === SaleStatus.CANCELLED) {
             throw new BadRequestException('La venta ya está cancelada');
@@ -511,13 +576,32 @@ export class SalesService {
         }
 
         sale.status = SaleStatus.CANCELLED;
-        return this.saleRepo.save(sale);
+        const savedSale = await this.saleRepo.save(sale);
+
+        // Log de auditoría
+        if (userId) {
+            await this.auditService.logSilent({
+                entityType: AuditEntityType.SALE,
+                entityId: id,
+                action: AuditAction.CANCEL,
+                userId,
+                previousValues: { status: previousStatus },
+                newValues: { status: SaleStatus.CANCELLED },
+                description: AuditService.generateDescription(
+                    AuditAction.CANCEL,
+                    AuditEntityType.SALE,
+                    sale.saleNumber
+                ),
+            });
+        }
+
+        return savedSale;
     }
 
     /**
      * Elimina una venta (soft delete)
      */
-    async remove(id: string): Promise<{ message: string }> {
+    async remove(id: string, userId?: string): Promise<{ message: string }> {
         const sale = await this.findOne(id);
 
         if (sale.inventoryUpdated) {
@@ -527,13 +611,34 @@ export class SalesService {
         }
 
         await this.saleRepo.softDelete(id);
+
+        // Log de auditoría
+        if (userId) {
+            await this.auditService.logSilent({
+                entityType: AuditEntityType.SALE,
+                entityId: id,
+                action: AuditAction.DELETE,
+                userId,
+                previousValues: {
+                    saleNumber: sale.saleNumber,
+                    total: sale.total,
+                    status: sale.status,
+                },
+                description: AuditService.generateDescription(
+                    AuditAction.DELETE,
+                    AuditEntityType.SALE,
+                    sale.saleNumber
+                ),
+            });
+        }
+
         return { message: 'Venta eliminada' };
     }
 
     /**
      * Marca una venta pendiente como pagada
      */
-    async markAsPaid(id: string, payments: any[]): Promise<Sale> {
+    async markAsPaid(id: string, payments: any[], userId?: string): Promise<Sale> {
         const sale = await this.findOne(id);
 
         if (sale.status === SaleStatus.CANCELLED) {
@@ -544,12 +649,21 @@ export class SalesService {
             throw new BadRequestException('La venta ya está completada');
         }
 
+        // Validar que haya caja abierta
+        const openCashRegister = await this.cashRegisterService.getOpenRegister();
+        if (!openCashRegister) {
+            throw new BadRequestException(
+                'No hay caja abierta. Debe abrir la caja antes de marcar ventas como pagadas.',
+            );
+        }
+
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
 
         try {
             // Crear pagos
+            const savedPayments: SalePayment[] = [];
             for (const paymentDto of payments) {
                 const payment = this.salePaymentRepo.create({
                     saleId: sale.id,
@@ -561,7 +675,8 @@ export class SalesService {
                     referenceNumber: paymentDto.referenceNumber ?? null,
                     notes: paymentDto.notes ?? null,
                 });
-                await queryRunner.manager.save(payment);
+                const savedPayment = await queryRunner.manager.save(payment);
+                savedPayments.push(savedPayment);
             }
 
             // Actualizar inventario si no se ha hecho
@@ -573,8 +688,47 @@ export class SalesService {
             sale.status = SaleStatus.COMPLETED;
             sale.isOnAccount = false;
 
-            await queryRunner.manager.save(sale);
+            // Usar update directo para evitar que el cascade de payments cause problemas
+            await queryRunner.manager.update(Sale, sale.id, {
+                status: SaleStatus.COMPLETED,
+                isOnAccount: false,
+                inventoryUpdated: sale.inventoryUpdated,
+            });
             await queryRunner.commitTransaction();
+
+            // Registrar ingresos en caja (después del commit)
+            for (const payment of savedPayments) {
+                try {
+                    await this.cashRegisterService.registerIncome(
+                        { salePaymentId: payment.id },
+                        userId || 'system',
+                    );
+                    console.log(`[Ventas] Ingreso registrado en caja: ${payment.amount} (${payment.paymentMethodId})`);
+                } catch (error_) {
+                    console.warn(`[Ventas] No se pudo registrar ingreso en caja: ${(error_ as Error).message}`);
+                }
+            }
+
+            // Log de auditoría para pago de venta
+            if (userId) {
+                await this.auditService.logSilent({
+                    entityType: AuditEntityType.SALE,
+                    entityId: id,
+                    action: AuditAction.PAY,
+                    userId,
+                    previousValues: { status: SaleStatus.PENDING, isOnAccount: true },
+                    newValues: {
+                        status: SaleStatus.COMPLETED,
+                        isOnAccount: false,
+                        payments: savedPayments.map(p => ({ amount: p.amount, methodId: p.paymentMethodId })),
+                    },
+                    description: AuditService.generateDescription(
+                        AuditAction.PAY,
+                        AuditEntityType.SALE,
+                        sale.saleNumber
+                    ),
+                });
+            }
 
             return this.findOne(id);
         } catch (err) {

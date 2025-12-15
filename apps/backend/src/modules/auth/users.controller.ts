@@ -5,10 +5,7 @@ import {
     Body,
     Patch,
     Param,
-    Delete,
     UseGuards,
-    HttpCode,
-    HttpStatus,
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -76,13 +73,12 @@ export class UsersController {
         return this.usersService.update(id, dto);
     }
 
-    @Delete(':id')
-    @HttpCode(HttpStatus.NO_CONTENT)
-    @ApiOperation({ summary: 'Eliminar usuario' })
+    @Patch(':id/toggle-status')
+    @ApiOperation({ summary: 'Activar/Desactivar usuario' })
     @ApiParam({ name: 'id', description: 'ID del usuario (UUID)' })
-    @ApiResponse({ status: 204, description: 'Usuario eliminado exitosamente' })
+    @ApiResponse({ status: 200, description: 'Estado del usuario actualizado' })
     @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
-    async remove(@Param('id') id: string) {
-        await this.usersService.remove(id);
+    async toggleStatus(@Param('id') id: string) {
+        return this.usersService.toggleStatus(id);
     }
 }

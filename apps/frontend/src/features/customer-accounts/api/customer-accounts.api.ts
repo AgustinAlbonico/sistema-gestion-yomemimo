@@ -14,6 +14,8 @@ import type {
     UpdateAccountDto,
     AccountFiltersDto,
     AccountMovement,
+    PendingTransactions,
+    ApplySurchargeDto,
 } from '../types';
 
 export const customerAccountsApi = {
@@ -59,6 +61,16 @@ export const customerAccountsApi = {
     getAccountStatement: async (customerId: string): Promise<AccountStatement> => {
         const response = await api.get<AccountStatement>(
             `/api/customer-accounts/${customerId}`
+        );
+        return response.data;
+    },
+
+    /**
+     * Obtiene las transacciones pendientes de un cliente (ventas e ingresos)
+     */
+    getPendingTransactions: async (customerId: string): Promise<PendingTransactions> => {
+        const response = await api.get<PendingTransactions>(
+            `/api/customer-accounts/${customerId}/pending-transactions`
         );
         return response.data;
     },
@@ -121,6 +133,34 @@ export const customerAccountsApi = {
     activateAccount: async (customerId: string): Promise<CustomerAccount> => {
         const response = await api.post<CustomerAccount>(
             `/api/customer-accounts/${customerId}/activate`
+        );
+        return response.data;
+    },
+
+    /**
+     * Aplica un recargo/interés a la cuenta del cliente
+     */
+    applySurcharge: async (
+        customerId: string,
+        data: ApplySurchargeDto
+    ): Promise<AccountMovement> => {
+        const response = await api.post<AccountMovement>(
+            `/api/customer-accounts/${customerId}/surcharge`,
+            data
+        );
+        return response.data;
+    },
+
+    /**
+     * Sincroniza cargos faltantes de ventas pendientes a cuenta corriente
+     */
+    syncMissingCharges: async (customerId: string): Promise<{
+        chargesCreated: number;
+        totalAmount: number;
+        sales: Array<{ saleId: string; saleNumber: string; amount: number }>;
+    }> => {
+        const response = await api.post(
+            `/api/customer-accounts/${customerId}/sync-charges`
         );
         return response.data;
     },

@@ -13,6 +13,8 @@ import { OpenCashRegisterDto } from './dto/open-cash-register.dto';
 import { CloseCashRegisterDto } from './dto/close-cash-register.dto';
 import { CashFlowReportFiltersDto } from './dto/cash-flow-report-filters.dto';
 import { getTodayLocalDate } from '../../common/utils/date.utils';
+import { AuditService } from '../audit/audit.service';
+import { AuditEntityType, AuditAction } from '../audit/enums';
 
 @Injectable()
 export class CashRegisterService {
@@ -27,6 +29,7 @@ export class CashRegisterService {
         private readonly paymentMethodRepo: Repository<PaymentMethodEntity>,
         @InjectDataSource()
         private readonly dataSource: DataSource,
+        private readonly auditService: AuditService,
     ) { }
 
     // ============ SPRINT 1: Saldo Sugerido ============
@@ -115,6 +118,23 @@ export class CashRegisterService {
         // Crear totales iniciales por método de pago
         await this.initializePaymentMethodTotals(saved, dto.initialAmount);
 
+        // Log de auditoría
+        await this.auditService.logSilent({
+            entityType: AuditEntityType.CASH_REGISTER,
+            entityId: saved.id,
+            action: AuditAction.OPEN,
+            userId,
+            newValues: {
+                date: saved.date,
+                initialAmount: saved.initialAmount,
+                openingNotes: saved.openingNotes,
+            },
+            description: AuditService.generateDescription(
+                AuditAction.OPEN,
+                AuditEntityType.CASH_REGISTER
+            ),
+        });
+
         // Recargar con relaciones
         return this.cashRegisterRepo.findOne({
             where: { id: saved.id },
@@ -184,6 +204,25 @@ export class CashRegisterService {
         cashRegister.closedBy = { id: userId } as any;
 
         await this.cashRegisterRepo.save(cashRegister);
+
+        // Log de auditoría
+        await this.auditService.logSilent({
+            entityType: AuditEntityType.CASH_REGISTER,
+            entityId: cashRegister.id,
+            action: AuditAction.CLOSE,
+            userId,
+            previousValues: { status: CashRegisterStatus.OPEN },
+            newValues: {
+                status: CashRegisterStatus.CLOSED,
+                expectedAmount,
+                actualAmount: totalActual,
+                difference,
+            },
+            description: AuditService.generateDescription(
+                AuditAction.CLOSE,
+                AuditEntityType.CASH_REGISTER
+            ),
+        });
 
         // Recargar con todas las relaciones
         return this.cashRegisterRepo.findOne({
@@ -342,7 +381,7 @@ export class CashRegisterService {
     }
 
     /**
-     * Cargar movimientos con detalles de ventas, gastos y compras
+     * Cargar movimientos con detalles de ventas, gastos, compras y movimientos manuales
      */
     private async loadMovementsWithDetails(registerId: string): Promise<any[]> {
         const movements = await this.cashMovementRepo
@@ -359,6 +398,13 @@ export class CashRegisterService {
             // Join con Purchase para egresos de compras
             .leftJoin('purchases', 'p', 'movement.referenceType = :purchaseType AND movement.referenceId = p.id', { purchaseType: 'purchase' })
             .leftJoin('payment_methods', 'pm_purchase', 'p.payment_method_id = pm_purchase.id')
+            // Join con Income para ingresos de servicios
+            .leftJoin('incomes', 'i', 'movement.referenceType = :incomeType AND movement.referenceId = i.id', { incomeType: 'income' })
+            .leftJoin('payment_methods', 'pm_income', 'i.payment_method_id = pm_income.id')
+            // Join con métodos de pago para movimientos manuales
+            .leftJoin('payment_methods', 'pm_manual', 'movement.referenceType = :manualType AND movement.manual_payment_method_id = pm_manual.id', { manualType: 'manual' })
+            // Join con métodos de pago para pagos de cuenta corriente
+            .leftJoin('payment_methods', 'pm_account', 'movement.referenceType = :accountPaymentType AND movement.manual_payment_method_id = pm_account.id', { accountPaymentType: 'account_payment' })
             .select([
                 'movement.id',
                 'movement.movementType',
@@ -369,16 +415,19 @@ export class CashRegisterService {
                 'createdBy.firstName',
                 'createdBy.lastName',
             ])
-            // Mapear campos dinámicos - prioridad: sale_payment > expense > purchase
-            .addSelect('COALESCE(sp.amount, e.amount, p.total)', 'amount')
+            // Mapear campos dinámicos - prioridad: sale_payment > expense > purchase > income > manual
+            .addSelect('COALESCE(sp.amount, e.amount, p.total, i.amount, movement."manualAmount")', 'amount')
             .addSelect(`CASE 
                 WHEN s.id IS NOT NULL THEN CONCAT('Venta ', s."saleNumber") 
                 WHEN e.id IS NOT NULL THEN e.description 
                 WHEN p.id IS NOT NULL THEN CONCAT('Compra ', p."purchaseNumber")
+                WHEN i.id IS NOT NULL THEN i.description
+                WHEN movement."referenceType" = 'account_payment' THEN movement."manualDescription"
+                WHEN movement."referenceType" = 'manual' THEN movement."manualDescription"
                 ELSE 'Movimiento' 
             END`, 'description')
-            .addSelect('COALESCE(pm_sale.name, pm_expense.name, pm_purchase.name)', 'paymentMethodName')
-            .addSelect('COALESCE(pm_sale.code, pm_expense.code, pm_purchase.code)', 'paymentMethodCode')
+            .addSelect('COALESCE(pm_sale.name, pm_expense.name, pm_purchase.name, pm_income.name, pm_account.name, pm_manual.name)', 'paymentMethodName')
+            .addSelect('COALESCE(pm_sale.code, pm_expense.code, pm_purchase.code, pm_income.code, pm_account.code, pm_manual.code)', 'paymentMethodCode')
             .where('movement.cashRegister.id = :registerId', { registerId })
             .orderBy('movement.createdAt', 'DESC')
             .getRawMany();
@@ -627,6 +676,73 @@ export class CashRegisterService {
     }
 
     /**
+     * Registrar ingreso desde pago de cuenta corriente
+     * Este método registra pagos parciales o totales de clientes en cuenta corriente
+     */
+    async registerAccountPayment(
+        data: {
+            accountMovementId: string;
+            customerId: string;
+            amount: number;
+            paymentMethodId: string;
+            description: string;
+        },
+        userId: string,
+    ): Promise<CashMovement> {
+        const cashRegister = await this.getOpenRegister();
+
+        if (!cashRegister) {
+            throw new BadRequestException('No hay caja abierta');
+        }
+
+        const amount = Math.abs(data.amount);
+
+        const isValidUUID = userId && userId !== 'system' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+
+        // Usar query directo para evitar problemas con cascade de TypeORM
+        const result = await this.dataSource.query(
+            `INSERT INTO cash_movements 
+                (cash_register_id, "movementType", "referenceType", "referenceId", "manualDescription", "manualAmount", "manual_payment_method_id", created_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING *`,
+            [
+                cashRegister.id,
+                MovementType.INCOME,
+                'account_payment',
+                data.accountMovementId,
+                data.description,
+                amount,
+                data.paymentMethodId,
+                isValidUUID ? userId : null
+            ]
+        );
+
+        const savedMovement = result[0];
+
+        // Actualizar totales de caja usando UPDATE directo para no tocar relaciones
+        await this.cashRegisterRepo.update(
+            { id: cashRegister.id },
+            { totalIncome: Number(cashRegister.totalIncome) + amount }
+        );
+
+        // Actualizar totales por método de pago
+        const paymentMethodEntity = await this.paymentMethodRepo.findOneBy({ id: data.paymentMethodId });
+
+        if (paymentMethodEntity) {
+            await this.updatePaymentMethodTotal(
+                cashRegister.id,
+                paymentMethodEntity,
+                amount,
+                'income',
+            );
+        }
+
+        console.log(`[CashRegister] Pago de cuenta corriente registrado: $${amount} - ${data.description}`);
+
+        return savedMovement;
+    }
+
+    /**
      * Registrar egreso desde compra
      */
     async registerPurchase(
@@ -752,8 +868,102 @@ export class CashRegisterService {
     }
 
     /**
-     * Crear movimiento manual
+     * Crear movimiento manual (retiro/ingreso de efectivo)
      */
+    async createManualMovement(
+        dto: {
+            movementType: 'income' | 'expense';
+            paymentMethodId: string;
+            amount: number;
+            description: string;
+            notes?: string;
+        },
+        userId: string,
+    ): Promise<CashMovement> {
+        const cashRegister = await this.getOpenRegister();
+
+        if (!cashRegister) {
+            throw new BadRequestException('No hay caja abierta');
+        }
+
+        // Obtener el método de pago
+        const paymentMethod = await this.paymentMethodRepo.findOneBy({ id: dto.paymentMethodId });
+        if (!paymentMethod) {
+            throw new NotFoundException('Método de pago no encontrado');
+        }
+
+        const amount = Math.abs(dto.amount);
+        const isIncome = dto.movementType === 'income';
+
+        const isValidUUID = userId && userId !== 'system' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+
+        // Crear el movimiento con referenceType = 'manual' y datos adicionales
+        const result = await this.dataSource.query(
+            `INSERT INTO cash_movements 
+                (cash_register_id, "movementType", "referenceType", "referenceId", created_by, 
+                 "manualAmount", "manualDescription", "manual_payment_method_id", "manualNotes")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING *`,
+            [
+                cashRegister.id,
+                isIncome ? MovementType.INCOME : MovementType.EXPENSE,
+                'manual',
+                null, // No hay referenceId para movimientos manuales
+                isValidUUID ? userId : null,
+                amount,
+                dto.description,
+                dto.paymentMethodId,
+                dto.notes || null
+            ]
+        );
+
+        const savedMovement = result[0];
+
+        // Actualizar totales de la caja
+        if (isIncome) {
+            await this.cashRegisterRepo.update(
+                { id: cashRegister.id },
+                { totalIncome: Number(cashRegister.totalIncome) + amount }
+            );
+        } else {
+            await this.cashRegisterRepo.update(
+                { id: cashRegister.id },
+                { totalExpense: Number(cashRegister.totalExpense) + amount }
+            );
+        }
+
+        // Actualizar totales por método de pago
+        await this.updatePaymentMethodTotal(
+            cashRegister.id,
+            paymentMethod,
+            amount,
+            isIncome ? 'income' : 'expense',
+        );
+
+        // Log de auditoría
+        await this.auditService.logSilent({
+            entityType: AuditEntityType.CASH_REGISTER,
+            entityId: cashRegister.id,
+            action: AuditAction.UPDATE,
+            userId,
+            newValues: {
+                movementType: dto.movementType,
+                paymentMethod: paymentMethod.name,
+                amount,
+                description: dto.description,
+            },
+            description: `Movimiento manual: ${dto.description}`,
+        });
+
+        // Retornar el movimiento con datos adicionales
+        return {
+            ...savedMovement,
+            amount,
+            description: dto.description,
+            paymentMethod: { name: paymentMethod.name, code: paymentMethod.code },
+        };
+    }
+
     // ============ SPRINT 1: REPORTES POR RANGO DE FECHAS ============
 
     /**
@@ -922,9 +1132,19 @@ export class CashRegisterService {
     // ============ HISTORIAL Y ESTADÍSTICAS ============
 
     /**
-     * Obtener historial de cajas
+     * Obtener historial de cajas con paginación
      */
-    async findAll(startDate?: Date, endDate?: Date): Promise<CashRegister[]> {
+    async findAll(filters?: {
+        page?: number;
+        limit?: number;
+        date?: string;
+        startDate?: string;
+        endDate?: string;
+    }): Promise<{ data: CashRegister[]; total: number }> {
+        const page = filters?.page || 1;
+        const limit = filters?.limit || 10;
+        const skip = (page - 1) * limit;
+
         const query = this.cashRegisterRepo
             .createQueryBuilder('register')
             .leftJoinAndSelect('register.movements', 'movements')
@@ -933,21 +1153,40 @@ export class CashRegisterService {
             .leftJoinAndSelect('register.totals', 'totals')
             .orderBy('register.date', 'DESC');
 
-        if (startDate && endDate) {
+        // Filtro por día específico (tiene prioridad sobre el rango)
+        if (filters?.date) {
+            query.where('register.date = :date', { date: filters.date });
+        } else if (filters?.startDate && filters?.endDate) {
+            // Filtro por rango de fechas
             query.where('register.date BETWEEN :start AND :end', {
-                start: startDate,
-                end: endDate,
+                start: filters.startDate,
+                end: filters.endDate,
             });
         }
 
-        return query.getMany();
+        // Obtener total de registros
+        const total = await query.getCount();
+
+        // Aplicar paginación
+        query.skip(skip).take(limit);
+
+        const data = await query.getMany();
+
+        return { data, total };
     }
 
     /**
      * Obtener estadísticas de cajas
      */
-    async getStats(startDate?: Date, endDate?: Date) {
-        const registers = await this.findAll(startDate, endDate);
+    async getStats(startDate?: string, endDate?: string) {
+        const result = await this.findAll({
+            startDate,
+            endDate,
+            page: 1,
+            limit: 10000, // Obtener todos los registros para estadísticas
+        });
+
+        const registers = result.data;
 
         const closedRegisters = registers.filter(
             (r) => r.status === CashRegisterStatus.CLOSED,
@@ -1008,6 +1247,11 @@ export class CashRegisterService {
             // Join con Purchase para egresos de compras
             .leftJoin('purchases', 'p', 'movement.referenceType = :purchaseType AND movement.referenceId = p.id', { purchaseType: 'purchase' })
             .leftJoin('payment_methods', 'pm_purchase', 'p.payment_method_id = pm_purchase.id')
+            // Join con Income para ingresos de servicios
+            .leftJoin('incomes', 'i', 'movement.referenceType = :incomeType AND movement.referenceId = i.id', { incomeType: 'income' })
+            .leftJoin('payment_methods', 'pm_income', 'i.payment_method_id = pm_income.id')
+            // Join con métodos de pago para movimientos manuales
+            .leftJoin('payment_methods', 'pm_manual', 'movement.referenceType = :manualType AND movement.manual_payment_method_id = pm_manual.id', { manualType: 'manual' })
             .select([
                 'movement.id',
                 'movement.movementType',
@@ -1018,16 +1262,18 @@ export class CashRegisterService {
                 'createdBy.firstName',
                 'createdBy.lastName',
             ])
-            // Mapear campos dinámicos - prioridad: sale_payment > expense > purchase
-            .addSelect('COALESCE(sp.amount, e.amount, p.total)', 'amount')
+            // Mapear campos dinámicos - prioridad: sale_payment > expense > purchase > income > manual
+            .addSelect('COALESCE(sp.amount, e.amount, p.total, i.amount, movement."manualAmount")', 'amount')
             .addSelect(`CASE 
                 WHEN s.id IS NOT NULL THEN CONCAT('Venta ', s."saleNumber") 
                 WHEN e.id IS NOT NULL THEN e.description 
                 WHEN p.id IS NOT NULL THEN CONCAT('Compra ', p."purchaseNumber")
+                WHEN i.id IS NOT NULL THEN i.description
+                WHEN movement."referenceType" = 'manual' THEN movement."manualDescription"
                 ELSE 'Movimiento' 
             END`, 'description')
-            .addSelect('COALESCE(pm_sale.name, pm_expense.name, pm_purchase.name)', 'paymentMethodName')
-            .addSelect('COALESCE(pm_sale.code, pm_expense.code, pm_purchase.code)', 'paymentMethodCode')
+            .addSelect('COALESCE(pm_sale.name, pm_expense.name, pm_purchase.name, pm_income.name, pm_manual.name)', 'paymentMethodName')
+            .addSelect('COALESCE(pm_sale.code, pm_expense.code, pm_purchase.code, pm_income.code, pm_manual.code)', 'paymentMethodCode')
             .where('movement.cashRegister.id = :registerId', { registerId: cashRegister.id })
             .orderBy('movement.createdAt', 'DESC')
             .getRawMany();

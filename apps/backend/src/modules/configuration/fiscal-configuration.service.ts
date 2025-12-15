@@ -95,7 +95,11 @@ export class FiscalConfigurationService implements OnModuleInit {
         if (dto.cuit !== undefined) config.cuit = dto.cuit;
         if (dto.grossIncome !== undefined) config.grossIncome = dto.grossIncome;
         if (dto.activityStartDate !== undefined) {
-            config.activityStartDate = new Date(dto.activityStartDate);
+            // Parsear la fecha manualmente para evitar problemas de zona horaria
+            // Cuando se recibe "2025-12-14", new Date() lo interpreta como UTC 00:00
+            // lo cual puede resultar en el día anterior en zonas horarias negativas (ej: Argentina UTC-3)
+            const [year, month, day] = dto.activityStartDate.split('-').map(Number);
+            config.activityStartDate = new Date(year, month - 1, day); // Mes es 0-indexed
         }
         if (dto.businessAddress !== undefined) config.businessAddress = dto.businessAddress;
         if (dto.ivaCondition !== undefined) config.ivaCondition = dto.ivaCondition;
@@ -280,12 +284,20 @@ export class FiscalConfigurationService implements OnModuleInit {
             ? config.homologacionReady
             : config.produccionReady;
 
-        let connectionResult: { success: boolean; message: string };
+        let connectionResult: { success: boolean; message: string } = {
+            success: false,
+            message: 'No se pudo determinar el estado de conexión.',
+        };
 
         if (!config.isConfigured) {
             connectionResult = {
                 success: false,
                 message: `Configuración incompleta. Faltan: ${missingFields.join(', ')}`,
+            };
+        } else if (!certificatesReady) {
+            connectionResult = {
+                success: false,
+                message: 'Certificados no configurados para el entorno seleccionado.',
             };
         } else if (certificatesReady) {
             // Simular test de conexión exitoso

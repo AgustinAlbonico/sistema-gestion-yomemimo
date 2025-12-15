@@ -137,9 +137,9 @@ export class UsersService {
         await this.usersRepository.remove(user);
     }
 
-    async toggleActive(id: string, isActive: boolean): Promise<User> {
+    async toggleStatus(id: string): Promise<User> {
         const user = await this.findOne(id);
-        user.isActive = isActive;
+        user.isActive = !user.isActive;
         return this.usersRepository.save(user);
     }
 

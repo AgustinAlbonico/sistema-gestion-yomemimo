@@ -89,6 +89,7 @@ export class ProductsService {
         const initialStock = dto.stock ?? 0;
         const product = this.productsRepository.create({
             name: dto.name,
+            description: dto.description,
             cost: dto.cost,
             price,
             profitMargin,
@@ -121,7 +122,13 @@ export class ProductsService {
     }
 
     async findAll(filters: QueryProductsDTO) {
-        const [data, total] = await this.productsRepository.findWithFilters(filters);
+        // Si se filtra por stock crítico, obtener el umbral de minStockAlert
+        let minStockAlert: number | undefined;
+        if (filters.stockStatus === 'critical') {
+            minStockAlert = await this.configService.getMinStockAlert();
+        }
+
+        const [data, total] = await this.productsRepository.findWithFilters(filters, minStockAlert);
 
         return {
             data,
@@ -158,6 +165,7 @@ export class ProductsService {
 
         // Actualizar campos básicos
         if (dto.name !== undefined) product.name = dto.name;
+        if (dto.description !== undefined) product.description = dto.description;
         if (dto.cost !== undefined) product.cost = dto.cost;
         if (dto.stock !== undefined) product.stock = dto.stock;
         if (dto.isActive !== undefined) product.isActive = dto.isActive;

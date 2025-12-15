@@ -1,32 +1,58 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, RefreshCw, Lock, Printer } from 'lucide-react';
+import { RefreshCw, Lock, Calendar, X, PlusCircle, FileText } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { useOpenCashRegister, useCashHistory, useReopenCashRegisterMutation } from '../features/cash-register/hooks';
 import { OpenCashDialog } from '../features/cash-register/components/OpenCashDialog';
 import { CloseCashDialog } from '../features/cash-register/components/CloseCashDialog';
 import { CashMovementsTable } from '../features/cash-register/components/CashMovementsTable';
 import { CashHistoryTable } from '../features/cash-register/components/CashHistoryTable';
-import { CashFlowReportDialog } from '../features/cash-register/components/CashFlowReportDialog';
+import { ManualMovementDialog } from '../features/cash-register/components/ManualMovementDialog';
 import { CashRegisterSummary } from '../features/cash-register/components/CashRegisterSummary';
 import { getTodayLocal } from '@/lib/date-utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export function CashRegisterPage() {
     const { data: openRegister, isLoading: isLoadingCurrent } = useOpenCashRegister();
-    const { data: history, isLoading: isLoadingHistory } = useCashHistory();
     const reopenMutation = useReopenCashRegisterMutation();
     const [openDialogOpen, setOpenDialogOpen] = useState(false);
     const [closeDialogOpen, setCloseDialogOpen] = useState(false);
-    const [reportDialogOpen, setReportDialogOpen] = useState(false);
+    const [manualMovementDialogOpen, setManualMovementDialogOpen] = useState(false);
+
+    // Estados para paginación y filtros
+    const [currentPage, setCurrentPage] = useState(1);
+    const [filterDate, setFilterDate] = useState<string>('');
+
+    // Hook de historial con filtros
+    const { data: historyData, isLoading: isLoadingHistory } = useCashHistory({
+        page: currentPage,
+        limit: 10,
+        date: filterDate || undefined,
+    });
 
     // Buscar la caja cerrada de hoy en el historial
     const today = getTodayLocal();
-    const todaysClosedRegister = history?.find(
+    const todaysClosedRegister = historyData?.data.find(
         (register) => register.date.split('T')[0] === today && register.status === 'closed'
     );
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+    };
+
+    const handleDateFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFilterDate(e.target.value);
+        setCurrentPage(1); // Reset a la primera página al cambiar el filtro
+    };
+
+    const handleClearDateFilter = () => {
+        setFilterDate('');
+        setCurrentPage(1);
+    };
 
     if (isLoadingCurrent) {
         return (
@@ -47,15 +73,17 @@ export function CashRegisterPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setReportDialogOpen(true)}>
-                        <BarChart3 className="h-4 w-4 mr-2" />
-                        Reportes
-                    </Button>
                     {openRegister ? (
-                        <Button onClick={() => setCloseDialogOpen(true)} variant="destructive">
-                            <Lock className="h-4 w-4 mr-2" />
-                            Cerrar Caja
-                        </Button>
+                        <>
+                            <Button variant="outline" onClick={() => setManualMovementDialogOpen(true)}>
+                                <PlusCircle className="h-4 w-4 mr-2" />
+                                Movimiento Manual
+                            </Button>
+                            <Button onClick={() => setCloseDialogOpen(true)} variant="destructive">
+                                <Lock className="h-4 w-4 mr-2" />
+                                Cerrar Caja
+                            </Button>
+                        </>
                     ) : (
                         <Button onClick={() => setOpenDialogOpen(true)}>
                             Abrir Caja
@@ -65,7 +93,7 @@ export function CashRegisterPage() {
             </div>
 
             {/* Caja Cerrada de Hoy - Para Reabrir */}
-            {!openRegister && todaysClosedRegister && (
+            {!openRegister && todaysClosedRegister ? (
                 <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20 shrink-0">
                     <CardContent className="flex items-center justify-between p-4">
                         <div>
@@ -92,7 +120,7 @@ export function CashRegisterPage() {
                         </Button>
                     </CardContent>
                 </Card>
-            )}
+            ) : null}
 
             {/* Contenido Principal */}
             {openRegister ? (
@@ -108,6 +136,12 @@ export function CashRegisterPage() {
                                 <p className="text-xs text-muted-foreground">
                                     Apertura: {formatDateTime(openRegister.openedAt)} por {openRegister.openedBy.name}
                                 </p>
+                                {openRegister.openingNotes && (
+                                    <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                                        <FileText className="h-3 w-3" />
+                                        <span className="italic">{openRegister.openingNotes}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="text-right">
@@ -145,6 +179,36 @@ export function CashRegisterPage() {
                                 <CardHeader>
                                     <CardTitle>Historial de Cajas</CardTitle>
                                     <CardDescription>Registro de cajas anteriores</CardDescription>
+
+                                    {/* Filtro por fecha */}
+                                    <div className="flex items-end gap-2 pt-4">
+                                        <div className="flex-1 max-w-xs">
+                                            <Label htmlFor="filter-date" className="text-sm font-medium">
+                                                Buscar por fecha
+                                            </Label>
+                                            <div className="relative mt-1.5">
+                                                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                    id="filter-date"
+                                                    type="date"
+                                                    value={filterDate}
+                                                    onChange={handleDateFilterChange}
+                                                    className="pl-10"
+                                                    placeholder="Seleccionar fecha"
+                                                />
+                                            </div>
+                                        </div>
+                                        {filterDate ? (
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={handleClearDateFilter}
+                                                title="Limpiar filtro"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        ) : null}
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
                                     {isLoadingHistory ? (
@@ -154,7 +218,11 @@ export function CashRegisterPage() {
                                             <Skeleton className="h-12 w-full" />
                                         </div>
                                     ) : (
-                                        <CashHistoryTable history={history || []} />
+                                        <CashHistoryTable
+                                            history={historyData?.data || []}
+                                            meta={historyData?.meta}
+                                            onPageChange={handlePageChange}
+                                        />
                                     )}
                                 </CardContent>
                             </Card>
@@ -170,7 +238,7 @@ export function CashRegisterPage() {
                 onOpenChange={setCloseDialogOpen}
                 currentRegister={openRegister || null}
             />
-            <CashFlowReportDialog open={reportDialogOpen} onOpenChange={setReportDialogOpen} />
+            <ManualMovementDialog open={manualMovementDialogOpen} onOpenChange={setManualMovementDialogOpen} />
         </div>
     );
 }

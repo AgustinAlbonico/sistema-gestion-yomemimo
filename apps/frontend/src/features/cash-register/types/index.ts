@@ -88,7 +88,7 @@ export interface CloseCashRegisterDto {
 }
 
 export interface CreateCashMovementDto {
-    movementType: MovementType;
+    movementType: 'income' | 'expense';
     paymentMethodId: string;
     amount: number;
     description: string;
@@ -173,5 +173,34 @@ export interface CashStatus {
     hasOpenRegister: boolean;
     isFromPreviousDay: boolean;
     openRegister: CashRegister | null;
+}
+
+/**
+ * Metadata de paginación
+ */
+export interface PaginationMeta {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
+/**
+ * Respuesta paginada genérica
+ */
+export interface PaginatedResponse<T> {
+    data: T[];
+    meta: PaginationMeta;
+}
+
+/**
+ * Filtros para historial de cajas
+ */
+export interface CashHistoryFilters {
+    page?: number;
+    limit?: number;
+    date?: string; // Fecha específica YYYY-MM-DD
+    startDate?: string; // Fecha inicio de rango
+    endDate?: string; // Fecha fin de rango
 }
 

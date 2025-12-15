@@ -2,7 +2,6 @@
  * Esquemas de validación para formularios de gastos
  */
 import { z } from 'zod';
-import { PaymentMethod } from '../types';
 
 /**
  * Esquema para crear/editar un gasto

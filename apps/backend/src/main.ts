@@ -12,7 +12,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: true,
     credentials: true,
   });
 
@@ -22,8 +22,8 @@ async function bootstrap() {
 
   // Swagger configuration
   const config = new DocumentBuilder()
-    .setTitle('Sistema de Gestión API')
-    .setDescription('API REST para sistema de gestión empresarial')
+    .setTitle('NexoPOS API')
+    .setDescription('API REST del sistema NexoPOS')
     .setVersion('1.0')
     .addBearerAuth(
       {
@@ -50,7 +50,7 @@ async function bootstrap() {
   });
 
   const port = process.env.BACKEND_PORT ? Number(process.env.BACKEND_PORT) : 3000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
   console.log(`Backend listening on http://0.0.0.0:${port}`);
   console.log(`Swagger docs available at http://0.0.0.0:${port}/api/docs`);

@@ -9,6 +9,8 @@ import type {
     CashFlowReportFilters,
     CashFlowReport,
     CashStatus,
+    CashHistoryFilters,
+    PaginatedResponse,
 } from '../types';
 
 
@@ -75,13 +77,10 @@ export const cashRegisterApi = {
     },
 
     /**
-     * Obtener historial de cajas
+     * Obtener historial de cajas con paginación
      */
-    async getHistory(params?: {
-        startDate?: string;
-        endDate?: string;
-    }): Promise<CashRegister[]> {
-        const response = await api.get(`${BASE_URL}/history`, { params });
+    async getHistory(filters?: CashHistoryFilters): Promise<PaginatedResponse<CashRegister>> {
+        const response = await api.get(`${BASE_URL}/history`, { params: filters });
         return response.data;
     },
 

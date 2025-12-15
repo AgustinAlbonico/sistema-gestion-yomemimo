@@ -9,6 +9,7 @@ export const QueryProductsSchema = z.object({
     search: z.string().optional(),
     categoryId: z.string().uuid().optional(),
     isActive: z.coerce.boolean().optional(),
+    stockStatus: z.enum(['all', 'critical']).optional(),
     sortBy: z.enum(['name', 'price', 'cost', 'stock', 'createdAt']).default('name'),
     order: z.enum(['ASC', 'DESC']).default('ASC'),
 });
@@ -50,6 +51,11 @@ export class QueryProductsDto implements QueryProductsDTO {
     })
     @IsBoolean()
     isActive?: boolean;
+
+    @ApiPropertyOptional({ enum: ['all', 'critical'], description: 'Filtro de estado de stock: critical = bajo stock o sin stock' })
+    @IsOptional()
+    @IsEnum(['all', 'critical'])
+    stockStatus?: 'all' | 'critical';
 
     @ApiPropertyOptional({ enum: ['name', 'price', 'cost', 'stock', 'createdAt'] })
     @IsOptional()

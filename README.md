@@ -1,4 +1,4 @@
-# Sistema de Gestión - Punto de Venta (POS)
+# NexoPOS - Sistema de Punto de Venta
 
 Sistema de gestión comercial y punto de venta completo, diseñado para pequeñas y medianas empresas. Permite administrar ventas, compras, inventario, caja registradora, cuentas corrientes y facturación electrónica AFIP.
 

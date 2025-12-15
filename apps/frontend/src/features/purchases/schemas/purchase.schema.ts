@@ -2,7 +2,7 @@
  * Schemas de validación para compras
  */
 import { z } from 'zod';
-import { PurchaseStatus, PaymentMethod } from '../types';
+import { PurchaseStatus} from '../types';
 
 /**
  * Schema para un item de compra

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, LessThanOrEqual, MoreThan } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { StockMovement, StockMovementType, StockMovementSource } from './entities/stock-movement.entity';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
 import { Product } from '../products/entities/product.entity';
@@ -75,7 +75,6 @@ export class InventoryService {
                     id: product.id,
                     name: product.name,
                     stock: product.stock,
-                    minStock: product.minStock,
                 },
             };
         } catch (err) {
@@ -105,7 +104,6 @@ export class InventoryService {
                 id: product.id,
                 name: product.name,
                 stock: product.stock,
-                minStock: product.minStock,
             },
             movements,
         };
@@ -113,7 +111,6 @@ export class InventoryService {
 
     /**
      * Obtiene productos con stock bajo (menor o igual al mínimo configurado globalmente)
-     * Usa el mayor valor entre el minStock del producto y el minStockAlert global
      */
     async getLowStockProducts() {
         const globalMinStock = await this.configurationService.getMinStockAlert();
@@ -122,10 +119,7 @@ export class InventoryService {
             .createQueryBuilder('product')
             .leftJoinAndSelect('product.category', 'category')
             .where('product.isActive = :isActive', { isActive: true })
-            .andWhere(
-                '(product.stock <= :globalMinStock OR (product.minStock > 0 AND product.stock <= product.minStock))',
-                { globalMinStock }
-            )
+            .andWhere('product.stock <= :globalMinStock', { globalMinStock })
             .orderBy('product.stock', 'ASC')
             .getMany();
 
@@ -156,11 +150,7 @@ export class InventoryService {
         const totalProducts = allProducts.length;
         const productsWithStock = allProducts.filter(p => p.stock > 0).length;
         const productsOutOfStock = allProducts.filter(p => p.stock === 0).length;
-        // Usa el mayor entre minStock del producto y el global
-        const productsLowStock = allProducts.filter(p => {
-            const minStock = Math.max(p.minStock, globalMinStock);
-            return p.stock > 0 && p.stock <= minStock;
-        }).length;
+        const productsLowStock = allProducts.filter(p => p.stock > 0 && p.stock <= globalMinStock).length;
 
         // Calcular valor total del inventario (stock * costo)
         const totalInventoryValue = allProducts.reduce(
@@ -192,7 +182,7 @@ export class InventoryService {
             where: { isActive: true },
             relations: ['category'],
             order: { name: 'ASC' },
-            select: ['id', 'name', 'sku', 'stock', 'minStock', 'cost', 'price'],
+            select: ['id', 'name', 'sku', 'stock', 'cost', 'price'],
         });
     }
 

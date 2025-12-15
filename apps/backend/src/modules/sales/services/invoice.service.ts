@@ -4,7 +4,7 @@
  */
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Sale, SaleStatus } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { Invoice, InvoiceType, InvoiceStatus, DocumentType } from '../entities/invoice.entity';
@@ -20,16 +20,16 @@ export class InvoiceService {
 
     constructor(
         @InjectRepository(Invoice)
-        private invoiceRepo: Repository<Invoice>,
+        private readonly invoiceRepo: Repository<Invoice>,
         @InjectRepository(Sale)
-        private saleRepo: Repository<Sale>,
+        private readonly saleRepo: Repository<Sale>,
         @InjectRepository(SaleItem)
-        private saleItemRepo: Repository<SaleItem>,
-        private dataSource: DataSource,
-        private afipService: AfipService,
-        private qrGeneratorService: QrGeneratorService,
-        private pdfGeneratorService: PdfGeneratorService,
-        private configService: ConfigService,
+        private readonly saleItemRepo: Repository<SaleItem>,
+        private readonly dataSource: DataSource,
+        private readonly afipService: AfipService,
+        private readonly qrGeneratorService: QrGeneratorService,
+        private readonly pdfGeneratorService: PdfGeneratorService,
+        private readonly configService: ConfigService,
     ) { }
 
     /**
@@ -38,7 +38,7 @@ export class InvoiceService {
      * @param manager - Transaction manager opcional (para usar dentro de transacciones)
      * @returns Factura generada (puede estar autorizada o pendiente)
      */
-    async generateInvoice(saleId: string, manager?: any): Promise<Invoice> {
+    async generateInvoice(saleId: string, manager?: EntityManager): Promise<Invoice> {
         // Usar manager si se proporciona, sino usar repos normales
         const saleRepo = manager ? manager.getRepository(Sale) : this.saleRepo;
         const invoiceRepo = manager ? manager.getRepository(Invoice) : this.invoiceRepo;
@@ -82,7 +82,7 @@ export class InvoiceService {
         );
 
         // Crear factura en estado pendiente
-        const invoice = this.invoiceRepo.create({
+        const invoice = invoiceRepo.create({
             saleId,
             invoiceType,
             pointOfSale: afipConfig.pointOfSale,
@@ -122,54 +122,54 @@ export class InvoiceService {
             status: InvoiceStatus.PENDING,
         });
 
-        const saveRepo = manager ? manager.getRepository(Invoice) : this.invoiceRepo;
-        const savedInvoice = await saveRepo.save(invoice);
+        const savedInvoice = await invoiceRepo.save(invoice);
 
         // Intentar autorizar con AFIP
+        await this.tryAuthorizeInvoice(savedInvoice, sale, saleId, saleRepo);
+
+        return invoiceRepo.save(savedInvoice);
+    }
+
+    private async tryAuthorizeInvoice(
+        invoice: Invoice,
+        sale: Sale,
+        saleId: string,
+        saleRepo: Repository<Sale>,
+    ): Promise<void> {
         try {
-            const afipResponse = await this.authorizeWithAfip(savedInvoice, sale);
+            const afipResponse = await this.authorizeWithAfip(invoice, sale);
+            invoice.afipResponse = JSON.stringify(afipResponse);
 
             if (afipResponse.success) {
-                savedInvoice.status = InvoiceStatus.AUTHORIZED;
-                savedInvoice.cae = afipResponse.cae || null;
-                savedInvoice.caeExpirationDate = afipResponse.caeExpirationDate
+                invoice.status = InvoiceStatus.AUTHORIZED;
+                invoice.cae = afipResponse.cae || null;
+                invoice.caeExpirationDate = afipResponse.caeExpirationDate
                     ? this.afipService.parseAfipDate(afipResponse.caeExpirationDate)
                     : null;
-                savedInvoice.invoiceNumber = afipResponse.invoiceNumber || null;
+                invoice.invoiceNumber = afipResponse.invoiceNumber || null;
 
                 // Generar QR
-                savedInvoice.qrData = this.qrGeneratorService.generateQrData(savedInvoice);
+                invoice.qrData = this.qrGeneratorService.generateQrData(invoice);
 
-                // Actualizar venta como fiscal y limpiar estado de factura pendiente (usar manager si está disponible)
-                if (manager) {
-                    await manager.getRepository(Sale).update(saleId, {
-                        isFiscal: true,
-                        fiscalPending: false,
-                        fiscalError: null
-                    });
-                } else {
-                    await this.saleRepo.update(saleId, {
-                        isFiscal: true,
-                        fiscalPending: false,
-                        fiscalError: null
-                    });
-                }
+                // Actualizar venta como fiscal y limpiar estado de factura pendiente
+                await saleRepo.update(saleId, {
+                    isFiscal: true,
+                    fiscalPending: false,
+                    fiscalError: null,
+                });
 
-                this.logger.log(`Factura autorizada: ${savedInvoice.invoiceNumber}, CAE: ${savedInvoice.cae}`);
-            } else {
-                savedInvoice.status = InvoiceStatus.REJECTED;
-                savedInvoice.afipErrorMessage = afipResponse.errors?.join(', ') || 'Error desconocido';
-                this.logger.warn(`Factura rechazada: ${savedInvoice.afipErrorMessage}`);
+                this.logger.log(`Factura autorizada: ${invoice.invoiceNumber}, CAE: ${invoice.cae}`);
+                return;
             }
 
-            savedInvoice.afipResponse = JSON.stringify(afipResponse);
+            invoice.status = InvoiceStatus.REJECTED;
+            invoice.afipErrorMessage = afipResponse.errors?.join(', ') || 'Error desconocido';
+            this.logger.warn(`Factura rechazada: ${invoice.afipErrorMessage}`);
         } catch (error) {
-            savedInvoice.status = InvoiceStatus.ERROR;
-            savedInvoice.afipErrorMessage = (error as Error).message;
+            invoice.status = InvoiceStatus.ERROR;
+            invoice.afipErrorMessage = (error as Error).message;
             this.logger.error('Error al autorizar factura:', error);
         }
-
-        return saveRepo.save(savedInvoice);
     }
 
     /**
@@ -434,7 +434,7 @@ export class InvoiceService {
      */
     private calculateNetAmount(sale: Sale, invoiceType: InvoiceType): number {
         if (invoiceType === InvoiceType.FACTURA_C) {
-            // Monotributo: todo el importe va como neto (no hay IVA)
+            // Monotributo: el importe completo va como neto (no hay IVA)
             return Number(sale.total);
         }
         // Para RI: total / 1.21 (asumiendo 21% IVA)
@@ -474,6 +474,8 @@ export class InvoiceService {
             hour: '2-digit',
             minute: '2-digit',
         });
+
+        const customerInfoHtml = this.buildReceiptCustomerInfoHtml(sale);
 
         // Generar HTML del comprobante
         const html = `
@@ -619,23 +621,7 @@ export class InvoiceService {
                 <strong>Fecha:</strong>
                 <span>${formattedDate}</span>
             </div>
-            ${sale.customer ? `
-            <div class="info-row">
-                <strong>Cliente:</strong>
-                <span>${sale.customer.firstName} ${sale.customer.lastName}</span>
-            </div>
-            ${sale.customer.documentNumber ? `
-            <div class="info-row">
-                <strong>${sale.customer.documentType}:</strong>
-                <span>${sale.customer.documentNumber}</span>
-            </div>
-            ` : ''}
-            ` : `
-            <div class="info-row">
-                <strong>Cliente:</strong>
-                <span>Consumidor Final</span>
-            </div>
-            `}
+            ${customerInfoHtml}
         </div>
 
         <div class="section">
@@ -722,6 +708,34 @@ export class InvoiceService {
         `;
 
         return html.trim();
+    }
+
+    private buildReceiptCustomerInfoHtml(sale: Sale): string {
+        if (!sale.customer) {
+            return `
+            <div class="info-row">
+                <strong>Cliente:</strong>
+                <span>Consumidor Final</span>
+            </div>
+            `;
+        }
+
+        const customerDocumentHtml = sale.customer.documentNumber
+            ? `
+            <div class="info-row">
+                <strong>${sale.customer.documentType}:</strong>
+                <span>${sale.customer.documentNumber}</span>
+            </div>
+            `
+            : '';
+
+        return `
+            <div class="info-row">
+                <strong>Cliente:</strong>
+                <span>${sale.customer.firstName} ${sale.customer.lastName}</span>
+            </div>
+            ${customerDocumentHtml}
+        `;
     }
 
     /**

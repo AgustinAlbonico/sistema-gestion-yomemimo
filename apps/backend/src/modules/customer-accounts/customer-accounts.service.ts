@@ -5,6 +5,8 @@
 import {
     Injectable,
     BadRequestException,
+    forwardRef,
+    Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, DataSource } from 'typeorm';
@@ -13,11 +15,14 @@ import { CustomerAccount, AccountStatus } from './entities/customer-account.enti
 import { AccountMovement, MovementType } from './entities/account-movement.entity';
 import { CreateChargeDto, CreatePaymentDto, UpdateAccountDto, AccountFiltersDto } from './dto';
 import { CustomersService } from '../customers/customers.service';
+import { CashRegisterService } from '../cash-register/cash-register.service';
+import { Sale, SaleStatus } from '../sales/entities/sale.entity';
+import { Income } from '../incomes/entities/income.entity';
 
 /**
  * Interfaz para estadísticas de cuentas corrientes
  */
-interface AccountStats {
+export interface AccountStats {
     totalAccounts: number;
     activeAccounts: number;
     suspendedAccounts: number;
@@ -31,7 +36,7 @@ interface AccountStats {
 /**
  * Interfaz para resumen de estado de cuenta
  */
-interface AccountStatementSummary {
+export interface AccountStatementSummary {
     totalCharges: number;
     totalPayments: number;
     currentBalance: number;
@@ -52,12 +57,20 @@ export interface OverdueAlert {
 /**
  * Respuesta paginada para cuentas
  */
-interface PaginatedAccounts {
+export interface PaginatedAccounts {
     data: CustomerAccount[];
     total: number;
     page: number;
     limit: number;
     totalPages: number;
+}
+
+/**
+ * Interfaz para transacciones pendientes
+ */
+export interface PendingTransactions {
+    sales: Sale[];
+    incomes: Income[];
 }
 
 @Injectable()
@@ -67,7 +80,13 @@ export class CustomerAccountsService {
         private readonly accountRepo: Repository<CustomerAccount>,
         @InjectRepository(AccountMovement)
         private readonly movementRepo: Repository<AccountMovement>,
+        @InjectRepository(Sale)
+        private readonly saleRepo: Repository<Sale>,
+        @InjectRepository(Income)
+        private readonly incomeRepo: Repository<Income>,
         private readonly customersService: CustomersService,
+        @Inject(forwardRef(() => CashRegisterService))
+        private readonly cashRegisterService: CashRegisterService,
         private readonly dataSource: DataSource,
     ) { }
 
@@ -157,6 +176,7 @@ export class CustomerAccountsService {
 
     /**
      * Registra un pago del cliente
+     * Si el pago cubre toda la deuda, marca automáticamente las transacciones pendientes como completadas
      */
     async createPayment(customerId: string, dto: CreatePaymentDto, userId?: string): Promise<AccountMovement> {
         const account = await this.getOrCreateAccount(customerId);
@@ -180,6 +200,7 @@ export class CustomerAccountsService {
             const balanceBefore = currentBalance;
             const paymentAmount = Math.abs(dto.amount);
             const balanceAfter = balanceBefore - paymentAmount;
+            const isFullPayment = balanceAfter === 0;
 
             const movement = manager.create(AccountMovement, {
                 accountId: account.id,
@@ -200,14 +221,117 @@ export class CustomerAccountsService {
             account.balance = balanceAfter;
             account.lastPaymentDate = new Date();
 
-            // Si saldo = 0, resetear días de mora
-            if (balanceAfter === 0) {
+            // Si saldo = 0, resetear días de mora y marcar transacciones como completadas
+            if (isFullPayment) {
                 account.daysOverdue = 0;
                 if (account.status === AccountStatus.SUSPENDED) {
                     account.status = AccountStatus.ACTIVE;
                 }
+
+                // Marcar todas las ventas pendientes como COMPLETED (sin registrar en caja)
+                // Usamos update directo para evitar que el cascade/hooks generen ingresos en caja
+                await manager
+                    .createQueryBuilder()
+                    .update(Sale)
+                    .set({
+                        status: SaleStatus.COMPLETED,
+                        isOnAccount: false
+                    })
+                    .where('customerId = :customerId', { customerId })
+                    .andWhere('status = :status', { status: SaleStatus.PENDING })
+                    .andWhere('isOnAccount = :isOnAccount', { isOnAccount: true })
+                    .execute();
+
+                // Marcar todos los ingresos pendientes como pagados
+                await manager
+                    .createQueryBuilder()
+                    .update(Income)
+                    .set({ isPaid: true })
+                    .where('customerId = :customerId', { customerId })
+                    .andWhere('isPaid = :isPaid', { isPaid: false })
+                    .andWhere('isOnAccount = :isOnAccount', { isOnAccount: true })
+                    .execute();
+
+                console.log(`[CustomerAccounts] Pago completo de ${customerId}. Ventas e ingresos pendientes marcados como completados.`);
             }
 
+            await manager.save(account);
+
+            // Registrar el pago como ingreso en la caja (después de la transacción)
+            // Lo hacemos fuera de la transacción para no bloquear si falla
+            setImmediate(async () => {
+                try {
+                    await this.cashRegisterService.registerAccountPayment(
+                        {
+                            accountMovementId: movement.id,
+                            customerId,
+                            amount: paymentAmount,
+                            paymentMethodId: dto.paymentMethodId,
+                            description: `Pago CC - ${account.customer?.firstName || 'Cliente'} ${account.customer?.lastName || ''}`.trim(),
+                        },
+                        userId || 'system',
+                    );
+                } catch (cashError) {
+                    console.warn(`[CustomerAccounts] No se pudo registrar pago en caja: ${(cashError as Error).message}`);
+                }
+            });
+
+            return movement;
+        });
+    }
+
+    /**
+     * Aplica un recargo (interés) a la cuenta del cliente
+     * El recargo puede ser porcentual (sobre el saldo actual) o fijo
+     */
+    async applySurcharge(
+        customerId: string,
+        dto: { surchargeType: 'percentage' | 'fixed'; value: number; description?: string },
+        userId?: string,
+    ): Promise<AccountMovement> {
+        const account = await this.getOrCreateAccount(customerId);
+        const currentBalance = Number(account.balance);
+
+        // Validar que hay deuda pendiente
+        if (currentBalance <= 0) {
+            throw new BadRequestException('El cliente no tiene deuda pendiente para aplicar recargo');
+        }
+
+        // Calcular el monto del recargo
+        let surchargeAmount: number;
+        let description: string;
+
+        if (dto.surchargeType === 'percentage') {
+            surchargeAmount = Math.round((currentBalance * (dto.value / 100)) * 100) / 100; // Redondear a 2 decimales
+            description = dto.description || `Recargo por mora (${dto.value}%)`;
+        } else {
+            surchargeAmount = dto.value;
+            description = dto.description || `Recargo por mora ($${dto.value.toFixed(2)})`;
+        }
+
+        // Crear movimiento dentro de una transacción
+        return this.dataSource.transaction(async (manager) => {
+            const balanceBefore = currentBalance;
+            const balanceAfter = balanceBefore + surchargeAmount;
+
+            const movement = manager.create(AccountMovement, {
+                accountId: account.id,
+                movementType: MovementType.INTEREST,
+                amount: surchargeAmount, // Positivo = débito
+                balanceBefore,
+                balanceAfter,
+                description,
+                referenceType: 'surcharge',
+                notes: dto.surchargeType === 'percentage'
+                    ? `Porcentaje aplicado: ${dto.value}% sobre saldo de $${balanceBefore.toFixed(2)}`
+                    : `Monto fijo aplicado`,
+                createdById: userId || null,
+            });
+
+            await manager.save(movement);
+
+            // Actualizar saldo de la cuenta
+            account.balance = balanceAfter;
             await manager.save(account);
 
             return movement;
@@ -460,4 +584,126 @@ export class CustomerAccountsService {
         if (balance < 0) return 'business_owes';
         return 'settled';
     }
+
+    /**
+     * Obtiene las transacciones pendientes de un cliente (ventas e ingresos a cuenta corriente sin pagar)
+     */
+    async getPendingTransactions(customerId: string): Promise<PendingTransactions> {
+        // Obtener ventas pendientes (status PENDING) del cliente
+        const sales = await this.saleRepo.find({
+            where: {
+                customerId,
+                status: SaleStatus.PENDING,
+                isOnAccount: true,
+            },
+            relations: ['items', 'items.product', 'customer'],
+            order: { saleDate: 'DESC' },
+        });
+
+        // Obtener ingresos pendientes (isPaid = false y isOnAccount = true) del cliente
+        const incomes = await this.incomeRepo.find({
+            where: {
+                customerId,
+                isPaid: false,
+                isOnAccount: true,
+            },
+            relations: ['category', 'customer'],
+            order: { incomeDate: 'DESC' },
+        });
+
+        return { sales, incomes };
+    }
+
+    /**
+     * Sincroniza cargos faltantes de ventas a cuenta corriente que nunca se registraron
+     * Retorna la cantidad de cargos creados y el monto total
+     */
+    async syncMissingCharges(customerId: string, userId?: string): Promise<{
+        chargesCreated: number;
+        totalAmount: number;
+        sales: Array<{ saleId: string; saleNumber: string; amount: number }>;
+    }> {
+        const account = await this.getOrCreateAccount(customerId);
+
+        // Obtener ventas pendientes a cuenta corriente
+        const pendingSales = await this.saleRepo.find({
+            where: {
+                customerId,
+                status: SaleStatus.PENDING,
+                isOnAccount: true,
+            },
+            order: { saleDate: 'ASC' }, // Ordenar por fecha para mantener cronología correcta
+        });
+
+        // Obtener IDs de ventas que YA tienen un cargo registrado
+        const existingCharges = await this.movementRepo.find({
+            where: {
+                accountId: account.id,
+                movementType: MovementType.CHARGE,
+                referenceType: 'sale',
+            },
+            select: ['referenceId'],
+        });
+
+        const registeredSaleIds = new Set(existingCharges.map(m => m.referenceId));
+
+        // Filtrar ventas que NO tienen cargo
+        const salesWithoutCharge = pendingSales.filter(sale => !registeredSaleIds.has(sale.id));
+
+        if (salesWithoutCharge.length === 0) {
+            return { chargesCreated: 0, totalAmount: 0, sales: [] };
+        }
+
+        // Crear cargos para las ventas faltantes dentro de una transacción
+        const result = await this.dataSource.transaction(async (manager) => {
+            let currentBalance = Number(account.balance);
+            const createdCharges: Array<{ saleId: string; saleNumber: string; amount: number }> = [];
+
+            for (const sale of salesWithoutCharge) {
+                const chargeAmount = Number(sale.total);
+                const balanceBefore = currentBalance;
+                const balanceAfter = currentBalance + chargeAmount;
+
+                // Crear el movimiento de cargo
+                const movement = manager.create(AccountMovement, {
+                    accountId: account.id,
+                    movementType: MovementType.CHARGE,
+                    amount: chargeAmount,
+                    balanceBefore,
+                    balanceAfter,
+                    description: `Venta ${sale.saleNumber}`,
+                    referenceType: 'sale',
+                    referenceId: sale.id,
+                    notes: 'Cargo generado por sincronización de datos históricos',
+                    createdById: userId || null,
+                });
+
+                await manager.save(movement);
+
+                currentBalance = balanceAfter;
+                createdCharges.push({
+                    saleId: sale.id,
+                    saleNumber: sale.saleNumber,
+                    amount: chargeAmount,
+                });
+            }
+
+            // Actualizar el saldo final de la cuenta
+            account.balance = currentBalance;
+            await manager.save(account);
+
+            return createdCharges;
+        });
+
+        const totalAmount = result.reduce((sum, c) => sum + c.amount, 0);
+
+        console.log(`[CustomerAccounts] Sincronizados ${result.length} cargos para cliente ${customerId}. Total: $${totalAmount}`);
+
+        return {
+            chargesCreated: result.length,
+            totalAmount,
+            sales: result,
+        };
+    }
 }
+

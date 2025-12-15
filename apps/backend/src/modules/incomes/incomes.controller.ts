@@ -82,7 +82,7 @@ export class IncomesController {
 
     @Delete(':id')
     @ApiOperation({ summary: 'Eliminar ingreso' })
-    remove(@Param('id', ParseUUIDPipe) id: string) {
-        return this.incomesService.remove(id);
+    remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: RequestWithUser) {
+        return this.incomesService.remove(id, req.user?.userId);
     }
 }

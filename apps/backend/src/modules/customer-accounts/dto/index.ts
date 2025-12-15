@@ -37,7 +37,7 @@ export class CreateChargeDto {
  * DTO para registrar un pago
  */
 export class CreatePaymentDto {
-    @ApiProperty({ description: 'Monto del pago', example: 1000.00 })
+    @ApiProperty({ description: 'Monto del pago', example: 1000 })
     @IsNumber()
     @Min(0.01)
     amount!: number;

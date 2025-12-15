@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Expense } from '../types';
 import { formatCurrency } from '@/lib/utils';
-import { paymentMethodsApi, PaymentMethod } from '@/features/configuration/api/payment-methods.api';
+import { paymentMethodsApi} from '@/features/configuration/api/payment-methods.api';
 import { getPaymentMethodIcon } from '@/features/configuration/utils/payment-method-utils';
 import { Loader2, CreditCard, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';

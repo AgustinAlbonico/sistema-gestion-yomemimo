@@ -30,7 +30,7 @@ export class CreateCategoryDto implements CreateCategoryDTO {
     @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Color inválido (formato: #RRGGBB)' })
     color?: string;
 
-    @ApiPropertyOptional({ example: 25.00, description: 'Porcentaje de ganancia para productos de esta categoría' })
+    @ApiPropertyOptional({ example: 25, description: 'Porcentaje de ganancia para productos de esta categoría' })
     @IsOptional()
     @IsNumber()
     @Min(0)

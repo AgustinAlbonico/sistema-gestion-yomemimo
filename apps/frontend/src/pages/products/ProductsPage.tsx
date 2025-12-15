@@ -4,7 +4,8 @@ import { ProductForm } from '@/features/products/components/ProductForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Tags, Percent, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Tags, Percent, Pencil, Trash2, Package } from 'lucide-react';
+import { FormDialog } from '@/components/ui/form-dialog';
 import {
     Dialog,
     DialogContent,
@@ -19,7 +20,6 @@ import { productsApi, categoriesApi } from '@/features/products/api/products.api
 import { toast } from 'sonner';
 import { Product, Category, CreateCategoryDTO } from '@/features/products/types';
 import { ProductFormValues } from '@/features/products/schemas/product.schema';
-import { Badge } from '@/components/ui/badge';
 import { NumericInput } from '@/components/ui/numeric-input';
 
 /**
@@ -342,26 +342,10 @@ export default function ProductsPage() {
                     </Dialog>
 
                     {/* Botón Nuevo Producto */}
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Nuevo Producto
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[450px]">
-                            <DialogHeader>
-                                <DialogTitle>Nuevo Producto</DialogTitle>
-                                <DialogDescription>
-                                    El precio se calcula automático según la configuración o categoría
-                                </DialogDescription>
-                            </DialogHeader>
-                            <ProductForm
-                                onSubmit={handleCreate}
-                                isLoading={createMutation.isPending}
-                            />
-                        </DialogContent>
-                    </Dialog>
+                    <Button onClick={() => setIsCreateOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nuevo Producto
+                    </Button>
                 </div>
             </div>
 
@@ -372,32 +356,51 @@ export default function ProductsPage() {
                 />
             </div>
 
-            <Dialog open={!!editingProduct} onOpenChange={(open) => !open && setEditingProduct(null)}>
-                <DialogContent className="sm:max-w-[450px]">
-                    <DialogHeader>
-                        <DialogTitle>Editar Producto</DialogTitle>
-                        <DialogDescription>
-                            Modificá el costo o stock del producto
-                        </DialogDescription>
-                    </DialogHeader>
-                    {editingProduct && (
-                        <ProductForm
-                            initialData={{
-                                name: editingProduct.name,
-                                cost: editingProduct.cost,
-                                stock: editingProduct.stock,
-                                categoryId: editingProduct.categoryId || null,
-                                isActive: editingProduct.isActive,
-                                useCustomMargin: editingProduct.useCustomMargin ?? false,
-                                customProfitMargin: editingProduct.useCustomMargin ? editingProduct.profitMargin : undefined,
-                            }}
-                            onSubmit={handleUpdate}
-                            isLoading={updateMutation.isPending}
-                            isEditing
-                        />
-                    )}
-                </DialogContent>
-            </Dialog>
+            {/* Modal de creación premium */}
+            <FormDialog
+                open={isCreateOpen}
+                onOpenChange={setIsCreateOpen}
+                title="Nuevo Producto"
+                description="El precio se calcula automático según la configuración o categoría"
+                icon={Package}
+                variant="success"
+                maxWidth="md"
+            >
+                <ProductForm
+                    onSubmit={handleCreate}
+                    isLoading={createMutation.isPending}
+                />
+            </FormDialog>
+
+            {/* Modal de edición premium */}
+            <FormDialog
+                open={!!editingProduct}
+                onOpenChange={(open) => !open && setEditingProduct(null)}
+                title="Editar Producto"
+                description="Modificá el costo o stock del producto"
+                icon={Package}
+                variant="success"
+                maxWidth="md"
+            >
+                {editingProduct ? (
+                    <ProductForm
+                        initialData={{
+                            name: editingProduct.name,
+                            description: editingProduct.description,
+                            cost: editingProduct.cost,
+                            stock: editingProduct.stock,
+                            categoryId: editingProduct.categoryId || null,
+                            isActive: editingProduct.isActive,
+                            useCustomMargin: editingProduct.useCustomMargin ?? false,
+                            customProfitMargin: editingProduct.useCustomMargin ? editingProduct.profitMargin : undefined,
+                        }}
+                        onSubmit={handleUpdate}
+                        isLoading={updateMutation.isPending}
+                        isEditing
+                    />
+                ) : null}
+            </FormDialog>
         </div>
     );
 }
+

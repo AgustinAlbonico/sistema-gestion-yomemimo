@@ -9,7 +9,6 @@ export interface Product {
     profitMargin?: number;
     useCustomMargin?: boolean;
     stock: number;
-    minStock: number;
     categoryId?: string | null;
     category?: Category | null;
     isActive: boolean;
@@ -30,6 +29,7 @@ export interface Category {
 
 export interface CreateProductDTO {
     name: string;
+    description?: string | null;
     cost: number;
     stock?: number;
     categoryId?: string | null;
@@ -46,6 +46,7 @@ export interface ProductFilters {
     search?: string;
     categoryId?: string;
     isActive?: boolean;
+    stockStatus?: 'all' | 'critical';
     sortBy?: 'name' | 'price' | 'cost' | 'stock' | 'createdAt';
     order?: 'ASC' | 'DESC';
 }
@@ -115,7 +116,6 @@ export interface ProductStock {
     name: string;
     sku?: string;
     stock: number;
-    minStock: number;
     cost: number;
     price: number;
     categoryId?: string;

@@ -13,9 +13,15 @@ import { SaleItem } from '../sales/entities/sale-item.entity';
 import { SalePayment } from '../sales/entities/sale-payment.entity';
 import { Purchase } from '../purchases/entities/purchase.entity';
 import { Expense } from '../expenses/entities/expense.entity';
+import { Income } from '../incomes/entities/income.entity';
 import { Product } from '../products/entities/product.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { CustomerAccount } from '../customer-accounts/entities/customer-account.entity';
+import { AccountMovement } from '../customer-accounts/entities/account-movement.entity';
+
+// Módulos
+import { CashRegisterModule } from '../cash-register/cash-register.module';
+import { ConfigurationModule } from '../configuration/configuration.module';
 
 @Module({
     imports: [
@@ -25,13 +31,18 @@ import { CustomerAccount } from '../customer-accounts/entities/customer-account.
             SalePayment,
             Purchase,
             Expense,
+            Income,
             Product,
             Customer,
             CustomerAccount,
+            AccountMovement,
         ]),
+        CashRegisterModule,
+        ConfigurationModule,
     ],
     controllers: [ReportsController],
     providers: [ReportsService],
     exports: [ReportsService],
 })
-export class ReportsModule {}
+export class ReportsModule { }
+

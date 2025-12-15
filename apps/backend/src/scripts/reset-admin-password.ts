@@ -22,7 +22,7 @@ const dataSource = new DataSource({
     synchronize: false,
 });
 
-async function resetAdminPassword() {
+(async () => {
     try {
         console.log('🔐 Reseteando contraseña del usuario admin...');
         console.log('Connecting to database...');
@@ -36,12 +36,13 @@ async function resetAdminPassword() {
 
         if (!user) {
             console.error('❌ El usuario admin no existe. Ejecuta el seed primero.');
+            process.exitCode = 1;
             return;
         }
 
         // Generar nuevo hash de contraseña
         const passwordHash = await bcrypt.hash('Admin123', 10);
-        
+
         // Actualizar directamente usando query builder para evitar hooks
         await userRepository
             .createQueryBuilder()
@@ -55,14 +56,15 @@ async function resetAdminPassword() {
         console.log(`   Password: Admin123`);
         console.log('\n💡 Ahora puedes iniciar sesión con estas credenciales.');
 
+        process.exitCode = 0;
     } catch (error) {
         console.error('❌ Error reseteando contraseña:', error);
-        throw error;
+        process.exitCode = 1;
     } finally {
-        await dataSource.destroy();
+        if (dataSource.isInitialized) {
+            await dataSource.destroy();
+        }
         console.log('\nDatabase connection closed.');
     }
-}
-
-resetAdminPassword();
+})();
 

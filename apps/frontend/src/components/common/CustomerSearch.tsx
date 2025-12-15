@@ -71,6 +71,12 @@ export function CustomerSearch({
         ? `${selectedCustomerData.firstName} ${selectedCustomerData.lastName}`
         : null;
 
+    const customers = customersData?.data ?? [];
+    const showClearIcon = Boolean(value && showClearButton && onClear);
+    const emptyMessage = searchTerm
+        ? `No se encontró "${searchTerm}"`
+        : 'Escribí para buscar...';
+
     const handleSelect = (customer: Customer) => {
         onSelect(customer.id, customer);
         setOpen(false);
@@ -85,6 +91,98 @@ export function CustomerSearch({
         setSearchTerm('');
     };
 
+    const commandContent = (() => {
+        if (isLoading) {
+            return (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                    Buscando...
+                </div>
+            );
+        }
+
+        if (customers.length === 0) {
+            if (allowCreate && onCreateClick) {
+                return (
+                    <div className="p-4">
+                        <div className="text-center">
+                            <p className="text-sm text-muted-foreground mb-3">
+                                {emptyMessage}
+                            </p>
+                            <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                    onCreateClick();
+                                    setOpen(false);
+                                }}
+                            >
+                                <UserPlus className="h-4 w-4 mr-2" />
+                                Crear cliente nuevo
+                            </Button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="p-4">
+                    <CommandEmpty>
+                        {emptyMessage}
+                    </CommandEmpty>
+                </div>
+            );
+        }
+
+        return (
+            <>
+                {/* Botón de crear arriba de la lista */}
+                {allowCreate && onCreateClick && (
+                    <div className="border-b p-2">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-primary font-medium"
+                            onClick={() => {
+                                onCreateClick();
+                                setOpen(false);
+                            }}
+                        >
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Crear cliente nuevo
+                        </Button>
+                    </div>
+                )}
+                <CommandGroup>
+                    {customers.map((customer) => (
+                        <CommandItem
+                            key={customer.id}
+                            value={customer.id}
+                            onSelect={() => handleSelect(customer)}
+                        >
+                            <div className="flex flex-col flex-1">
+                                <span className="font-medium">
+                                    {customer.firstName} {customer.lastName}
+                                </span>
+                                <div className="flex gap-2 text-xs text-muted-foreground mt-0.5">
+                                    {customer.documentNumber && (
+                                        <span>
+                                            {customer.documentType}: {customer.documentNumber}
+                                        </span>
+                                    )}
+                                    {customer.email && (
+                                        <span>{customer.email}</span>
+                                    )}
+                                </div>
+                            </div>
+                        </CommandItem>
+                    ))}
+                </CommandGroup>
+            </>
+        );
+    })();
+
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
@@ -97,7 +195,7 @@ export function CustomerSearch({
                     <span className="truncate">
                         {selectedCustomerName ?? placeholder}
                     </span>
-                    {value && showClearButton && onClear ? (
+                    {showClearIcon ? (
                         <X
                             className="ml-2 h-4 w-4 shrink-0 opacity-50 hover:opacity-100"
                             onClick={handleClear}
@@ -116,87 +214,7 @@ export function CustomerSearch({
                     />
                     <div className="max-h-[300px] overflow-y-auto overflow-x-hidden">
                         <CommandList>
-                        {isLoading ? (
-                            <div className="p-4 text-center text-sm text-muted-foreground">
-                                Buscando...
-                            </div>
-                        ) : customersData?.data && customersData.data.length === 0 ? (
-                            <div className="p-4">
-                                {allowCreate && onCreateClick ? (
-                                    <div className="text-center">
-                                        <p className="text-sm text-muted-foreground mb-3">
-                                            {searchTerm
-                                                ? `No se encontró "${searchTerm}"`
-                                                : 'Escribí para buscar...'}
-                                        </p>
-                                        <Button
-                                            type="button"
-                                            variant="default"
-                                            size="sm"
-                                            onClick={() => {
-                                                onCreateClick();
-                                                setOpen(false);
-                                            }}
-                                        >
-                                            <UserPlus className="h-4 w-4 mr-2" />
-                                            Crear cliente nuevo
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <CommandEmpty>
-                                        {searchTerm
-                                            ? `No se encontró "${searchTerm}"`
-                                            : 'Escribí para buscar...'}
-                                    </CommandEmpty>
-                                )}
-                            </div>
-                        ) : (
-                            <>
-                                {/* Botón de crear arriba de la lista */}
-                                {allowCreate && onCreateClick && (
-                                    <div className="border-b p-2">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="w-full justify-start text-primary font-medium"
-                                            onClick={() => {
-                                                onCreateClick();
-                                                setOpen(false);
-                                            }}
-                                        >
-                                            <UserPlus className="h-4 w-4 mr-2" />
-                                            Crear cliente nuevo
-                                        </Button>
-                                    </div>
-                                )}
-                                <CommandGroup>
-                                    {customersData?.data.map((customer) => (
-                                        <CommandItem
-                                            key={customer.id}
-                                            value={customer.id}
-                                            onSelect={() => handleSelect(customer)}
-                                        >
-                                            <div className="flex flex-col flex-1">
-                                                <span className="font-medium">
-                                                    {customer.firstName} {customer.lastName}
-                                                </span>
-                                                <div className="flex gap-2 text-xs text-muted-foreground mt-0.5">
-                                                    {customer.documentNumber && (
-                                                        <span>
-                                                            {customer.documentType}: {customer.documentNumber}
-                                                        </span>
-                                                    )}
-                                                    {customer.email && (
-                                                        <span>{customer.email}</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                            </>
-                        )}
+                            {commandContent}
                         </CommandList>
                     </div>
                 </Command>

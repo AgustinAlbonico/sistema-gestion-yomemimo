@@ -17,17 +17,16 @@ import {
     FormLabel,
     FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, CheckCircle2, Banknote, CreditCard, Landmark, QrCode, FileCheck } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Banknote} from 'lucide-react';
 import { closeCashRegisterSchema, type CloseCashRegisterFormData } from '../schemas';
 import { useCloseCashRegisterMutation } from '../hooks';
 import type { CashRegister, CashRegisterTotals } from '../types';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency} from '@/lib/utils';
 import { getPaymentMethodIcon } from '@/features/configuration/utils/payment-method-utils';
 
 interface CloseCashDialogProps {
@@ -35,8 +34,6 @@ interface CloseCashDialogProps {
     readonly onOpenChange: (open: boolean) => void;
     readonly currentRegister: CashRegister | null;
 }
-
-
 
 export function CloseCashDialog({
     open,

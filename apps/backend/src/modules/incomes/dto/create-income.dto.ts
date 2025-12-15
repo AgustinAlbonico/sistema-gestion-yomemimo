@@ -27,7 +27,7 @@ export class CreateIncomeDto {
 
     @ApiProperty({
         description: 'Monto del ingreso',
-        example: 50000.0,
+        example: 50000,
         minimum: 0.01,
     })
     @IsNumber({}, { message: 'El monto debe ser un número' })

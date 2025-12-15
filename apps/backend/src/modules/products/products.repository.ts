@@ -5,14 +5,15 @@ import { QueryProductsDTO } from './dto/query-products.dto';
 
 @Injectable()
 export class ProductsRepository extends Repository<Product> {
-    constructor(private dataSource: DataSource) {
+    constructor(private readonly dataSource: DataSource) {
         super(Product, dataSource.createEntityManager());
     }
 
     async findWithFilters(
         filters: QueryProductsDTO,
+        minStockAlert?: number,
     ): Promise<[Product[], number]> {
-        const { page, limit, search, categoryId, isActive, sortBy, order } = filters;
+        const { page, limit, search, categoryId, isActive, stockStatus, sortBy, order } = filters;
 
         const query = this.createQueryBuilder('product')
             .leftJoinAndSelect('product.category', 'category');
@@ -33,6 +34,11 @@ export class ProductsRepository extends Repository<Product> {
         // Filtro por estado
         if (isActive !== undefined) {
             query.andWhere('product.isActive = :isActive', { isActive });
+        }
+
+        // Filtro por stock crítico (sin stock o bajo stock)
+        if (stockStatus === 'critical' && minStockAlert !== undefined) {
+            query.andWhere('product.stock <= :minStock', { minStock: minStockAlert });
         }
 
         // Ordenamiento

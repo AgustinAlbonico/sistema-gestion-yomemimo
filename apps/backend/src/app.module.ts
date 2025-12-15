@@ -16,6 +16,8 @@ import { CashRegisterModule } from './modules/cash-register/cash-register.module
 import { CustomerAccountsModule } from './modules/customer-accounts/customer-accounts.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { IncomesModule } from './modules/incomes/incomes.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { BackupModule } from './modules/backup/backup.module';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { IncomesModule } from './modules/incomes/incomes.module';
     CustomerAccountsModule,
     ReportsModule,
     IncomesModule,
+    AuditModule,
+    BackupModule,
   ],
   controllers: [AppController],
   providers: [AppService],

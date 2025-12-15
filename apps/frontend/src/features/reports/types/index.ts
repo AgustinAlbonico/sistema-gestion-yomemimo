@@ -67,6 +67,23 @@ export interface ExpensesData {
     byCategory: ExpenseCategoryData[];
 }
 
+// Datos de Ingresos por Servicios
+export interface IncomeCategoryData {
+    categoryId: string | null;
+    categoryName: string;
+    count: number;
+    total: number;
+    percentage: number;
+}
+
+export interface IncomesData {
+    totalServiceIncome: number;
+    totalIncomes: number;
+    paidIncomes: number;
+    pendingIncomes: number;
+    byCategory: IncomeCategoryData[];
+}
+
 // Datos de Rentabilidad
 export interface ProfitabilityData {
     grossProfit: number;
@@ -80,11 +97,13 @@ export interface ProfitabilityData {
 export interface FinancialReport {
     period: { startDate: string; endDate: string };
     revenue: RevenueData;
+    incomes?: IncomesData;
     costs: CostsData;
     expenses: ExpensesData;
     profitability: ProfitabilityData;
     summary: {
         totalRevenue: number;
+        totalServiceIncome?: number;
         totalCosts: number;
         netProfit: number;
         profitColor: 'green' | 'red' | 'yellow';
@@ -281,4 +300,31 @@ export interface DashboardSummary {
         totalDebt: number;
         overdueAccounts: number;
     };
+    // Nuevos campos para dashboard profesional
+    cashRegister: {
+        isOpen: boolean;
+        balance: number;
+        openedBy: string | null;
+        openedAt: string | null;
+    };
+    charts: {
+        last7Days: Array<{
+            date: string;
+            revenue: number;
+            salesCount: number;
+        }>;
+    };
+    topProducts: Array<{
+        productId: string;
+        productName: string;
+        quantitySold: number;
+        revenue: number;
+    }>;
+    alerts: {
+        cashClosed: boolean;
+        lowStockCount: number;
+        outOfStockCount: number;
+        overdueAccountsCount: number;
+    };
 }
+

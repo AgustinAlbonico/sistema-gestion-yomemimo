@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 
 config();
 
-async function applyChanges() {
+(async () => {
     const ds = new DataSource({
         type: 'postgres',
         host: process.env.DATABASE_HOST || 'localhost',
@@ -86,13 +86,13 @@ async function applyChanges() {
         }
 
         console.log('✅ Cambios aplicados correctamente');
-        await ds.destroy();
-        process.exit(0);
+        process.exitCode = 0;
     } catch (error) {
         console.error('❌ Error:', error);
-        await ds.destroy();
-        process.exit(1);
+        process.exitCode = 1;
+    } finally {
+        if (ds.isInitialized) {
+            await ds.destroy();
+        }
     }
-}
-
-applyChanges();
+})();

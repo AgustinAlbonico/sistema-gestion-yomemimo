@@ -17,9 +17,16 @@ import {
     CheckCircle2,
     Clock,
     CreditCard,
+    Receipt,
+    Tag,
+    Calendar,
+    Wallet,
+    FileText,
+    User,
+    DollarSign,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate as formatDateUtil } from '@/lib/utils';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -31,12 +38,8 @@ import {
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
-    DialogTitle,
 } from '@/components/ui/dialog';
-import { format, parseISO } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { parseLocalDate, formatDateForDisplay } from '@/lib/date-utils';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { MarkAsPaidDialog } from './MarkAsPaidDialog';
 
@@ -47,7 +50,7 @@ interface ExpenseListProps {
 }
 
 /**
- * Modal para ver detalle de un gasto
+ * Modal para ver detalle de un gasto con diseño mejorado
  */
 function ExpenseDetailDialog({
     expense,
@@ -60,103 +63,172 @@ function ExpenseDetailDialog({
 }) {
     if (!expense) return null;
 
-    const formatDate = (dateStr: string) => {
-        // Usar utilidad centralizada para formato largo
-        return formatDateForDisplay(dateStr, 'long');
+    const formatDateDisplay = (dateStr: string) => {
+        return formatDateUtil(dateStr);
     };
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[450px]">
-                <DialogHeader>
-                    <DialogTitle className="text-xl">Detalle del Gasto</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
+            <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden">
+                {/* Header con gradiente */}
+                <div className="bg-gradient-to-br from-primary/90 via-primary to-primary/80 px-6 py-5 text-primary-foreground">
+                    <div className="flex items-start gap-4">
+                        <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                            <Receipt className="h-6 w-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-xl font-bold tracking-tight">
+                                Detalle del Gasto
+                            </h2>
+                            <div className="flex items-center gap-2 mt-2">
+                                <Badge
+                                    variant="secondary"
+                                    className={expense.isPaid
+                                        ? "bg-green-500/30 text-white border-green-400/50"
+                                        : "bg-yellow-500/30 text-white border-yellow-400/50"
+                                    }
+                                >
+                                    {expense.isPaid ? (
+                                        <><CheckCircle2 className="h-3 w-3 mr-1" /> Pagado</>
+                                    ) : (
+                                        <><Clock className="h-3 w-3 mr-1" /> Pendiente</>
+                                    )}
+                                </Badge>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Contenido principal */}
+                <div className="p-6 space-y-5">
                     {/* Descripción */}
-                    <div>
-                        <span className="text-sm text-muted-foreground">Descripción</span>
-                        <p className="font-medium">{expense.description}</p>
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Descripción
+                            </span>
+                        </div>
+                        <div className="rounded-xl bg-muted/40 p-4 border border-border/50">
+                            <p className="font-medium">{expense.description}</p>
+                        </div>
                     </div>
 
                     {/* Categoría */}
                     <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Categoría</span>
+                        <div className="flex items-center gap-2">
+                            <Tag className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Categoría</span>
+                        </div>
                         {expense.category ? (
-                            <Badge variant="outline">{expense.category.name}</Badge>
+                            <Badge
+                                variant="outline"
+                                className="px-3 py-1"
+                            >
+                                {expense.category.name}
+                            </Badge>
                         ) : (
                             <span className="text-muted-foreground text-sm">Sin categoría</span>
                         )}
                     </div>
 
-                    {/* Monto */}
-                    <div className="rounded-lg bg-red-50 dark:bg-red-950 p-4 border border-red-200 dark:border-red-800">
-                        <div className="flex justify-between items-center">
-                            <span className="font-medium text-red-800 dark:text-red-200">
+                    <Separator />
+
+                    {/* Monto destacado */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                                 Monto
                             </span>
-                            <span className="text-2xl font-bold text-red-600 dark:text-red-400">
-                                {formatCurrency(expense.amount)}
-                            </span>
+                        </div>
+                        <div className="rounded-xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/50 dark:to-rose-950/50 p-4 border border-red-200 dark:border-red-800/50 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-red-700 dark:text-red-300">
+                                    Total del Gasto
+                                </span>
+                                <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                                    {formatCurrency(expense.amount)}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Fecha */}
-                    <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Fecha del gasto</span>
-                        <span className="font-medium">
-                            {formatDate(expense.expenseDate)}
-                        </span>
-                    </div>
+                    <Separator />
 
-                    {/* Método de pago */}
-                    {expense.paymentMethod ? (
-                        <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Método de pago</span>
-                            <span className="font-medium">
-                                {expense.paymentMethod.name}
+                    {/* Información de pago */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Wallet className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Información de Pago
                             </span>
                         </div>
-                    ) : null}
 
-                    {/* Nro. Comprobante */}
-                    {expense.receiptNumber ? (
-                        <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Nro. Comprobante</span>
-                            <span className="font-medium">{expense.receiptNumber}</span>
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* Fecha del gasto */}
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 border border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                                    <p className="text-xs text-muted-foreground">Fecha del gasto</p>
+                                </div>
+                                <p className="text-sm font-semibold">
+                                    {formatDateDisplay(expense.expenseDate)}
+                                </p>
+                            </div>
+
+                            {/* Método de pago */}
+                            <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800/50">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <CreditCard className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                                    <p className="text-xs text-blue-600 dark:text-blue-400">Método de pago</p>
+                                </div>
+                                <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                                    {expense.paymentMethod?.name || 'No especificado'}
+                                </p>
+                            </div>
                         </div>
-                    ) : null}
 
-                    {/* Estado */}
-                    <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Estado</span>
-                        <Badge
-                            variant={expense.isPaid ? 'default' : 'secondary'}
-                            className={
-                                expense.isPaid
-                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                            }
-                        >
-                            {expense.isPaid ? 'Pagado' : 'Pendiente'}
-                        </Badge>
+                        {/* Nro. Comprobante */}
+                        {expense.receiptNumber ? (
+                            <div className="rounded-lg bg-muted/40 p-3 border border-border/50">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Receipt className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-sm text-muted-foreground">Nro. Comprobante</span>
+                                    </div>
+                                    <span className="font-mono text-sm font-medium">{expense.receiptNumber}</span>
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
 
                     {/* Notas */}
                     {expense.notes ? (
-                        <div>
-                            <span className="text-sm text-muted-foreground">Notas</span>
-                            <p className="text-sm mt-1 p-2 bg-muted rounded">
-                                {expense.notes}
-                            </p>
-                        </div>
+                        <>
+                            <Separator />
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                        Notas
+                                    </span>
+                                </div>
+                                <div className="rounded-xl bg-muted/40 p-4 border border-border/50">
+                                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                        {expense.notes}
+                                    </p>
+                                </div>
+                            </div>
+                        </>
                     ) : null}
 
-                    {/* Creado por */}
+                    {/* Registrado por */}
                     {expense.createdBy ? (
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">Registrado por</span>
+                        <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
+                            <User className="h-3.5 w-3.5" />
                             <span>
-                                {expense.createdBy.firstName} {expense.createdBy.lastName}
+                                Registrado por: {expense.createdBy.firstName} {expense.createdBy.lastName}
                             </span>
                         </div>
                     ) : null}
@@ -198,9 +270,8 @@ export function ExpenseList({ filters, onEdit, onDelete }: ExpenseListProps) {
         markAsPaidMutation.mutate({ id: expenseId, paymentMethodId });
     };
 
-    const formatDate = (dateStr: string) => {
-        // Usar utilidad centralizada que maneja zona horaria correctamente
-        return formatDateForDisplay(dateStr, 'short');
+    const formatExpenseDate = (dateStr: string) => {
+        return formatDateUtil(dateStr);
     };
 
     const columns: ColumnDef<Expense>[] = [
@@ -217,7 +288,7 @@ export function ExpenseList({ filters, onEdit, onDelete }: ExpenseListProps) {
             ),
             cell: ({ row }) => (
                 <span className="text-muted-foreground">
-                    {formatDate(row.original.expenseDate)}
+                    {formatExpenseDate(row.original.expenseDate)}
                 </span>
             ),
         },
@@ -303,7 +374,7 @@ export function ExpenseList({ filters, onEdit, onDelete }: ExpenseListProps) {
                                 <Eye className="mr-2 h-4 w-4" />
                                 Ver Detalle
                             </DropdownMenuItem>
-                            {!expense.isPaid ? (
+                            {expense.isPaid ? null : (
                                 <DropdownMenuItem
                                     onClick={() => setExpenseToMarkPaid(expense)}
                                     className="text-green-600"
@@ -311,7 +382,7 @@ export function ExpenseList({ filters, onEdit, onDelete }: ExpenseListProps) {
                                     <CreditCard className="mr-2 h-4 w-4" />
                                     Marcar como Pagado
                                 </DropdownMenuItem>
-                            ) : null}
+                            )}
                             <DropdownMenuItem onClick={() => onEdit(expense)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Editar

@@ -58,7 +58,7 @@ import { Customer } from '@/features/customers/types';
 import { CustomerForm } from '@/features/customers/components/CustomerForm';
 import { CustomerFormValues } from '@/features/customers/schemas/customer.schema';
 import { createSaleSchema, CreateSaleFormValues } from '../schemas/sale.schema';
-import { PaymentMethod, PaymentMethodLabels } from '../types';
+import { PaymentMethod, PaymentMethodLabels, CreateSaleDTO, CreateSalePaymentDTO, CreateSaleItemDTO, CreateSaleTaxDTO } from '../types';
 import { PaymentMethodIcons } from '../constants';
 import { getTodayLocal } from '@/lib/date-utils';
 import { fiscalApi } from '@/features/configuration/api/fiscal.api';
@@ -86,7 +86,7 @@ import {
 } from '../hooks/useSaleFormEffects';
 
 interface SaleFormProps {
-    readonly onSubmit: (data: CreateSaleFormValues) => void;
+    readonly onSubmit: (data: CreateSaleDTO) => void;
     readonly isLoading?: boolean;
 }
 
@@ -101,8 +101,6 @@ function formatCurrency(value: number): string {
         maximumFractionDigits: 2,
     }).format(value);
 }
-
-
 
 export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -138,7 +136,7 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
     const isMonotributista = fiscalConfig?.ivaCondition === IvaCondition.RESPONSABLE_MONOTRIBUTO;
 
     const form = useForm<CreateSaleFormValues>({
-        resolver: zodResolver(createSaleSchema as any),
+        resolver: zodResolver(createSaleSchema),
         defaultValues: {
             customerId: undefined,
             customerName: '',
@@ -331,15 +329,15 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
 
         // Transformar pagos para incluir paymentMethodId
         // Si es cuenta corriente, no enviar pagos
-        let paymentsWithIds: any[] = [];
+        let paymentsWithIds: CreateSalePaymentDTO[] | undefined = undefined;
         if (!data.isOnAccount && data.payments) {
-            paymentsWithIds = data.payments.map(payment => {
-                const method = paymentMethods?.find(pm => pm.code === payment.paymentMethod);
+            paymentsWithIds = data.payments.map((payment) => {
+                const method = paymentMethods?.find((pm) => pm.code === payment.paymentMethod);
                 if (!method) {
                     toast.error(`Error: Método de pago ${payment.paymentMethod} no encontrado`);
                     throw new Error(`Payment method not found: ${payment.paymentMethod}`);
                 }
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
                 const { paymentMethod, ...rest } = payment;
                 return {
                     ...rest,
@@ -348,19 +346,17 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
             });
         }
 
-        // Limpiar propiedades stock y productName de los items antes de enviar
-        const cleanData = {
+        const itemsForApi: CreateSaleItemDTO[] = data.items.map(({ stock: _stock, productName: _productName, ...item }) => item);
+        const taxesForApi: CreateSaleTaxDTO[] | undefined = data.taxes ? data.taxes.map((t) => ({ ...t })) : undefined;
+
+        const payload: CreateSaleDTO = {
             ...data,
-            items: data.items.map((item) => {
-                const itemCopy = { ...item };
-                delete itemCopy.stock;
-                delete itemCopy.productName;
-                return itemCopy;
-            }),
-            payments: paymentsWithIds,
+            items: itemsForApi,
+            taxes: taxesForApi,
+            payments: data.isOnAccount ? undefined : paymentsWithIds,
         };
 
-        onSubmit(cleanData as any);
+        onSubmit(payload);
     };
 
     const handleProductSelect = (productId: string, product: any) => {
@@ -415,7 +411,15 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
     return (
         <div className="h-full">
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="h-full">
+                <form onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+                    console.log('Form validation errors:', errors);
+                    const firstError = Object.values(errors)[0];
+                    if (firstError && 'message' in firstError) {
+                        toast.error(firstError.message as string);
+                    } else {
+                        toast.error('Por favor verificá los campos del formulario');
+                    }
+                })} className="h-full">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full">
 
                         {/* COLUMNA IZQUIERDA: Búsqueda y Productos */}
@@ -495,13 +499,13 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                                         </FormControl>
                                                         <div className="flex flex-col">
                                                             <FormLabel className="text-sm font-medium cursor-pointer">
-                                                            Factura Fiscal
-                                                        </FormLabel>
-                                                        {fiscalConfig?.isConfigured ? null : (
-                                                            <span className="text-[10px] text-amber-600">
-                                                                AFIP no configurado
-                                                            </span>
-                                                        )}
+                                                                Factura Fiscal
+                                                            </FormLabel>
+                                                            {fiscalConfig?.isConfigured ? null : (
+                                                                <span className="text-[10px] text-amber-600">
+                                                                    AFIP no configurado
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         {field.value ? (
                                                             <Badge className="bg-blue-500 text-white text-[10px] ml-1">

@@ -164,7 +164,7 @@ export interface CreateSaleItemDTO {
  * DTO para crear pago de venta
  */
 export interface CreateSalePaymentDTO {
-    paymentMethod: PaymentMethod;
+    paymentMethodId: string;
     amount: number;
     installments?: number;
     cardLastFourDigits?: string;

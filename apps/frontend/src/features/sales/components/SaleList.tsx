@@ -310,7 +310,7 @@ export function SaleList({
 
                                         <DropdownMenuSeparator />
 
-                                        {sale.status !== SaleStatus.CANCELLED ? (
+                                        {sale.status === SaleStatus.CANCELLED ? null : (
                                             <DropdownMenuItem
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -321,9 +321,9 @@ export function SaleList({
                                                 <Ban className="mr-2 h-4 w-4" />
                                                 Cancelar
                                             </DropdownMenuItem>
-                                        ) : null}
+                                        )}
 
-                                        {!sale.inventoryUpdated ? (
+                                        {sale.inventoryUpdated ? null : (
                                             <DropdownMenuItem
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -334,7 +334,7 @@ export function SaleList({
                                                 <Trash2 className="mr-2 h-4 w-4" />
                                                 Eliminar
                                             </DropdownMenuItem>
-                                        ) : null}
+                                        )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </TableCell>

@@ -35,14 +35,14 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ExpensesController {
-    constructor(private readonly expensesService: ExpensesService) {}
+    constructor(private readonly expensesService: ExpensesService) { }
 
     @Post()
     @ApiOperation({ summary: 'Registrar nuevo gasto' })
     @ApiResponse({ status: 201, description: 'Gasto registrado' })
     @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
     create(@Body() dto: CreateExpenseDto, @Request() req: any) {
-        return this.expensesService.create(dto, req.user?.id);
+        return this.expensesService.create(dto, req.user?.userId);
     }
 
     @Get()
@@ -87,8 +87,8 @@ export class ExpensesController {
     @ApiOperation({ summary: 'Eliminar gasto' })
     @ApiResponse({ status: 200, description: 'Gasto eliminado' })
     @ApiResponse({ status: 404, description: 'Gasto no encontrado' })
-    remove(@Param('id', ParseUUIDPipe) id: string) {
-        return this.expensesService.remove(id);
+    remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+        return this.expensesService.remove(id, req.user?.userId);
     }
 
     @Patch(':id/mark-paid')
@@ -101,7 +101,7 @@ export class ExpensesController {
         @Body('paymentMethodId', ParseUUIDPipe) paymentMethodId: string,
         @Request() req: any,
     ) {
-        return this.expensesService.markAsPaid(id, req.user?.id, paymentMethodId);
+        return this.expensesService.markAsPaid(id, req.user?.userId, paymentMethodId);
     }
 }
 

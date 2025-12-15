@@ -23,15 +23,15 @@ import { useState, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface DataTableProps<TData, TValue> {
-    columns: ColumnDef<TData, TValue>[];
-    data: TData[];
-    searchKey?: string;
-    searchPlaceholder?: string;
-    onRowClick?: (row: TData) => void;
+    readonly columns: ColumnDef<TData, TValue>[];
+    readonly data: TData[];
+    readonly searchKey?: string;
+    readonly searchPlaceholder?: string;
+    readonly onRowClick?: (row: TData) => void;
     /** Slot para filtros adicionales que se muestran junto al buscador */
-    filterSlot?: ReactNode;
+    readonly filterSlot?: ReactNode;
     /** Función para determinar clases CSS adicionales por fila */
-    getRowClassName?: (row: TData) => string;
+    readonly getRowClassName?: (row: TData) => string;
 }
 
 export function DataTable<TData, TValue>({

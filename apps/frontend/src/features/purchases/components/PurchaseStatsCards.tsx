@@ -2,7 +2,7 @@
  * Componente de tarjetas de estadísticas de compras
  */
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingCart, DollarSign, Clock, XCircle } from 'lucide-react';
+import { ShoppingCart, DollarSign, Clock} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { purchasesApi } from '../api/purchases.api';
 

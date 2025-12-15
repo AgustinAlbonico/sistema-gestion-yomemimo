@@ -90,8 +90,8 @@ export class PdfGeneratorService {
     private templateNotaVenta: Handlebars.TemplateDelegate | null = null;
 
     constructor(
-        private configService: ConfigService,
-        private qrGeneratorService: QrGeneratorService,
+        private readonly configService: ConfigService,
+        private readonly qrGeneratorService: QrGeneratorService,
     ) {
         this.loadTemplates();
         this.registerHandlebarsHelpers();
@@ -216,7 +216,11 @@ export class PdfGeneratorService {
 
             receiver: {
                 documentType: this.getDocumentTypeName(invoice.receiverDocumentType),
-                documentNumber: invoice.receiverDocumentNumber || '-',
+                // Si es tipo 99 (Sin Identificar) o el número es 0 o -, no enviamos documentNumber
+                // para que el template pueda mostrar "Sin Identificar" correctamente
+                documentNumber: this.isValidDocumentNumber(invoice.receiverDocumentType, invoice.receiverDocumentNumber)
+                    ? (invoice.receiverDocumentNumber ?? '')
+                    : '',
                 name: invoice.receiverName || 'Consumidor Final',
                 address: invoice.receiverAddress || '-',
                 ivaCondition: invoice.receiverIvaCondition
@@ -334,6 +338,22 @@ export class PdfGeneratorService {
     }
 
     /**
+     * Verifica si el número de documento es válido para mostrarse
+     * Devuelve false para tipo 99 (Sin Identificar) o números inválidos
+     */
+    private isValidDocumentNumber(docType: number, docNumber: string | null | undefined): boolean {
+        // Tipo 99 es "Sin Identificar"
+        if (docType === 99) {
+            return false;
+        }
+        // Si no hay número o es inválido
+        if (!docNumber || docNumber === '-' || docNumber === '0') {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Formatea condición IVA
      */
     private formatIvaCondition(condition: string): string {
@@ -385,8 +405,8 @@ export class PdfGeneratorService {
     private formatPaymentMethod(method: string): string {
         // Convertir snake_case a texto legible
         return method
-            .replace(/_/g, ' ')
-            .replace(/\b\w/g, l => l.toUpperCase());
+            .replaceAll('_', ' ')
+            .replaceAll(/\b\w/g, l => l.toUpperCase());
     }
 
     /**

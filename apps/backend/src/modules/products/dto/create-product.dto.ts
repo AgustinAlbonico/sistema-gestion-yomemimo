@@ -9,6 +9,7 @@ import { IsString, IsOptional, IsNumber, IsBoolean, IsUUID, IsInt, Min, Max, Len
  */
 export const BaseProductSchema = z.object({
     name: z.string().min(1, 'El nombre es requerido').max(255),
+    description: z.string().max(1000).optional().nullable(),
     cost: z.number().min(0, 'El costo debe ser 0 o mayor'),
     stock: z.number().int().min(0).optional().default(0),
     categoryId: z.string().uuid().optional().nullable(),
@@ -28,10 +29,16 @@ export type CreateProductDTO = z.infer<typeof CreateProductSchema>;
  * Opcional: margen de ganancia personalizado
  */
 export class CreateProductDto {
-    @ApiProperty({ example: 'Coca Cola 500ml', description: 'Nombre del producto' })
+    @ApiProperty({ example: 'Shampoo Sedal 400ml', description: 'Nombre del producto' })
     @IsString()
     @Length(1, 255)
     name!: string;
+
+    @ApiPropertyOptional({ example: 'Shampoo reparador para cabello dañado', description: 'Descripción del producto' })
+    @IsOptional()
+    @IsString()
+    @Length(0, 1000)
+    description?: string | null;
 
     @ApiProperty({ example: 100.00, description: 'Costo del producto' })
     @IsNumber()
@@ -59,7 +66,7 @@ export class CreateProductDto {
     @IsBoolean()
     useCustomMargin?: boolean;
 
-    @ApiPropertyOptional({ example: 40.00, description: 'Margen de ganancia personalizado (%)' })
+    @ApiPropertyOptional({ example: 40, description: 'Margen de ganancia personalizado (%)' })
     @IsOptional()
     @IsNumber()
     @Min(0)

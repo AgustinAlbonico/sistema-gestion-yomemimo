@@ -27,7 +27,7 @@ import { Switch } from '@/components/ui/switch';
 import { CustomerSchema, CustomerFormValues } from '../schemas/customer.schema';
 import { customerCategoriesApi } from '../api/customers.api';
 import { Loader2 } from 'lucide-react';
-import { IvaConditionOptions, DEFAULT_IVA_CONDITION, IvaCondition } from '@/types/iva-condition';
+import { IvaConditionOptions, DEFAULT_IVA_CONDITION} from '@/types/iva-condition';
 
 interface CustomerFormProps {
     readonly initialData?: CustomerFormValues;

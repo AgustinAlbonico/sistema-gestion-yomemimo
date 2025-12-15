@@ -57,7 +57,7 @@ export class CertificateEncryptionService {
 
         const authTag = cipher.getAuthTag();
 
-        // Formato: iv:authTag:encryptedData (todo en Base64)
+        // Formato: iv:authTag:encryptedData (completo en Base64)
         return `${iv.toString('base64')}:${authTag.toString('base64')}:${encrypted}`;
     }
 

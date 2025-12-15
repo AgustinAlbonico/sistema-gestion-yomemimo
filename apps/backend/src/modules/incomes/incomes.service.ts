@@ -19,8 +19,10 @@ import { CashRegisterService } from '../cash-register/cash-register.service';
 import { CustomerAccountsService } from '../customer-accounts/customer-accounts.service';
 import { parseLocalDate } from '../../common/utils/date.utils';
 import { resolveIsPaidStatus, resolvePaidDate } from '../../common/utils/payment.utils';
+import { AuditService } from '../audit/audit.service';
+import { AuditEntityType, AuditAction } from '../audit/enums';
 
-interface IncomeStats {
+export interface IncomeStats {
     totalIncomes: number;
     totalAmount: number;
     totalPending: number;
@@ -32,7 +34,7 @@ interface IncomeStats {
     }>;
 }
 
-interface PaginatedIncomes {
+export interface PaginatedIncomes {
     data: Income[];
     total: number;
     page: number;
@@ -49,51 +51,18 @@ export class IncomesService {
         private readonly categoryRepo: Repository<IncomeCategory>,
         private readonly cashRegisterService: CashRegisterService,
         private readonly customerAccountsService: CustomerAccountsService,
+        private readonly auditService: AuditService,
     ) { }
 
     /**
      * Crea un nuevo ingreso
      */
     async create(dto: CreateIncomeDto, userId?: string): Promise<Income> {
-        // Validar que si es a cuenta corriente, tenga cliente
-        if (dto.isOnAccount && !dto.customerId) {
-            throw new BadRequestException(
-                'Para ingresos a cuenta corriente debe seleccionar un cliente',
-            );
-        }
-
-        // Validar que si NO es a cuenta corriente, tenga método de pago
-        if (!dto.isOnAccount && !dto.paymentMethodId) {
-            throw new BadRequestException(
-                'Debe seleccionar un método de pago para ingresos que no son a cuenta corriente',
-            );
-        }
-
         // Determinar estado de pago usando utilidades compartidas
         const isOnAccount = dto.isOnAccount || false;
         const isPaid = isOnAccount ? false : resolveIsPaidStatus(dto.isPaid);
 
-        // Si está pagado y no es a cuenta corriente, validar que haya caja abierta
-        if (isPaid && !isOnAccount) {
-            const openCashRegister = await this.cashRegisterService.getOpenRegister();
-            if (!openCashRegister) {
-                throw new BadRequestException(
-                    'No hay caja abierta. Debe abrir la caja antes de registrar ingresos pagados.',
-                );
-            }
-        }
-
-        // Validar categoría si se especifica
-        if (dto.categoryId) {
-            const category = await this.categoryRepo.findOne({
-                where: { id: dto.categoryId },
-            });
-            if (!category) {
-                throw new NotFoundException(
-                    `Categoría con ID ${dto.categoryId} no encontrada`,
-                );
-            }
-        }
+        await this.validateCreate(dto, isOnAccount, isPaid);
 
         // Determinar fecha de pago
         const incomeDate = parseLocalDate(dto.incomeDate);
@@ -119,33 +88,99 @@ export class IncomesService {
         const savedIncome = await this.incomeRepo.save(income);
 
         // Si es a cuenta corriente, registrar en cuenta del cliente
-        if (dto.isOnAccount && dto.customerId) {
-            await this.customerAccountsService.createCharge(
-                dto.customerId,
-                {
-                    amount: dto.amount,
-                    description: `Ingreso: ${dto.description}`,
-                    saleId: savedIncome.id, // Usamos el campo saleId para referencia
-                },
-                userId,
-            );
-        }
+        await this.registerCustomerAccountChargeIfNeeded(dto, savedIncome, userId);
 
         // Si está pagado y no es a cuenta corriente, registrar en caja
-        if (savedIncome.isPaid && !savedIncome.isOnAccount && dto.paymentMethodId) {
-            try {
-                await this.cashRegisterService.registerServiceIncome(
-                    { incomeId: savedIncome.id },
-                    userId || 'system',
-                );
-            } catch (error) {
-                // Si falla la caja, no bloqueamos la creación del ingreso
-                console.warn('No se pudo registrar el ingreso en la caja:', error);
-            }
+        await this.registerCashIncomeIfNeeded(savedIncome, dto.paymentMethodId, userId);
+
+        // Log de auditoría
+        if (userId) {
+            await this.auditService.logSilent({
+                entityType: AuditEntityType.INCOME,
+                entityId: savedIncome.id,
+                action: AuditAction.CREATE,
+                userId,
+                newValues: {
+                    description: savedIncome.description,
+                    amount: savedIncome.amount,
+                    isOnAccount: savedIncome.isOnAccount,
+                    isPaid: savedIncome.isPaid,
+                },
+                description: AuditService.generateDescription(
+                    AuditAction.CREATE,
+                    AuditEntityType.INCOME
+                ),
+            });
         }
 
         // Retornar con relaciones cargadas
         return this.findOne(savedIncome.id);
+    }
+
+    private async validateCreate(dto: CreateIncomeDto, isOnAccount: boolean, isPaid: boolean): Promise<void> {
+        if (isOnAccount && !dto.customerId) {
+            throw new BadRequestException('Para ingresos a cuenta corriente debe seleccionar un cliente');
+        }
+
+        if (!isOnAccount && !dto.paymentMethodId) {
+            throw new BadRequestException(
+                'Debe seleccionar un método de pago para ingresos que no son a cuenta corriente',
+            );
+        }
+
+        if (isPaid && !isOnAccount) {
+            const openCashRegister = await this.cashRegisterService.getOpenRegister();
+            if (!openCashRegister) {
+                throw new BadRequestException(
+                    'No hay caja abierta. Debe abrir la caja antes de registrar ingresos pagados.',
+                );
+            }
+        }
+
+        if (dto.categoryId) {
+            const category = await this.categoryRepo.findOne({
+                where: { id: dto.categoryId },
+            });
+            if (!category) {
+                throw new NotFoundException(`Categoría con ID ${dto.categoryId} no encontrada`);
+            }
+        }
+    }
+
+    private async registerCustomerAccountChargeIfNeeded(
+        dto: CreateIncomeDto,
+        income: Income,
+        userId?: string,
+    ): Promise<void> {
+        if (!dto.isOnAccount || !dto.customerId) return;
+
+        await this.customerAccountsService.createCharge(
+            dto.customerId,
+            {
+                amount: dto.amount,
+                description: `Ingreso: ${dto.description}`,
+                saleId: income.id, // Usamos el campo saleId para referencia
+            },
+            userId,
+        );
+    }
+
+    private async registerCashIncomeIfNeeded(
+        income: Income,
+        paymentMethodId: string | undefined,
+        userId?: string,
+    ): Promise<void> {
+        if (!income.isPaid || income.isOnAccount || !paymentMethodId) return;
+
+        try {
+            await this.cashRegisterService.registerServiceIncome(
+                { incomeId: income.id },
+                userId || 'system',
+            );
+        } catch (error) {
+            // Si falla la caja, no bloqueamos la creación del ingreso
+            console.warn('No se pudo registrar el ingreso en la caja:', error);
+        }
     }
 
     /**
@@ -290,9 +325,29 @@ export class IncomesService {
     /**
      * Elimina un ingreso (soft delete)
      */
-    async remove(id: string): Promise<{ message: string }> {
-        await this.findOne(id);
+    async remove(id: string, userId?: string): Promise<{ message: string }> {
+        const income = await this.findOne(id);
         await this.incomeRepo.softDelete(id);
+
+        // Log de auditoría
+        if (userId) {
+            await this.auditService.logSilent({
+                entityType: AuditEntityType.INCOME,
+                entityId: id,
+                action: AuditAction.DELETE,
+                userId,
+                previousValues: {
+                    description: income.description,
+                    amount: income.amount,
+                    isPaid: income.isPaid,
+                },
+                description: AuditService.generateDescription(
+                    AuditAction.DELETE,
+                    AuditEntityType.INCOME
+                ),
+            });
+        }
+
         return { message: 'Ingreso eliminado correctamente' };
     }
 
@@ -316,6 +371,14 @@ export class IncomesService {
             );
         }
 
+        // Validar que haya caja abierta
+        const openCashRegister = await this.cashRegisterService.getOpenRegister();
+        if (!openCashRegister) {
+            throw new BadRequestException(
+                'No hay caja abierta. Debe abrir la caja antes de marcar ingresos como cobrados.',
+            );
+        }
+
         // Marcar como pagado
         income.isPaid = true;
         income.paidAt = new Date();
@@ -332,6 +395,20 @@ export class IncomesService {
         } catch (error) {
             console.warn('No se pudo registrar el ingreso en la caja:', error);
         }
+
+        // Log de auditoría
+        await this.auditService.logSilent({
+            entityType: AuditEntityType.INCOME,
+            entityId: id,
+            action: AuditAction.PAY,
+            userId,
+            previousValues: { isPaid: false },
+            newValues: { isPaid: true, paidAt: income.paidAt },
+            description: AuditService.generateDescription(
+                AuditAction.PAY,
+                AuditEntityType.INCOME
+            ),
+        });
 
         return this.findOne(id);
     }

@@ -10,7 +10,7 @@ import { InvoiceType } from '../entities/invoice.entity';
 import { FiscalConfigurationService } from '../../configuration/fiscal-configuration.service';
 import { AfipEnvironment } from '../../configuration/entities/fiscal-configuration.entity';
 import axios from 'axios';
-import * as https from 'https';
+import * as https from 'node:https';
 import * as crypto from 'node:crypto';
 import * as forge from 'node-forge';
 import { createTRA, createLoginCmsRequest, parseLoginCmsResponse, parseSoapFault } from './soap-utils';
@@ -93,7 +93,7 @@ export class AfipService {
     private authTokenCacheProduccion: AfipAuthToken | null = null;
 
     constructor(
-        private fiscalConfigService: FiscalConfigurationService,
+        private readonly fiscalConfigService: FiscalConfigurationService,
     ) { }
 
     /**
@@ -155,15 +155,15 @@ export class AfipService {
     /**
      * Obtiene el caché de token según el ambiente activo
      */
-    private getTokenCache(isHomologacion: boolean): AfipAuthToken | null {
-        return isHomologacion ? this.authTokenCacheHomologacion : this.authTokenCacheProduccion;
+    private getTokenCache(environmentName: 'homologacion' | 'produccion'): AfipAuthToken | null {
+        return environmentName === 'homologacion' ? this.authTokenCacheHomologacion : this.authTokenCacheProduccion;
     }
 
     /**
      * Establece el caché de token según el ambiente activo
      */
-    private setTokenCache(isHomologacion: boolean, token: AfipAuthToken | null): void {
-        if (isHomologacion) {
+    private setTokenCache(environmentName: 'homologacion' | 'produccion', token: AfipAuthToken | null): void {
+        if (environmentName === 'homologacion') {
             this.authTokenCacheHomologacion = token;
         } else {
             this.authTokenCacheProduccion = token;
@@ -183,7 +183,7 @@ export class AfipService {
         const environmentName = isHomologacion ? 'homologacion' : 'produccion';
 
         // 1. Primero intentar usar el token en caché (memoria) del ambiente activo
-        const cachedToken = this.getTokenCache(isHomologacion);
+        const cachedToken = this.getTokenCache(environmentName);
         if (cachedToken && cachedToken.expirationTime > new Date()) {
             this.logger.debug(`Usando token WSAA de ${environmentName} desde caché en memoria`);
             return cachedToken;
@@ -193,7 +193,7 @@ export class AfipService {
         const storedToken = await this.fiscalConfigService.getStoredWsaaToken();
         if (storedToken && storedToken.expirationTime > new Date()) {
             this.logger.log(`Token WSAA de ${environmentName} recuperado desde base de datos`);
-            this.setTokenCache(isHomologacion, storedToken);
+            this.setTokenCache(environmentName, storedToken);
             return storedToken;
         }
 
@@ -253,14 +253,14 @@ export class AfipService {
             };
 
             // 5. Guardar en caché del ambiente correcto y en base de datos
-            this.setTokenCache(isHomologacion, newToken);
+            this.setTokenCache(environmentName, newToken);
             await this.fiscalConfigService.saveWsaaToken(newToken.token, newToken.sign, newToken.expirationTime);
 
             this.logger.log(`Autenticación WSAA exitosa para ${environmentName} - Token guardado en base de datos`);
             return newToken;
 
         } catch (error) {
-            await this.handleWsaaError(error, environmentName, isHomologacion);
+            await this.handleWsaaError(error, environmentName);
             // Esta línea nunca se alcanza porque handleWsaaError siempre lanza error,
             // pero TypeScript necesita el throw para el tipo de retorno
             throw error;
@@ -273,8 +273,7 @@ export class AfipService {
      */
     private async handleWsaaError(
         error: unknown,
-        environmentName: string,
-        isHomologacion: boolean
+        environmentName: 'homologacion' | 'produccion',
     ): Promise<never> {
         this.logger.error('Error en autenticación WSAA:', error);
 
@@ -295,7 +294,7 @@ export class AfipService {
                 // significa que se perdió. Limpiar y esperar a que expire.
                 if (faultMsg.includes('ya posee un TA valido') || faultMsg.includes('ya posee un TA válido')) {
                     this.logger.warn(`AFIP indica que ya existe un token válido para ${environmentName} pero no lo tenemos almacenado.`);
-                    this.setTokenCache(isHomologacion, null);
+                    this.setTokenCache(environmentName, null);
                     await this.fiscalConfigService.clearWsaaToken();
                     throw new Error(
                         `AFIP tiene un token activo para ${environmentName} que no está almacenado en el sistema. ` +
@@ -320,7 +319,7 @@ export class AfipService {
         const isHomologacion = config.afipEnvironment === AfipEnvironment.HOMOLOGACION;
         const environmentName = isHomologacion ? 'homologacion' : 'produccion';
 
-        this.setTokenCache(isHomologacion, null);
+        this.setTokenCache(environmentName, null);
         await this.fiscalConfigService.clearWsaaToken();
         this.logger.log(`Token WSAA de ${environmentName} invalidado (memoria y base de datos)`);
     }
@@ -459,7 +458,7 @@ export class AfipService {
         const cae = String(Date.now()).slice(-14).padStart(14, '0');
         const caeExpDate = new Date();
         caeExpDate.setDate(caeExpDate.getDate() + 10);
-        const caeExpirationDate = caeExpDate.toISOString().slice(0, 10).replace(/-/g, '');
+        const caeExpirationDate = caeExpDate.toISOString().slice(0, 10).replaceAll('-', '');
 
         this.logger.log(`[SIMULACIÓN] Factura autorizada: Tipo ${request.invoiceType}, Nº ${invoiceNumber}, CAE ${cae}`);
 
@@ -548,7 +547,7 @@ export class AfipService {
     }
 
     formatDateForAfip(date: Date): string {
-        return date.toISOString().slice(0, 10).replace(/-/g, '');
+        return date.toISOString().slice(0, 10).replaceAll('-', '');
     }
 
     parseAfipDate(dateStr: string): Date {

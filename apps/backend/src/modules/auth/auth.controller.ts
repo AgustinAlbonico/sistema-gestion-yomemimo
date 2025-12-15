@@ -6,7 +6,6 @@ import {
     UseGuards,
     HttpCode,
     HttpStatus,
-    Ip,
     Headers,
 } from '@nestjs/common';
 import {

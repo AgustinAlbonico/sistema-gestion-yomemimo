@@ -21,7 +21,6 @@ import {
 } from '@/components/ui/command';
 import { productsApi } from '@/features/products/api/products.api';
 import { Product } from '@/features/products/types';
-import { formatCurrency } from '@/lib/utils';
 
 interface ProductSearchProps {
     readonly value?: string; // ID del producto seleccionado

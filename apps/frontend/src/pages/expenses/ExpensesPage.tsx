@@ -1,17 +1,14 @@
-/**
- * Página de Gastos
- * Gestión completa de gastos del negocio con estadísticas y categorías
- */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Tags, RefreshCw, Download } from 'lucide-react';
+import { Plus, Tags, RefreshCw, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { FormDialog } from '@/components/ui/form-dialog';
 import {
     Dialog,
     DialogContent,
@@ -434,20 +431,20 @@ export default function ExpensesPage() {
                             Nuevo Gasto
                         </Button>
 
-                        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                            <DialogContent className="sm:max-w-[500px]">
-                                <DialogHeader>
-                                    <DialogTitle>Registrar Gasto</DialogTitle>
-                                    <DialogDescription>
-                                        Completa los datos del gasto
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <ExpenseForm
-                                    onSubmit={handleCreate}
-                                    isLoading={createMutation.isPending}
-                                />
-                            </DialogContent>
-                        </Dialog>
+                        <FormDialog
+                            open={isCreateOpen}
+                            onOpenChange={setIsCreateOpen}
+                            title="Registrar Gasto"
+                            description="Completa los datos del nuevo gasto"
+                            icon={Receipt}
+                            variant="danger"
+                            maxWidth="md"
+                        >
+                            <ExpenseForm
+                                onSubmit={handleCreate}
+                                isLoading={createMutation.isPending}
+                            />
+                        </FormDialog>
                     </div>
                 </div>
             </div>
@@ -617,36 +614,33 @@ export default function ExpensesPage() {
             </div>
 
             {/* Dialog para editar */}
-            <Dialog
+            <FormDialog
                 open={!!editingExpense}
                 onOpenChange={(open) => !open && setEditingExpense(null)}
+                title="Editar Gasto"
+                description="Modifica los datos del gasto"
+                icon={Receipt}
+                variant="danger"
+                maxWidth="md"
             >
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle>Editar Gasto</DialogTitle>
-                        <DialogDescription>
-                            Modifica los datos del gasto
-                        </DialogDescription>
-                    </DialogHeader>
-                    {editingExpense && (
-                        <ExpenseForm
-                            initialData={{
-                                description: editingExpense.description,
-                                amount: editingExpense.amount,
-                                expenseDate: editingExpense.expenseDate.split('T')[0],
-                                categoryId: editingExpense.categoryId ?? undefined,
-                                paymentMethod: editingExpense.paymentMethod ?? undefined,
-                                receiptNumber: editingExpense.receiptNumber ?? '',
-                                isPaid: editingExpense.isPaid,
-                                notes: editingExpense.notes ?? '',
-                            }}
-                            onSubmit={handleUpdate}
-                            isLoading={updateMutation.isPending}
-                            isEditing
-                        />
-                    )}
-                </DialogContent>
-            </Dialog>
+                {editingExpense ? (
+                    <ExpenseForm
+                        initialData={{
+                            description: editingExpense.description,
+                            amount: editingExpense.amount,
+                            expenseDate: editingExpense.expenseDate.split('T')[0],
+                            categoryId: editingExpense.categoryId ?? undefined,
+                            paymentMethodId: editingExpense.paymentMethodId ?? undefined,
+                            receiptNumber: editingExpense.receiptNumber ?? '',
+                            isPaid: editingExpense.isPaid,
+                            notes: editingExpense.notes ?? '',
+                        }}
+                        onSubmit={handleUpdate}
+                        isLoading={updateMutation.isPending}
+                        isEditing
+                    />
+                ) : null}
+            </FormDialog>
 
             {/* Alerta de caja del día anterior sin cerrar */}
             {!dismissedCashAlert && (

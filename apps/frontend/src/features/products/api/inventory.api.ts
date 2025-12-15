@@ -55,7 +55,7 @@ export const inventoryApi = {
      * Obtiene el historial de movimientos de un producto
      */
     getProductHistory: async (productId: string): Promise<{
-        product: { id: string; name: string; stock: number; minStock: number };
+        product: { id: string; name: string; stock: number };
         movements: StockMovement[];
     }> => {
         const response = await api.get(`/api/inventory/product/${productId}/history`);

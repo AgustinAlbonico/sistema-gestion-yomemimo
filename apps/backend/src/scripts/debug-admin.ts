@@ -22,7 +22,7 @@ const dataSource = new DataSource({
     synchronize: false,
 });
 
-async function debugAdmin() {
+(async () => {
     try {
         console.log('🔍 Debuggeando usuario admin...');
         console.log('Connecting to database...');
@@ -31,17 +31,27 @@ async function debugAdmin() {
 
         const userRepository = dataSource.getRepository(User);
         const username = 'admin';
+        const testPassword = 'Admin123';
+
+        const fetchUserWithPasswordHash = async (where: { username?: string; id?: string }) => {
+            const qb = userRepository
+                .createQueryBuilder('user')
+                .addSelect('user.passwordHash');
+
+            if (where.username) {
+                return qb.where('user.username = :username', { username: where.username }).getOne();
+            }
+
+            return qb.where('user.id = :id', { id: where.id }).getOne();
+        };
 
         // Buscar usuario con passwordHash incluido
-        const user = await userRepository
-            .createQueryBuilder('user')
-            .addSelect('user.passwordHash')
-            .where('user.username = :username', { username })
-            .getOne();
+        const user = await fetchUserWithPasswordHash({ username });
 
         if (!user) {
             console.error('❌ El usuario admin NO existe en la base de datos.');
             console.log('\n💡 Ejecuta: npm run seed');
+            process.exitCode = 1;
             return;
         }
 
@@ -57,10 +67,10 @@ async function debugAdmin() {
 
         // Probar validación de contraseña
         console.log('\n🔐 Probando validación de contraseña...');
-        const testPassword = 'Admin123';
-        
+
         if (!user.passwordHash) {
             console.error('❌ El usuario no tiene passwordHash!');
+            process.exitCode = 1;
             return;
         }
 
@@ -68,58 +78,55 @@ async function debugAdmin() {
         console.log(`   Contraseña a probar: "${testPassword}"`);
         console.log(`   Resultado de bcrypt.compare: ${isValid ? '✅ VÁLIDA' : '❌ INVÁLIDA'}`);
 
-        if (!isValid) {
-            console.log('\n⚠️  La contraseña no coincide. Generando nuevo hash...');
-            const newHash = await bcrypt.hash(testPassword, 10);
-            console.log(`   Nuevo hash: ${newHash.substring(0, 30)}...`);
-            
-            // Actualizar contraseña
-            await userRepository
-                .createQueryBuilder()
-                .update(User)
-                .set({ 
-                    passwordHash: newHash,
-                    isActive: true 
-                })
-                .where('id = :id', { id: user.id })
-                .execute();
-
-            // Verificar nuevamente
-            const updatedUser = await userRepository
-                .createQueryBuilder('user')
-                .addSelect('user.passwordHash')
-                .where('user.id = :id', { id: user.id })
-                .getOne();
-
-            if (updatedUser) {
-                const isValidAfter = await bcrypt.compare(testPassword, updatedUser.passwordHash);
-                console.log(`   Verificación después de actualizar: ${isValidAfter ? '✅ VÁLIDA' : '❌ INVÁLIDA'}`);
-                
-                if (isValidAfter) {
-                    console.log('\n✅ Contraseña actualizada correctamente!');
-                    console.log('   Ahora puedes iniciar sesión con:');
-                    console.log(`   Username: ${username}`);
-                    console.log(`   Password: ${testPassword}`);
-                }
-            }
-        } else {
+        if (isValid) {
             console.log('\n✅ La contraseña es válida. El problema puede estar en otro lado.');
             console.log('   Verifica:');
             console.log('   - Que el usuario esté activo (isActive: true)');
             console.log('   - Que el username sea exactamente "admin" (sin espacios)');
             console.log('   - Que la contraseña sea exactamente "Admin123" (mayúscula A, minúsculas, número)');
+            process.exitCode = 0;
+            return;
         }
 
+        console.log('\n⚠️  La contraseña no coincide. Generando nuevo hash...');
+        const newHash = await bcrypt.hash(testPassword, 10);
+        console.log(`   Nuevo hash: ${newHash.substring(0, 30)}...`);
+
+        await userRepository
+            .createQueryBuilder()
+            .update(User)
+            .set({
+                passwordHash: newHash,
+                isActive: true
+            })
+            .where('id = :id', { id: user.id })
+            .execute();
+
+        const updatedUser = await fetchUserWithPasswordHash({ id: user.id });
+
+        if (updatedUser?.passwordHash) {
+            const isValidAfter = await bcrypt.compare(testPassword, updatedUser.passwordHash);
+            console.log(`   Verificación después de actualizar: ${isValidAfter ? '✅ VÁLIDA' : '❌ INVÁLIDA'}`);
+
+            if (isValidAfter) {
+                console.log('\n✅ Contraseña actualizada correctamente!');
+                console.log('   Ahora puedes iniciar sesión con:');
+                console.log(`   Username: ${username}`);
+                console.log(`   Password: ${testPassword}`);
+                process.exitCode = 0;
+                return;
+            }
+        }
+
+        process.exitCode = 1;
     } catch (error) {
         console.error('❌ Error:', error);
-        throw error;
+        process.exitCode = 1;
     } finally {
         if (dataSource.isInitialized) {
             await dataSource.destroy();
             console.log('\nDatabase connection closed.');
         }
     }
-}
-
-debugAdmin();
+})();
 

@@ -21,6 +21,13 @@ import {
     Globe,
     Building2,
     CreditCard,
+    Receipt,
+    FileText,
+    CheckCircle2,
+    XCircle,
+    Calendar,
+    User,
+    Landmark,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -33,9 +40,8 @@ import {
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
-    DialogTitle,
 } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 
 interface SupplierListProps {
     readonly onEdit: (supplier: Supplier) => void;
@@ -43,7 +49,7 @@ interface SupplierListProps {
 }
 
 /**
- * Modal para ver detalle de un proveedor
+ * Modal para ver detalle de un proveedor con diseño mejorado
  */
 function SupplierDetailDialog({
     supplier,
@@ -56,126 +62,248 @@ function SupplierDetailDialog({
 }) {
     if (!supplier) return null;
 
+    const hasContactInfo = supplier.email || supplier.phone || supplier.mobile || supplier.website || supplier.contactName;
+    const hasAddressInfo = supplier.address || supplier.city || supplier.state;
+
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                    <DialogTitle className="text-xl">{supplier.name}</DialogTitle>
-                    {supplier.tradeName && (
-                        <p className="text-muted-foreground">{supplier.tradeName}</p>
-                    )}
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                    {/* Estado */}
-                    <div className="flex justify-between items-center">
-                        <Badge variant={supplier.isActive ? 'default' : 'secondary'}>
-                            {supplier.isActive ? 'Activo' : 'Inactivo'}
-                        </Badge>
-                        {supplier.ivaCondition && (
-                            <Badge variant="outline">
-                                {IvaConditionLabels[supplier.ivaCondition]}
-                            </Badge>
-                        )}
+            <DialogContent className="sm:max-w-[520px] p-0 gap-0 overflow-hidden">
+                {/* Header con gradiente y nombre del proveedor */}
+                <div className="bg-gradient-to-br from-primary/90 via-primary to-primary/80 px-6 py-5 text-primary-foreground">
+                    <div className="flex items-start gap-4">
+                        <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                            <Building2 className="h-6 w-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-xl font-bold tracking-tight truncate">
+                                {supplier.name}
+                            </h2>
+                            {supplier.tradeName ? (
+                                <p className="text-sm opacity-80 mt-0.5 truncate">
+                                    {supplier.tradeName}
+                                </p>
+                            ) : null}
+                            <div className="flex items-center gap-2 mt-2">
+                                <Badge
+                                    variant="secondary"
+                                    className={supplier.isActive
+                                        ? "bg-green-500/30 text-white border-green-400/50"
+                                        : "bg-white/20 text-white/70 border-white/30"
+                                    }
+                                >
+                                    {supplier.isActive ? (
+                                        <><CheckCircle2 className="h-3 w-3 mr-1" /> Activo</>
+                                    ) : (
+                                        <><XCircle className="h-3 w-3 mr-1" /> Inactivo</>
+                                    )}
+                                </Badge>
+                            </div>
+                        </div>
                     </div>
+                </div>
 
-                    {/* Documento */}
-                    {supplier.documentNumber && (
-                        <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Documento</span>
-                            <span className="font-medium">
-                                {supplier.documentType}: {supplier.documentNumber}
+                {/* Contenido principal */}
+                <div className="p-6 space-y-5">
+                    {/* Información fiscal */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Receipt className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Información Fiscal
                             </span>
                         </div>
-                    )}
 
-                    {/* Contacto */}
-                    {supplier.contactName && (
-                        <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
-                            <span>Contacto: {supplier.contactName}</span>
-                        </div>
-                    )}
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* Documento */}
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 border border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <CreditCard className="h-3 w-3 text-muted-foreground" />
+                                    <p className="text-xs text-muted-foreground">Documento</p>
+                                </div>
+                                {supplier.documentNumber ? (
+                                    <p className="text-sm font-semibold">
+                                        {supplier.documentType}: {supplier.documentNumber}
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">No especificado</p>
+                                )}
+                            </div>
 
-                    {supplier.email && (
-                        <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-muted-foreground" />
-                            <a
-                                href={`mailto:${supplier.email}`}
-                                className="text-primary hover:underline"
-                            >
-                                {supplier.email}
-                            </a>
-                        </div>
-                    )}
-
-                    {(supplier.phone || supplier.mobile) && (
-                        <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            <span>
-                                {supplier.phone}
-                                {supplier.phone && supplier.mobile && ' / '}
-                                {supplier.mobile}
-                            </span>
-                        </div>
-                    )}
-
-                    {supplier.website && (
-                        <div className="flex items-center gap-2">
-                            <Globe className="h-4 w-4 text-muted-foreground" />
-                            <a
-                                href={supplier.website}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary hover:underline"
-                            >
-                                {supplier.website}
-                            </a>
-                        </div>
-                    )}
-
-                    {/* Dirección */}
-                    {(supplier.address || supplier.city) && (
-                        <div className="flex items-start gap-2">
-                            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                            <div>
-                                {supplier.address && <p>{supplier.address}</p>}
-                                <p className="text-muted-foreground">
-                                    {[supplier.city, supplier.state, supplier.postalCode]
-                                        .filter(Boolean)
-                                        .join(', ')}
+                            {/* Condición IVA */}
+                            <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800/50">
+                                <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Condición IVA</p>
+                                <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                                    {supplier.ivaCondition
+                                        ? IvaConditionLabels[supplier.ivaCondition]
+                                        : 'No especificada'
+                                    }
                                 </p>
                             </div>
                         </div>
-                    )}
+                    </div>
+
+                    {/* Información de contacto */}
+                    {hasContactInfo ? (
+                        <>
+                            <Separator />
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <Phone className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                        Contacto
+                                    </span>
+                                </div>
+
+                                <div className="rounded-xl bg-muted/40 p-4 border border-border/50 space-y-3">
+                                    {/* Nombre del contacto */}
+                                    {supplier.contactName ? (
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-slate-500/10 rounded-lg">
+                                                <User className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                                            </div>
+                                            <span className="text-sm font-medium">{supplier.contactName}</span>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Email */}
+                                    {supplier.email ? (
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-primary/10 rounded-lg">
+                                                <Mail className="h-4 w-4 text-primary" />
+                                            </div>
+                                            <a
+                                                href={`mailto:${supplier.email}`}
+                                                className="text-sm text-primary hover:underline font-medium"
+                                            >
+                                                {supplier.email}
+                                            </a>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Teléfonos */}
+                                    {(supplier.phone || supplier.mobile) ? (
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-emerald-500/10 rounded-lg">
+                                                <Phone className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                            </div>
+                                            <span className="text-sm font-medium">
+                                                {supplier.phone}
+                                                {supplier.phone && supplier.mobile && ' / '}
+                                                {supplier.mobile}
+                                            </span>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Website */}
+                                    {supplier.website ? (
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-violet-500/10 rounded-lg">
+                                                <Globe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                                            </div>
+                                            <a
+                                                href={supplier.website}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-sm text-violet-600 dark:text-violet-400 hover:underline font-medium truncate"
+                                            >
+                                                {supplier.website}
+                                            </a>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </div>
+                        </>
+                    ) : null}
+
+                    {/* Dirección */}
+                    {hasAddressInfo ? (
+                        <>
+                            <Separator />
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                        Ubicación
+                                    </span>
+                                </div>
+
+                                <div className="rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-4 border border-amber-200 dark:border-amber-800/50">
+                                    <div className="flex items-start gap-3">
+                                        <div className="p-2 bg-amber-500/20 rounded-lg">
+                                            <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                        </div>
+                                        <div>
+                                            {supplier.address ? (
+                                                <p className="text-sm font-medium">{supplier.address}</p>
+                                            ) : null}
+                                            <p className="text-sm text-amber-700/80 dark:text-amber-300/80">
+                                                {[supplier.city, supplier.state, supplier.postalCode]
+                                                    .filter(Boolean)
+                                                    .join(', ')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : null}
 
                     {/* Cuenta bancaria */}
-                    {supplier.bankAccount && (
-                        <div className="flex items-center gap-2">
-                            <CreditCard className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-mono text-sm">{supplier.bankAccount}</span>
-                        </div>
-                    )}
+                    {supplier.bankAccount ? (
+                        <>
+                            <Separator />
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <Landmark className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                        Información Bancaria
+                                    </span>
+                                </div>
+
+                                <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 border border-slate-200 dark:border-slate-800">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-slate-500/10 rounded-lg">
+                                            <CreditCard className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                                        </div>
+                                        <span className="font-mono text-sm">{supplier.bankAccount}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : null}
 
                     {/* Notas */}
-                    {supplier.notes && (
-                        <div className="rounded-lg bg-muted/50 p-3">
-                            <p className="text-sm font-medium mb-1">Notas</p>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                {supplier.notes}
-                            </p>
-                        </div>
-                    )}
+                    {supplier.notes ? (
+                        <>
+                            <Separator />
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                        Notas
+                                    </span>
+                                </div>
 
-                    {/* Fechas */}
-                    <div className="text-xs text-muted-foreground border-t pt-3">
-                        <p>
-                            Creado:{' '}
+                                <div className="rounded-xl bg-muted/40 p-4 border border-border/50">
+                                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                        {supplier.notes}
+                                    </p>
+                                </div>
+                            </div>
+                        </>
+                    ) : null}
+
+                    {/* Fecha de creación */}
+                    <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span>
+                            Proveedor desde{' '}
                             {new Date(supplier.createdAt).toLocaleDateString('es-AR', {
                                 day: '2-digit',
-                                month: '2-digit',
+                                month: 'long',
                                 year: 'numeric',
                             })}
-                        </p>
+                        </span>
                     </div>
                 </div>
             </DialogContent>
@@ -301,10 +429,10 @@ export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                                 onClick={() => onDelete(supplier.id)}
-                                className="text-destructive"
+                                className={supplier.isActive ? 'text-destructive' : 'text-green-600'}
                             >
                                 <Trash className="mr-2 h-4 w-4" />
-                                Desactivar
+                                {supplier.isActive ? 'Desactivar' : 'Activar'}
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

@@ -1,13 +1,11 @@
 import { useState, useMemo } from 'react';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Select,
@@ -28,10 +26,10 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-    TrendingUp, 
-    TrendingDown, 
-    DollarSign, 
+import {
+    TrendingUp,
+    TrendingDown,
+    DollarSign,
     Calendar,
     ArrowUpRight,
     ArrowDownRight,
@@ -43,7 +41,7 @@ import {
     FileCheck
 } from 'lucide-react';
 import { useCashFlowReport } from '../hooks';
-import type { CashFlowReportFilters, PaymentMethod, CashFlowReport } from '../types';
+import type { CashFlowReportFilters, PaymentMethod } from '../types';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 
 interface CashFlowReportDialogProps {
@@ -115,257 +113,270 @@ export function CashFlowReportDialog({ open, onOpenChange }: CashFlowReportDialo
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Calendar className="h-5 w-5" />
+            {/* Ancho responsivo: 95% en móvil, hasta 5xl en desktop */}
+            <DialogContent className="w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+                <DialogHeader className="px-4 sm:px-6 py-4 border-b shrink-0">
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                        <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                         Reporte de Flujo de Caja
                     </DialogTitle>
                 </DialogHeader>
 
-                {/* Filtros */}
-                <div className="flex flex-wrap gap-4 items-end">
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">Período</label>
-                        <Select value={periodPreset} onValueChange={(v) => setPeriodPreset(v as PeriodPreset)}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Seleccionar período" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="today">Hoy</SelectItem>
-                                <SelectItem value="week">Esta Semana</SelectItem>
-                                <SelectItem value="month">Este Mes</SelectItem>
-                                <SelectItem value="custom">Personalizado</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                {/* Contenido scrolleable */}
+                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 sm:space-y-6">
+                    {/* Filtros - apilados en móvil, en fila en desktop */}
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-start sm:items-end">
+                        <div className="w-full sm:w-auto space-y-1">
+                            <label className="text-xs sm:text-sm font-medium">Período</label>
+                            <Select value={periodPreset} onValueChange={(v) => setPeriodPreset(v as PeriodPreset)}>
+                                <SelectTrigger className="w-full sm:w-[180px]">
+                                    <SelectValue placeholder="Seleccionar período" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="today">Hoy</SelectItem>
+                                    <SelectItem value="week">Esta Semana</SelectItem>
+                                    <SelectItem value="month">Este Mes</SelectItem>
+                                    <SelectItem value="custom">Personalizado</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                    {periodPreset === 'custom' && (
-                        <>
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Desde</label>
-                                <Input
-                                    type="date"
-                                    value={customStartDate}
-                                    onChange={(e) => setCustomStartDate(e.target.value)}
-                                    className="w-[160px]"
-                                />
+                        {periodPreset === 'custom' && (
+                            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                                <div className="space-y-1 flex-1 sm:flex-none">
+                                    <label className="text-xs sm:text-sm font-medium">Desde</label>
+                                    <Input
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={(e) => setCustomStartDate(e.target.value)}
+                                        className="w-full sm:w-[160px]"
+                                    />
+                                </div>
+                                <div className="space-y-1 flex-1 sm:flex-none">
+                                    <label className="text-xs sm:text-sm font-medium">Hasta</label>
+                                    <Input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={(e) => setCustomEndDate(e.target.value)}
+                                        className="w-full sm:w-[160px]"
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Hasta</label>
-                                <Input
-                                    type="date"
-                                    value={customEndDate}
-                                    onChange={(e) => setCustomEndDate(e.target.value)}
-                                    className="w-[160px]"
-                                />
-                            </div>
-                        </>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            id="includeComparison"
-                            checked={includeComparison}
-                            onChange={(e) => setIncludeComparison(e.target.checked)}
-                            className="rounded border-gray-300"
-                        />
-                        <label htmlFor="includeComparison" className="text-sm">
-                            Comparar con período anterior
-                        </label>
-                    </div>
-                </div>
-
-                {isLoading ? (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-4 gap-4">
-                            {[...Array(4)].map((_, i) => (
-                                <Skeleton key={i} className="h-24" />
-                            ))}
-                        </div>
-                        <Skeleton className="h-64" />
-                    </div>
-                ) : report ? (
-                    <div className="space-y-6">
-                        {/* Período */}
-                        <div className="text-sm text-muted-foreground">
-                            Período: {formatDate(report.period.start)} - {formatDate(report.period.end)}
-                        </div>
-
-                        {/* KPIs */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <MetricCard
-                                title="Ingresos Totales"
-                                value={report.summary.totalIncome}
-                                icon={<TrendingUp className="h-4 w-4" />}
-                                color="green"
-                                trend={trendPercentage}
-                            />
-                            <MetricCard
-                                title="Egresos Totales"
-                                value={report.summary.totalExpense}
-                                icon={<TrendingDown className="h-4 w-4" />}
-                                color="red"
-                            />
-                            <MetricCard
-                                title="Flujo Neto"
-                                value={report.summary.netCashFlow}
-                                icon={<DollarSign className="h-4 w-4" />}
-                                color={report.summary.netCashFlow >= 0 ? 'green' : 'red'}
-                            />
-                            <MetricCard
-                                title="Promedio Diario"
-                                value={report.summary.averageDailyIncome}
-                                icon={<Calendar className="h-4 w-4" />}
-                                color="blue"
-                                subtitle={`${report.summary.closedDays} días`}
-                            />
-                        </div>
-
-                        {/* Comparación con período anterior */}
-                        {report.comparison && (
-                            <Card className="bg-muted/50">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-medium">
-                                        Comparación con período anterior
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-xs text-muted-foreground mb-2">
-                                        {formatDate(report.comparison.period.start)} - {formatDate(report.comparison.period.end)}
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-4 text-sm">
-                                        <ComparisonItem
-                                            label="Ingresos"
-                                            current={report.summary.totalIncome}
-                                            previous={report.comparison.summary.totalIncome}
-                                        />
-                                        <ComparisonItem
-                                            label="Egresos"
-                                            current={report.summary.totalExpense}
-                                            previous={report.comparison.summary.totalExpense}
-                                            invertColors
-                                        />
-                                        <ComparisonItem
-                                            label="Flujo Neto"
-                                            current={report.summary.netCashFlow}
-                                            previous={report.comparison.summary.netCashFlow}
-                                        />
-                                    </div>
-                                </CardContent>
-                            </Card>
                         )}
 
-                        <Tabs defaultValue="byMethod">
-                            <TabsList>
-                                <TabsTrigger value="byMethod">Por Método de Pago</TabsTrigger>
-                                <TabsTrigger value="daily">Desglose Diario</TabsTrigger>
-                            </TabsList>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="includeComparison"
+                                checked={includeComparison}
+                                onChange={(e) => setIncludeComparison(e.target.checked)}
+                                className="rounded border-gray-300"
+                            />
+                            <label htmlFor="includeComparison" className="text-xs sm:text-sm">
+                                Comparar con período anterior
+                            </label>
+                        </div>
+                    </div>
 
-                            <TabsContent value="byMethod" className="mt-4">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-base">Desglose por Método de Pago</CardTitle>
+                    {isLoading ? (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                {[...Array(4)].map((_, i) => (
+                                    <Skeleton key={i} className="h-20 sm:h-24" />
+                                ))}
+                            </div>
+                            <Skeleton className="h-48 sm:h-64" />
+                        </div>
+                    ) : report ? (
+                        <div className="space-y-4 sm:space-y-6">
+                            {/* Período */}
+                            <div className="text-xs sm:text-sm text-muted-foreground">
+                                Período: {formatDate(report.period.start)} - {formatDate(report.period.end)}
+                            </div>
+
+                            {/* KPIs - 2 columnas en móvil, 4 en desktop */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                <MetricCard
+                                    title="Ingresos Totales"
+                                    value={report.summary.totalIncome}
+                                    icon={<TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                                    color="green"
+                                    trend={trendPercentage}
+                                />
+                                <MetricCard
+                                    title="Egresos Totales"
+                                    value={report.summary.totalExpense}
+                                    icon={<TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                                    color="red"
+                                />
+                                <MetricCard
+                                    title="Flujo Neto"
+                                    value={report.summary.netCashFlow}
+                                    icon={<DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                                    color={report.summary.netCashFlow >= 0 ? 'green' : 'red'}
+                                />
+                                <MetricCard
+                                    title="Promedio Diario"
+                                    value={report.summary.averageDailyIncome}
+                                    icon={<Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                                    color="blue"
+                                    subtitle={`${report.summary.closedDays} días`}
+                                />
+                            </div>
+
+                            {/* Comparación con período anterior */}
+                            {report.comparison && (
+                                <Card className="bg-muted/50">
+                                    <CardHeader className="pb-2 px-3 sm:px-6">
+                                        <CardTitle className="text-xs sm:text-sm font-medium">
+                                            Comparación con período anterior
+                                        </CardTitle>
                                     </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-3">
-                                            {Object.entries(report.byPaymentMethod).map(([method, data]) => {
-                                                const config = paymentMethodConfig[method as PaymentMethod];
-                                                if (!config) return null;
-                                                return (
-                                                    <div key={method} className="flex items-center gap-4 p-3 rounded-lg border">
-                                                        <div className={cn("p-2 rounded-full text-white", config.color)}>
-                                                            {config.icon}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="font-medium">{config.label}</p>
-                                                            <div className="flex gap-4 text-sm text-muted-foreground">
-                                                                <span className="text-green-600">+{formatCurrency(data.totalIncome)}</span>
-                                                                <span className="text-red-600">-{formatCurrency(data.totalExpense)}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className={cn(
-                                                                "font-semibold",
-                                                                data.netAmount >= 0 ? "text-green-600" : "text-red-600"
-                                                            )}>
-                                                                {formatCurrency(data.netAmount)}
-                                                            </p>
-                                                            {data.totalDifferences !== 0 && (
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    Diferencias: {formatCurrency(data.totalDifferences)}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                    <CardContent className="px-3 sm:px-6">
+                                        <div className="text-[10px] sm:text-xs text-muted-foreground mb-2">
+                                            {formatDate(report.comparison.period.start)} - {formatDate(report.comparison.period.end)}
+                                        </div>
+                                        {/* Grid responsivo: apilado en móvil, 3 columnas en desktop */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
+                                            <ComparisonItem
+                                                label="Ingresos"
+                                                current={report.summary.totalIncome}
+                                                previous={report.comparison.summary.totalIncome}
+                                            />
+                                            <ComparisonItem
+                                                label="Egresos"
+                                                current={report.summary.totalExpense}
+                                                previous={report.comparison.summary.totalExpense}
+                                                invertColors
+                                            />
+                                            <ComparisonItem
+                                                label="Flujo Neto"
+                                                current={report.summary.netCashFlow}
+                                                previous={report.comparison.summary.netCashFlow}
+                                            />
                                         </div>
                                     </CardContent>
                                 </Card>
-                            </TabsContent>
+                            )}
 
-                            <TabsContent value="daily" className="mt-4">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-base">Desglose Diario</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Fecha</TableHead>
-                                                    <TableHead>Estado</TableHead>
-                                                    <TableHead className="text-right">Ingresos</TableHead>
-                                                    <TableHead className="text-right">Egresos</TableHead>
-                                                    <TableHead className="text-right">Neto</TableHead>
-                                                    <TableHead className="text-right">Diferencia</TableHead>
-                                                    <TableHead className="text-right">Movimientos</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {report.dailyBreakdown.map((day, index) => (
-                                                    <TableRow key={index}>
-                                                        <TableCell>{formatDate(day.date)}</TableCell>
-                                                        <TableCell>
-                                                            <Badge variant={day.status === 'closed' ? 'default' : 'secondary'}>
-                                                                {day.status === 'closed' ? 'Cerrado' : 'Abierto'}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right text-green-600">
-                                                            +{formatCurrency(day.income)}
-                                                        </TableCell>
-                                                        <TableCell className="text-right text-red-600">
-                                                            -{formatCurrency(day.expense)}
-                                                        </TableCell>
-                                                        <TableCell className={cn(
-                                                            "text-right font-medium",
-                                                            day.net >= 0 ? "text-green-600" : "text-red-600"
-                                                        )}>
-                                                            {formatCurrency(day.net)}
-                                                        </TableCell>
-                                                        <TableCell className={cn(
-                                                            "text-right",
-                                                            day.difference !== 0 && (day.difference > 0 ? "text-green-600" : "text-red-600")
-                                                        )}>
-                                                            {day.difference !== 0 ? formatCurrency(day.difference) : '-'}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">{day.movementsCount}</TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
-                        </Tabs>
-                    </div>
-                ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                        No hay datos para mostrar
-                    </div>
-                )}
+                            <Tabs defaultValue="byMethod">
+                                {/* TabsList con scroll horizontal en móvil */}
+                                <TabsList className="w-full sm:w-auto overflow-x-auto">
+                                    <TabsTrigger value="byMethod" className="text-xs sm:text-sm whitespace-nowrap">
+                                        Por Método de Pago
+                                    </TabsTrigger>
+                                    <TabsTrigger value="daily" className="text-xs sm:text-sm whitespace-nowrap">
+                                        Desglose Diario
+                                    </TabsTrigger>
+                                </TabsList>
+
+                                <TabsContent value="byMethod" className="mt-3 sm:mt-4">
+                                    <Card>
+                                        <CardHeader className="px-3 sm:px-6 py-3 sm:py-4">
+                                            <CardTitle className="text-sm sm:text-base">Desglose por Método de Pago</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="px-3 sm:px-6">
+                                            <div className="space-y-2 sm:space-y-3">
+                                                {Object.entries(report.byPaymentMethod).map(([method, data]) => {
+                                                    const config = paymentMethodConfig[method as PaymentMethod];
+                                                    if (!config) return null;
+                                                    return (
+                                                        <div key={method} className="flex items-center gap-2 sm:gap-4 p-2 sm:p-3 rounded-lg border">
+                                                            <div className={cn("p-1.5 sm:p-2 rounded-full text-white shrink-0", config.color)}>
+                                                                {config.icon}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-medium text-xs sm:text-sm truncate">{config.label}</p>
+                                                                <div className="flex gap-2 sm:gap-4 text-[10px] sm:text-sm text-muted-foreground">
+                                                                    <span className="text-green-600">+{formatCurrency(data.totalIncome)}</span>
+                                                                    <span className="text-red-600">-{formatCurrency(data.totalExpense)}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right shrink-0">
+                                                                <p className={cn(
+                                                                    "font-semibold text-xs sm:text-sm",
+                                                                    data.netAmount >= 0 ? "text-green-600" : "text-red-600"
+                                                                )}>
+                                                                    {formatCurrency(data.netAmount)}
+                                                                </p>
+                                                                {data.totalDifferences !== 0 && (
+                                                                    <p className="text-[10px] sm:text-xs text-muted-foreground">
+                                                                        Dif: {formatCurrency(data.totalDifferences)}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </TabsContent>
+
+                                <TabsContent value="daily" className="mt-3 sm:mt-4">
+                                    <Card>
+                                        <CardHeader className="px-3 sm:px-6 py-3 sm:py-4">
+                                            <CardTitle className="text-sm sm:text-base">Desglose Diario</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                                            {/* Tabla con scroll horizontal en móvil */}
+                                            <div className="overflow-x-auto -mx-3 sm:mx-0">
+                                                <Table className="min-w-[600px] sm:min-w-0">
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="text-xs">Fecha</TableHead>
+                                                            <TableHead className="text-xs">Estado</TableHead>
+                                                            <TableHead className="text-right text-xs">Ingresos</TableHead>
+                                                            <TableHead className="text-right text-xs">Egresos</TableHead>
+                                                            <TableHead className="text-right text-xs">Neto</TableHead>
+                                                            <TableHead className="text-right text-xs">Dif.</TableHead>
+                                                            <TableHead className="text-right text-xs">Mov.</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {report.dailyBreakdown.map((day, index) => (
+                                                            <TableRow key={index}>
+                                                                <TableCell className="text-xs whitespace-nowrap">{formatDate(day.date)}</TableCell>
+                                                                <TableCell>
+                                                                    <Badge variant={day.status === 'closed' ? 'default' : 'secondary'} className="text-[10px]">
+                                                                        {day.status === 'closed' ? 'Cerrado' : 'Abierto'}
+                                                                    </Badge>
+                                                                </TableCell>
+                                                                <TableCell className="text-right text-green-600 text-xs">
+                                                                    +{formatCurrency(day.income)}
+                                                                </TableCell>
+                                                                <TableCell className="text-right text-red-600 text-xs">
+                                                                    -{formatCurrency(day.expense)}
+                                                                </TableCell>
+                                                                <TableCell className={cn(
+                                                                    "text-right font-medium text-xs",
+                                                                    day.net >= 0 ? "text-green-600" : "text-red-600"
+                                                                )}>
+                                                                    {formatCurrency(day.net)}
+                                                                </TableCell>
+                                                                <TableCell className={cn(
+                                                                    "text-right text-xs",
+                                                                    day.difference !== 0 && (day.difference > 0 ? "text-green-600" : "text-red-600")
+                                                                )}>
+                                                                    {day.difference !== 0 ? formatCurrency(day.difference) : '-'}
+                                                                </TableCell>
+                                                                <TableCell className="text-right text-xs">{day.movementsCount}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </TabsContent>
+                            </Tabs>
+                        </div>
+                    ) : (
+                        <div className="text-center py-6 sm:py-8 text-muted-foreground text-sm">
+                            No hay datos para mostrar
+                        </div>
+                    )}
+                </div>
             </DialogContent>
         </Dialog>
     );

@@ -4,12 +4,13 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Tags } from 'lucide-react';
+import { Plus, Tags, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { FormDialog } from '@/components/ui/form-dialog';
 import {
     Dialog,
     DialogContent,
@@ -74,15 +75,16 @@ export default function CustomersPage() {
         },
     });
 
-    const deleteMutation = useMutation({
-        mutationFn: customersApi.delete,
-        onSuccess: () => {
+    const toggleStatusMutation = useMutation({
+        mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+            customersApi.update(id, { isActive } as CreateCustomerDTO),
+        onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['customers'] });
             queryClient.invalidateQueries({ queryKey: ['customers-stats'] });
-            toast.success('Cliente desactivado');
+            toast.success(variables.isActive ? 'Cliente activado' : 'Cliente desactivado');
         },
         onError: () => {
-            toast.error('Error al desactivar cliente');
+            toast.error('Error al cambiar estado del cliente');
         },
     });
 
@@ -119,9 +121,14 @@ export default function CustomersPage() {
         }
     };
 
-    const handleDelete = (id: string) => {
-        if (confirm('¿Desactivar este cliente?')) {
-            deleteMutation.mutate(id);
+    const handleToggleStatus = async (id: string) => {
+        // Obtener el cliente actual para saber su estado
+        const customer = await customersApi.getOne(id);
+        const newStatus = !customer.isActive;
+        const action = newStatus ? 'activar' : 'desactivar';
+
+        if (confirm(`¿Estás seguro de ${action} este cliente?`)) {
+            toggleStatusMutation.mutate({ id, isActive: newStatus });
         }
     };
 
@@ -220,53 +227,54 @@ export default function CustomersPage() {
                     </Dialog>
 
                     {/* Botón Nuevo Cliente */}
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Nuevo Cliente
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-                            <DialogHeader>
-                                <DialogTitle>Nuevo Cliente</DialogTitle>
-                                <DialogDescription>
-                                    Ingresá los datos del cliente
-                                </DialogDescription>
-                            </DialogHeader>
-                            <CustomerForm
-                                onSubmit={handleCreate}
-                                isLoading={createMutation.isPending}
-                            />
-                        </DialogContent>
-                    </Dialog>
+                    <Button onClick={() => setIsCreateOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nuevo Cliente
+                    </Button>
                 </div>
             </div>
 
             {/* Estadísticas */}
-            {stats && <CustomerStats stats={stats} />}
+            {stats ? <CustomerStats stats={stats} /> : null}
 
             {/* Lista de clientes */}
             <div className="bg-card rounded-lg border shadow-sm p-6">
                 <CustomerList
                     onEdit={setEditingCustomer}
-                    onDelete={handleDelete}
+                    onDelete={handleToggleStatus}
                 />
             </div>
 
-            {/* Modal de edición */}
-            <Dialog
+            {/* Modal de creación premium */}
+            <FormDialog
+                open={isCreateOpen}
+                onOpenChange={setIsCreateOpen}
+                title="Nuevo Cliente"
+                description="Ingresá los datos del nuevo cliente"
+                icon={Users}
+                variant="primary"
+                maxWidth="lg"
+            >
+                <div className="max-h-[60vh] overflow-y-auto pr-2">
+                    <CustomerForm
+                        onSubmit={handleCreate}
+                        isLoading={createMutation.isPending}
+                    />
+                </div>
+            </FormDialog>
+
+            {/* Modal de edición premium */}
+            <FormDialog
                 open={!!editingCustomer}
                 onOpenChange={(open) => !open && setEditingCustomer(null)}
+                title="Editar Cliente"
+                description="Modificá los datos del cliente"
+                icon={Users}
+                variant="primary"
+                maxWidth="lg"
             >
-                <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Editar Cliente</DialogTitle>
-                        <DialogDescription>
-                            Modificá los datos del cliente
-                        </DialogDescription>
-                    </DialogHeader>
-                    {editingCustomer && (
+                <div className="max-h-[60vh] overflow-y-auto pr-2">
+                    {editingCustomer ? (
                         <CustomerForm
                             initialData={{
                                 firstName: editingCustomer.firstName,
@@ -289,10 +297,11 @@ export default function CustomersPage() {
                             isLoading={updateMutation.isPending}
                             isEditing
                         />
-                    )}
-                </DialogContent>
-            </Dialog>
+                    ) : null}
+                </div>
+            </FormDialog>
         </div>
     );
 }
+
 

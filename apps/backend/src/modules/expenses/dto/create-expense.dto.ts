@@ -27,7 +27,7 @@ export class CreateExpenseDto {
 
     @ApiProperty({
         description: 'Monto del gasto',
-        example: 50000.0,
+        example: 50000,
         minimum: 0.01
 })
     @IsNumber({}, { message: 'El monto debe ser un número' })

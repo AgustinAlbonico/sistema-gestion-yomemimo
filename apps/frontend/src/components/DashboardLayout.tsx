@@ -1,8 +1,7 @@
-import { useEffect } from 'react';
-import { useNavigate, Outlet, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, Outlet } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Button } from './ui/button';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../stores/auth.store';
 import { Sidebar } from './Sidebar';
@@ -10,6 +9,7 @@ import { Sidebar } from './Sidebar';
 export function DashboardLayout() {
     const navigate = useNavigate();
     const { user, setUser, logout } = useAuthStore();
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     // Obtener perfil del usuario al montar el componente
     const { data: profile } = useQuery({
@@ -37,10 +37,19 @@ export function DashboardLayout() {
         }
     };
 
+    const toggleSidebar = () => {
+        setSidebarCollapsed(!sidebarCollapsed);
+    };
+
     return (
         <div className="flex h-screen overflow-hidden bg-background">
             {/* Sidebar */}
-            <Sidebar user={user} onLogout={handleLogout} />
+            <Sidebar
+                user={user}
+                onLogout={handleLogout}
+                collapsed={sidebarCollapsed}
+                onToggle={toggleSidebar}
+            />
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">

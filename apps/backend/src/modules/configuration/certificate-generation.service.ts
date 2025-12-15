@@ -43,6 +43,7 @@ export class CertificateGenerationService {
         try {
             execSync('openssl version', { stdio: 'pipe' });
         } catch (error) {
+            this.logger.warn('OpenSSL no está disponible o no se pudo ejecutar', error);
             throw new BadRequestException(
                 'OpenSSL no está instalado o no está en el PATH del sistema. ' +
                 'Por favor instale OpenSSL para generar certificados.'
@@ -129,7 +130,7 @@ export class CertificateGenerationService {
                     this.logger.log(`Archivo temporal eliminado: ${file}`);
                 }
             } catch (error) {
-                this.logger.warn(`No se pudo eliminar archivo temporal: ${file}`);
+                this.logger.warn(`No se pudo eliminar archivo temporal: ${file}`, error);
             }
         }
     }

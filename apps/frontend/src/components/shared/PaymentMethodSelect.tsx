@@ -4,8 +4,8 @@
  */
 import { FormControl, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
-import { getPaymentMethodIcon } from '@/lib/payment-icons';
+import { usePaymentMethods } from '@/features/configuration/hooks/use-payment-methods';
+import { getPaymentMethodIcon } from '@/features/configuration/utils/payment-method-utils';
 
 interface PaymentMethodSelectProps {
     readonly value: string | undefined;

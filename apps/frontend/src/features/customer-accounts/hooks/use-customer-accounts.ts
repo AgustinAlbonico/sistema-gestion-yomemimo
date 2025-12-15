@@ -9,6 +9,7 @@ import type {
     CreateChargeDto,
     CreatePaymentDto,
     UpdateAccountDto,
+    ApplySurchargeDto,
 } from '../types';
 
 // Query keys
@@ -22,6 +23,8 @@ export const customerAccountsKeys = {
     overdueAlerts: () => [...customerAccountsKeys.all, 'overdue-alerts'] as const,
     statement: (customerId: string) =>
         [...customerAccountsKeys.all, 'statement', customerId] as const,
+    pendingTransactions: (customerId: string) =>
+        [...customerAccountsKeys.all, 'pending-transactions', customerId] as const,
 };
 
 /**
@@ -224,3 +227,87 @@ export function useActivateAccount() {
         },
     });
 }
+
+/**
+ * Hook para obtener transacciones pendientes de un cliente
+ */
+export function usePendingTransactions(customerId: string | undefined) {
+    return useQuery({
+        queryKey: customerAccountsKeys.pendingTransactions(customerId!),
+        queryFn: () => customerAccountsApi.getPendingTransactions(customerId!),
+        enabled: !!customerId,
+    });
+}
+
+/**
+ * Hook para aplicar recargo/interés a una cuenta
+ */
+export function useApplySurcharge() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({
+            customerId,
+            data,
+        }: {
+            customerId: string;
+            data: ApplySurchargeDto;
+        }) => customerAccountsApi.applySurcharge(customerId, data),
+        onSuccess: (_, variables) => {
+            toast.success('Recargo aplicado exitosamente');
+            queryClient.invalidateQueries({
+                queryKey: customerAccountsKeys.statement(variables.customerId),
+            });
+            queryClient.invalidateQueries({
+                queryKey: customerAccountsKeys.lists(),
+            });
+            queryClient.invalidateQueries({
+                queryKey: customerAccountsKeys.stats(),
+            });
+            queryClient.invalidateQueries({
+                queryKey: customerAccountsKeys.debtors(),
+            });
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al aplicar recargo');
+        },
+    });
+}
+
+/**
+ * Hook para sincronizar cargos faltantes de ventas
+ */
+export function useSyncMissingCharges() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (customerId: string) =>
+            customerAccountsApi.syncMissingCharges(customerId),
+        onSuccess: (result, customerId) => {
+            // Solo mostrar notificación si realmente se sincronizaron cargos
+            // (ya que la sincronización es automática, no queremos molestar al usuario si no hay nada que sincronizar)
+            if (result.chargesCreated > 0) {
+                toast.success(
+                    `Se sincronizaron ${result.chargesCreated} cargo(s) por un total de $${result.totalAmount.toFixed(2)}`
+                );
+            }
+            queryClient.invalidateQueries({
+                queryKey: customerAccountsKeys.statement(customerId),
+            });
+            queryClient.invalidateQueries({
+                queryKey: customerAccountsKeys.lists(),
+            });
+            queryClient.invalidateQueries({
+                queryKey: customerAccountsKeys.stats(),
+            });
+            queryClient.invalidateQueries({
+                queryKey: customerAccountsKeys.debtors(),
+            });
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al sincronizar cargos');
+        },
+    });
+}
+
+

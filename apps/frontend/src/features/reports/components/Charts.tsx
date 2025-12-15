@@ -182,18 +182,18 @@ export function BarChartCard({
                         <BarChart
                             data={data}
                             layout={layout === 'vertical' ? 'vertical' : 'horizontal'}
-                            margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
+                            margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
                         >
                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                             {layout === 'vertical' ? (
                                 <>
                                     <XAxis type="number" tickFormatter={(v) => valueFormatter(v)} />
-                                    <YAxis type="category" dataKey="name" width={100} />
+                                    <YAxis type="category" dataKey="name" width={120} />
                                 </>
                             ) : (
                                 <>
                                     <XAxis dataKey="name" />
-                                    <YAxis tickFormatter={(v) => valueFormatter(v)} />
+                                    <YAxis tickFormatter={(v) => valueFormatter(v)} width={90} />
                                 </>
                             )}
                             <Tooltip content={<CustomTooltip formatter={valueFormatter} />} />
@@ -258,7 +258,7 @@ export function LineChartCard({
                         <LineChart data={data} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                             <XAxis dataKey="name" />
-                            <YAxis tickFormatter={(v) => valueFormatter(v)} />
+                            <YAxis tickFormatter={(v) => valueFormatter(v)} width={90} />
                             <Tooltip content={<CustomTooltip formatter={valueFormatter} />} />
                             <Legend />
                             {lines.map((line) => (
@@ -327,7 +327,7 @@ export function AreaChartCard({
                         <AreaChart data={data} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                             <XAxis dataKey="name" />
-                            <YAxis tickFormatter={(v) => valueFormatter(v)} />
+                            <YAxis tickFormatter={(v) => valueFormatter(v)} width={90} />
                             <Tooltip content={<CustomTooltip formatter={valueFormatter} />} />
                             <Legend />
                             {areas.map((area) => (
@@ -398,7 +398,7 @@ export function ComposedChartCard({
                         <ComposedChart data={data} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                             <XAxis dataKey="name" />
-                            <YAxis tickFormatter={(v) => valueFormatter(v)} />
+                            <YAxis tickFormatter={(v) => valueFormatter(v)} width={90} />
                             <Tooltip content={<CustomTooltip formatter={valueFormatter} />} />
                             <Legend />
                             {bars.map((bar) => (

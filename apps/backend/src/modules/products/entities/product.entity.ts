@@ -70,9 +70,6 @@ export class Product {
     @Column({ type: 'int', default: 0 })
     stock!: number;
 
-    @Column({ type: 'int', default: 0 })
-    minStock!: number;
-
     // Relación ManyToOne: Un producto pertenece a UNA categoría (opcional)
     @Column({ type: 'uuid', nullable: true })
     categoryId!: string | null;

@@ -22,14 +22,14 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @Controller('purchases')
 @UseGuards(JwtAuthGuard)
 export class PurchasesController {
-    constructor(private readonly purchasesService: PurchasesService) {}
+    constructor(private readonly purchasesService: PurchasesService) { }
 
     /**
      * Crea una nueva compra
      */
     @Post()
     create(@Body() dto: CreatePurchaseDto, @Request() req: any) {
-        return this.purchasesService.create(dto, req.user?.id);
+        return this.purchasesService.create(dto, req.user?.userId);
     }
 
     /**
@@ -87,15 +87,15 @@ export class PurchasesController {
         @Body('paymentMethodId', ParseUUIDPipe) paymentMethodId: string,
         @Request() req: any,
     ) {
-        return this.purchasesService.markAsPaid(id, paymentMethodId, req.user?.id);
+        return this.purchasesService.markAsPaid(id, paymentMethodId, req.user?.userId);
     }
 
     /**
      * Elimina una compra (soft delete)
      */
     @Delete(':id')
-    remove(@Param('id', ParseUUIDPipe) id: string) {
-        return this.purchasesService.remove(id);
+    remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+        return this.purchasesService.remove(id, req.user?.userId);
     }
 }
 

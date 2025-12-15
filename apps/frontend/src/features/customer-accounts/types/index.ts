@@ -85,6 +85,14 @@ export interface UpdateAccountDto {
     status?: AccountStatus;
 }
 
+export type SurchargeType = 'percentage' | 'fixed';
+
+export interface ApplySurchargeDto {
+    surchargeType: SurchargeType;
+    value: number;
+    description?: string;
+}
+
 export interface AccountFiltersDto {
     page?: number;
     limit?: number;
@@ -133,4 +141,66 @@ export interface PaginatedAccounts {
     page: number;
     limit: number;
     totalPages: number;
+}
+
+/**
+ * Venta pendiente de pago (a cuenta corriente)
+ */
+export interface PendingSale {
+    id: string;
+    saleNumber: string;
+    customerId: string;
+    customer?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+    };
+    saleDate: string;
+    subtotal: number;
+    discount: number;
+    surcharge: number;
+    tax: number;
+    total: number;
+    status: string;
+    isOnAccount: boolean;
+    notes: string | null;
+    items: Array<{
+        id: string;
+        productId: string;
+        productDescription: string;
+        quantity: number;
+        unitPrice: number;
+        subtotal: number;
+    }>;
+}
+
+/**
+ * Ingreso pendiente de cobro (a cuenta corriente)
+ */
+export interface PendingIncome {
+    id: string;
+    description: string;
+    amount: number;
+    incomeDate: string;
+    customerId: string;
+    customer?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+    };
+    category?: {
+        id: string;
+        name: string;
+    };
+    isOnAccount: boolean;
+    isPaid: boolean;
+    notes: string | null;
+}
+
+/**
+ * Respuesta del endpoint de transacciones pendientes
+ */
+export interface PendingTransactions {
+    sales: PendingSale[];
+    incomes: PendingIncome[];
 }

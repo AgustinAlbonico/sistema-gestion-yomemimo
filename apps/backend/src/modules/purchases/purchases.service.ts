@@ -22,6 +22,8 @@ import { CashRegisterService } from '../cash-register/cash-register.service';
 import { SuppliersService } from '../suppliers/suppliers.service';
 import { parseLocalDate } from '../../common/utils/date.utils';
 import { StockMovementType, StockMovementSource } from '../inventory/entities/stock-movement.entity';
+import { AuditService } from '../audit/audit.service';
+import { AuditEntityType, AuditAction } from '../audit/enums';
 
 export interface PurchaseStats {
     totalPurchases: number;
@@ -51,53 +53,30 @@ export class PurchasesService {
         private readonly cashRegisterService: CashRegisterService,
         private readonly suppliersService: SuppliersService,
         private readonly dataSource: DataSource,
+        private readonly auditService: AuditService,
     ) { }
 
     /**
      * Crea una nueva compra
      */
     async create(dto: CreatePurchaseDto, userId?: string): Promise<Purchase> {
-        // Si la compra está pagada, validar que haya caja abierta
-        if (dto.status === PurchaseStatus.PAID) {
-            const openCashRegister = await this.cashRegisterService.getOpenRegister();
-            if (!openCashRegister) {
-                throw new BadRequestException(
-                    'No hay caja abierta. Debe abrir la caja antes de registrar compras pagadas.'
-                );
-            }
-        }
+        await this.ensureOpenCashRegisterForPaidPurchase(dto.status);
 
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
 
         try {
-            // Validar que todos los productos existan
-            for (const item of dto.items) {
-                const product = await this.productsService.findOne(item.productId);
-                if (!product) {
-                    throw new NotFoundException(`Producto con ID ${item.productId} no encontrado`);
-                }
-            }
+            await this.validatePurchaseItems(dto.items);
 
             // Generar número de compra
             const purchaseNumber = await this.generatePurchaseNumber();
 
             // Calcular subtotal y total
-            const subtotal = dto.items.reduce(
-                (sum, item) => sum + item.quantity * item.unitPrice,
-                0
-            );
-            const total = subtotal + (dto.tax || 0) - (dto.discount || 0);
+            const { subtotal, total } = this.calculatePurchaseTotals(dto.items, dto.tax, dto.discount);
 
             // Validar y obtener proveedor si se proporciona supplierId
-            let supplierId: string | null = null;
-            if (dto.supplierId) {
-                const supplier = await this.suppliersService.findOne(dto.supplierId);
-                if (supplier) {
-                    supplierId = supplier.id;
-                }
-            }
+            const supplierId = await this.resolveSupplierId(dto.supplierId);
 
             // Crear compra
             const purchase = this.purchaseRepo.create({
@@ -123,46 +102,11 @@ export class PurchasesService {
             const savedPurchase = await queryRunner.manager.save(purchase);
 
             // Crear items de compra
-            const purchaseItems: PurchaseItem[] = [];
-            for (const itemDto of dto.items) {
-                const item = this.purchaseItemRepo.create({
-                    purchaseId: savedPurchase.id,
-                    productId: itemDto.productId,
-                    quantity: itemDto.quantity,
-                    unitPrice: itemDto.unitPrice,
-                    subtotal: itemDto.quantity * itemDto.unitPrice,
-                    notes: itemDto.notes ?? null,
-                });
-                purchaseItems.push(item);
-            }
+            const purchaseItems = this.buildPurchaseItems(savedPurchase.id, dto.items);
             await queryRunner.manager.save(purchaseItems);
 
             // Si se marca como pagada, actualizar inventario y registrar en caja
-            if (dto.status === PurchaseStatus.PAID) {
-                // Recargar la compra con los items desde el manager de la transacción
-                const purchaseWithItems = await queryRunner.manager.findOne(Purchase, {
-                    where: { id: savedPurchase.id },
-                    relations: ['items', 'items.product'],
-                });
-                if (purchaseWithItems) {
-                    await this.updateInventoryFromPurchase(purchaseWithItems);
-                    savedPurchase.inventoryUpdated = true;
-                    savedPurchase.paidAt = savedPurchase.paidAt ?? new Date();
-                    await queryRunner.manager.save(savedPurchase);
-
-                    // Registrar egreso en caja
-                    if (dto.paymentMethodId) {
-                        await this.cashRegisterService.registerPurchase(
-                            { 
-                                purchaseId: savedPurchase.id,
-                                total: savedPurchase.total,
-                                paymentMethodId: dto.paymentMethodId
-                            },
-                            userId || 'system'
-                        );
-                    }
-                }
-            }
+            await this.processPaidPurchaseIfNeeded(dto, savedPurchase, queryRunner.manager, userId);
 
             // Cargar la compra con relaciones usando el manager de la transacción
             const result = await queryRunner.manager.findOne(Purchase, {
@@ -170,19 +114,129 @@ export class PurchasesService {
                 relations: ['items', 'items.product', 'createdBy', 'paymentMethod'],
             });
 
-            await queryRunner.commitTransaction();
-
             if (!result) {
                 throw new NotFoundException(`Compra con ID ${savedPurchase.id} no encontrada`);
             }
 
+            await queryRunner.commitTransaction();
+            await queryRunner.release();
+
+            // Log de auditoría (fuera de la transacción)
+            console.log('[PurchasesService.create] userId recibido para auditoría:', userId);
+            if (userId) {
+                console.log('[PurchasesService.create] Intentando crear log de auditoría...');
+                await this.auditService.logSilent({
+                    entityType: AuditEntityType.PURCHASE,
+                    entityId: result.id,
+                    action: AuditAction.CREATE,
+                    userId,
+                    newValues: {
+                        purchaseNumber: result.purchaseNumber,
+                        total: result.total,
+                        status: result.status,
+                        providerName: result.providerName,
+                    },
+                    description: AuditService.generateDescription(
+                        AuditAction.CREATE,
+                        AuditEntityType.PURCHASE,
+                        result.purchaseNumber
+                    ),
+                });
+                console.log('[PurchasesService.create] Log de auditoría creado');
+            } else {
+                console.log('[PurchasesService.create] userId es undefined - NO se crea auditoría');
+            }
+
             return result;
         } catch (err) {
-            await queryRunner.rollbackTransaction();
-            throw err;
-        } finally {
+            if (queryRunner.isTransactionActive) {
+                await queryRunner.rollbackTransaction();
+            }
             await queryRunner.release();
+            throw err;
         }
+    }
+
+    private async ensureOpenCashRegisterForPaidPurchase(status?: PurchaseStatus): Promise<void> {
+        if (status !== PurchaseStatus.PAID) return;
+
+        const openCashRegister = await this.cashRegisterService.getOpenRegister();
+        if (!openCashRegister) {
+            throw new BadRequestException(
+                'No hay caja abierta. Debe abrir la caja antes de registrar compras pagadas.',
+            );
+        }
+    }
+
+    private async validatePurchaseItems(items: Array<{ productId: string }>): Promise<void> {
+        for (const item of items) {
+            await this.productsService.findOne(item.productId);
+        }
+    }
+
+    private calculatePurchaseTotals(
+        items: Array<{ quantity: number; unitPrice: number }>,
+        tax?: number,
+        discount?: number,
+    ): { subtotal: number; total: number } {
+        const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+        const total = subtotal + (tax || 0) - (discount || 0);
+        return { subtotal, total };
+    }
+
+    private async resolveSupplierId(supplierId?: string): Promise<string | null> {
+        if (!supplierId) return null;
+
+        const supplier = await this.suppliersService.findOne(supplierId);
+        return supplier?.id ?? null;
+    }
+
+    private buildPurchaseItems(
+        purchaseId: string,
+        items: Array<{ productId: string; quantity: number; unitPrice: number; notes?: string }>,
+    ): PurchaseItem[] {
+        return items.map(itemDto =>
+            this.purchaseItemRepo.create({
+                purchaseId,
+                productId: itemDto.productId,
+                quantity: itemDto.quantity,
+                unitPrice: itemDto.unitPrice,
+                subtotal: itemDto.quantity * itemDto.unitPrice,
+                notes: itemDto.notes ?? null,
+            }),
+        );
+    }
+
+    private async processPaidPurchaseIfNeeded(
+        dto: CreatePurchaseDto,
+        savedPurchase: Purchase,
+        manager: Repository<Purchase>['manager'],
+        userId?: string,
+    ): Promise<void> {
+        if (dto.status !== PurchaseStatus.PAID) return;
+
+        const purchaseWithItems = await manager.findOne(Purchase, {
+            where: { id: savedPurchase.id },
+            relations: ['items', 'items.product'],
+        });
+
+        if (!purchaseWithItems) return;
+
+        await this.updateInventoryFromPurchase(purchaseWithItems);
+        savedPurchase.inventoryUpdated = true;
+        savedPurchase.paidAt = savedPurchase.paidAt ?? new Date();
+        await manager.save(savedPurchase);
+
+        if (!dto.paymentMethodId) return;
+
+        await this.cashRegisterService.registerPurchase(
+            {
+                purchaseId: savedPurchase.id,
+                total: savedPurchase.total,
+                paymentMethodId: dto.paymentMethodId,
+            },
+            userId || 'system',
+        );
     }
 
     /**
@@ -335,7 +389,7 @@ export class PurchasesService {
     /**
      * Elimina una compra (soft delete)
      */
-    async remove(id: string): Promise<{ message: string }> {
+    async remove(id: string, userId?: string): Promise<{ message: string }> {
         const purchase = await this.findOne(id);
 
         if (purchase.status === PurchaseStatus.PAID) {
@@ -345,6 +399,27 @@ export class PurchasesService {
         }
 
         await this.purchaseRepo.softDelete(id);
+
+        // Log de auditoría
+        if (userId) {
+            await this.auditService.logSilent({
+                entityType: AuditEntityType.PURCHASE,
+                entityId: id,
+                action: AuditAction.DELETE,
+                userId,
+                previousValues: {
+                    purchaseNumber: purchase.purchaseNumber,
+                    total: purchase.total,
+                    status: purchase.status,
+                },
+                description: AuditService.generateDescription(
+                    AuditAction.DELETE,
+                    AuditEntityType.PURCHASE,
+                    purchase.purchaseNumber
+                ),
+            });
+        }
+
         return { message: 'Compra eliminada' };
     }
 
@@ -385,7 +460,7 @@ export class PurchasesService {
 
             // Registrar egreso en caja
             await this.cashRegisterService.registerPurchase(
-                { 
+                {
                     purchaseId: purchase.id,
                     total: purchase.total,
                     paymentMethodId: paymentMethodId
@@ -394,6 +469,21 @@ export class PurchasesService {
             );
 
             await queryRunner.commitTransaction();
+
+            // Log de auditoría
+            await this.auditService.logSilent({
+                entityType: AuditEntityType.PURCHASE,
+                entityId: id,
+                action: AuditAction.PAY,
+                userId,
+                previousValues: { status: PurchaseStatus.PENDING },
+                newValues: { status: PurchaseStatus.PAID, paidAt: purchase.paidAt },
+                description: AuditService.generateDescription(
+                    AuditAction.PAY,
+                    AuditEntityType.PURCHASE,
+                    purchase.purchaseNumber
+                ),
+            });
 
             return this.findOne(id);
         } catch (err) {

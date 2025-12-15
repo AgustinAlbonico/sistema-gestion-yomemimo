@@ -5,12 +5,13 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Tags, RefreshCw } from 'lucide-react';
+import { Plus, Tags, RefreshCw, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { FormDialog } from '@/components/ui/form-dialog';
 import {
     Dialog,
     DialogContent,
@@ -372,20 +373,20 @@ export default function IncomesPage() {
                             Nuevo Ingreso
                         </Button>
 
-                        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                            <DialogContent className="sm:max-w-[500px]">
-                                <DialogHeader>
-                                    <DialogTitle>Registrar Ingreso</DialogTitle>
-                                    <DialogDescription>
-                                        Completa los datos del servicio o ingreso
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <IncomeForm
-                                    onSubmit={handleCreate}
-                                    isLoading={createMutation.isPending}
-                                />
-                            </DialogContent>
-                        </Dialog>
+                        <FormDialog
+                            open={isCreateOpen}
+                            onOpenChange={setIsCreateOpen}
+                            title="Registrar Ingreso"
+                            description="Completa los datos del servicio o ingreso"
+                            icon={Wallet}
+                            variant="success"
+                            maxWidth="md"
+                        >
+                            <IncomeForm
+                                onSubmit={handleCreate}
+                                isLoading={createMutation.isPending}
+                            />
+                        </FormDialog>
                     </div>
                 </div>
             </div>
@@ -554,40 +555,37 @@ export default function IncomesPage() {
                 </div>
             </div>
 
-            {/* Dialog para editar */}
-            <Dialog
+            {/* Dialog para editar - Premium */}
+            <FormDialog
                 open={!!editingIncome}
                 onOpenChange={(open) => !open && setEditingIncome(null)}
+                title="Editar Ingreso"
+                description="Modifica los datos del ingreso"
+                icon={Wallet}
+                variant="success"
+                maxWidth="md"
             >
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle>Editar Ingreso</DialogTitle>
-                        <DialogDescription>
-                            Modifica los datos del ingreso
-                        </DialogDescription>
-                    </DialogHeader>
-                    {editingIncome && (
-                        <IncomeForm
-                            initialData={{
-                                description: editingIncome.description,
-                                amount: editingIncome.amount,
-                                incomeDate: editingIncome.incomeDate.split('T')[0],
-                                categoryId: editingIncome.categoryId ?? undefined,
-                                customerId: editingIncome.customerId ?? undefined,
-                                customerName: editingIncome.customerName ?? '',
-                                isOnAccount: editingIncome.isOnAccount,
-                                paymentMethodId: editingIncome.paymentMethodId ?? undefined,
-                                receiptNumber: editingIncome.receiptNumber ?? '',
-                                isPaid: editingIncome.isPaid,
-                                notes: editingIncome.notes ?? '',
-                            }}
-                            onSubmit={handleUpdate}
-                            isLoading={updateMutation.isPending}
-                            isEditing
-                        />
-                    )}
-                </DialogContent>
-            </Dialog>
+                {editingIncome ? (
+                    <IncomeForm
+                        initialData={{
+                            description: editingIncome.description,
+                            amount: editingIncome.amount,
+                            incomeDate: editingIncome.incomeDate.split('T')[0],
+                            categoryId: editingIncome.categoryId ?? undefined,
+                            customerId: editingIncome.customerId ?? undefined,
+                            customerName: editingIncome.customerName ?? '',
+                            isOnAccount: editingIncome.isOnAccount,
+                            paymentMethodId: editingIncome.paymentMethodId ?? undefined,
+                            receiptNumber: editingIncome.receiptNumber ?? '',
+                            isPaid: editingIncome.isPaid,
+                            notes: editingIncome.notes ?? '',
+                        }}
+                        onSubmit={handleUpdate}
+                        isLoading={updateMutation.isPending}
+                        isEditing
+                    />
+                ) : null}
+            </FormDialog>
 
             {/* Alerta de caja del día anterior sin cerrar */}
             {!dismissedCashAlert && (

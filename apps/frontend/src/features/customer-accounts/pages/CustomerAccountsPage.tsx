@@ -4,7 +4,9 @@
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, TrendingUp, AlertTriangle, DollarSign } from 'lucide-react';
+import { Users, TrendingUp, AlertTriangle, DollarSign, Clock } from 'lucide-react';
+import { formatDistanceToNow, differenceInDays } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,13 +22,36 @@ import {
     useCustomerAccounts,
     useAccountsStats,
 } from '../hooks/use-customer-accounts';
-import { AccountStatus } from '../types';
+import { AccountStatus, CustomerAccount } from '../types';
 import type { AccountFiltersDto } from '../types';
+
+/**
+ * Calcula los días de antigüedad de la deuda
+ * Usa daysOverdue del backend si existe, sino calcula desde lastPurchaseDate
+ */
+function getDebtAgeDays(account: CustomerAccount): number {
+    // Si el backend ya calculó los días, usarlo
+    if (account.daysOverdue > 0) {
+        return account.daysOverdue;
+    }
+
+    // Si no tiene deuda, retornar 0
+    if (Number(account.balance) <= 0) {
+        return 0;
+    }
+
+    // Calcular desde lastPurchaseDate como fallback
+    if (account.lastPurchaseDate) {
+        const days = differenceInDays(new Date(), new Date(account.lastPurchaseDate));
+        return Math.max(0, days);
+    }
+
+    return 0;
+}
 
 export function CustomerAccountsPage() {
     const navigate = useNavigate();
     const [filters, setFilters] = useState<AccountFiltersDto>({
-        hasDebt: true,
         page: 1,
         limit: 20,
     });
@@ -228,7 +253,8 @@ export function CustomerAccountsPage() {
                                             <th className="py-3 text-left">Cliente</th>
                                             <th className="py-3 text-right">Saldo</th>
                                             <th className="py-3 text-right">Límite</th>
-                                            <th className="py-3 text-center">Días Mora</th>
+                                            <th className="py-3 text-center">Últ. Compra</th>
+                                            <th className="py-3 text-center">Antigüedad Deuda</th>
                                             <th className="py-3 text-center">Estado</th>
                                             <th className="py-3 text-center">Acciones</th>
                                         </tr>
@@ -249,12 +275,43 @@ export function CustomerAccountsPage() {
                                                 <td className="py-3 text-right text-muted-foreground">
                                                     ${Number(account.creditLimit).toFixed(2)}
                                                 </td>
-                                                <td className="py-3 text-center">
-                                                    {account.daysOverdue > 0 && (
-                                                        <Badge variant="destructive">
-                                                            {account.daysOverdue} días
-                                                        </Badge>
+                                                {/* Última compra */}
+                                                <td className="py-3 text-center text-sm text-muted-foreground">
+                                                    {account.lastPurchaseDate ? (
+                                                        <span className="flex items-center justify-center gap-1">
+                                                            <Clock className="h-3 w-3" />
+                                                            {formatDistanceToNow(new Date(account.lastPurchaseDate), {
+                                                                addSuffix: true,
+                                                                locale: es
+                                                            })}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground/50">-</span>
                                                     )}
+                                                </td>
+                                                {/* Antigüedad de la deuda (días mora) */}
+                                                <td className="py-3 text-center">
+                                                    {(() => {
+                                                        const debtDays = getDebtAgeDays(account);
+                                                        if (debtDays > 0) {
+                                                            return (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={`
+                                                                        ${debtDays <= 7 ? 'border-yellow-500 text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30' : ''}
+                                                                        ${debtDays > 7 && debtDays <= 30 ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950/30' : ''}
+                                                                        ${debtDays > 30 ? 'border-red-500 text-red-600 bg-red-50 dark:bg-red-950/30' : ''}
+                                                                    `}
+                                                                >
+                                                                    {debtDays} días
+                                                                </Badge>
+                                                            );
+                                                        }
+                                                        if (Number(account.balance) > 0) {
+                                                            return <span className="text-xs text-green-600">Al día</span>;
+                                                        }
+                                                        return null;
+                                                    })()}
                                                 </td>
                                                 <td className="py-3 text-center">
                                                     <Badge

@@ -1,7 +1,7 @@
 /**
  * Utilidades para exportación de reportes a Excel y PDF
  */
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import type { FinancialReport, SalesReport, ProductsReport, CustomersReport, ExpensesReport, TopProduct } from '../types';
 
 /**

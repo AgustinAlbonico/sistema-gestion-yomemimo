@@ -41,7 +41,7 @@ import {
     InvoiceFilterStatus,
     InvoiceFilterStatusLabels,
 } from '@/features/sales/types';
-import { CreateSaleFormValues } from '@/features/sales/schemas/sale.schema';
+import { CreateSaleDTO } from '@/features/sales/types';
 import {
     getCurrentMonthRange,
     getTodayRange,
@@ -122,8 +122,8 @@ export default function SalesPage() {
     });
 
     // Handlers
-    const handleCreate = (data: CreateSaleFormValues) => {
-        createMutation.mutate(data as any);
+    const handleCreate = (data: CreateSaleDTO) => {
+        createMutation.mutate(data);
     };
 
     const handleView = (sale: Sale) => {
