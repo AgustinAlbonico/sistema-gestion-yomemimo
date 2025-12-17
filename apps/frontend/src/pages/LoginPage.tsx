@@ -15,6 +15,8 @@ import {
     CardHeader,
 } from '../components/ui/card';
 import { Loader2, Eye, EyeOff, User, Lock } from 'lucide-react';
+// Importar imagen correctamente para Vite
+import logoNexopos from '../assets/logo-nexopos.png';
 
 const loginSchema = z.object({
     username: z.string().min(1, 'El nombre de usuario es requerido'),
@@ -71,7 +73,7 @@ export function LoginPage() {
                         {/* Logo */}
                         <div className="flex justify-center">
                             <img
-                                src="/src/assets/logo-nexopos.png"
+                                src={logoNexopos}
                                 alt="NexoPOS"
                                 className="h-24 w-auto"
                             />

@@ -3,6 +3,7 @@
  * Incluye logo, menú de navegación y perfil de usuario
  * Soporta modo colapsado para maximizar espacio de trabajo
  */
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import {
@@ -30,6 +31,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from './ui/tooltip';
+// Importar imagen correctamente para Vite
+import logoNexopos from '../assets/logo-nexopos.png';
 
 interface SidebarProps {
     readonly user: any;
@@ -43,64 +46,76 @@ interface NavItem {
     href: string;
     icon: React.ElementType;
     badgeKey?: 'lowStock'; // Claves para badges dinámicos
+    shortcut?: string; // Atajo de teclado (ej: 'F1')
 }
 
 const navItems: NavItem[] = [
     {
-        title: 'Dashboard',
+        title: 'Inicio',
         href: '/dashboard',
         icon: LayoutDashboard,
+        shortcut: 'F1',
+    },
+    {
+        title: 'Ventas',
+        href: '/sales',
+        icon: ShoppingCart,
+        shortcut: 'F2', // Navega + abre modal nueva venta
+    },
+    {
+        title: 'Caja',
+        href: '/cash-register',
+        icon: Wallet,
+        shortcut: 'F3',
+    },
+    {
+        title: 'Cuentas Corrientes',
+        href: '/customer-accounts',
+        icon: CreditCard,
+        shortcut: 'F4',
+    },
+    {
+        title: 'Ingresos',
+        href: '/incomes',
+        icon: TrendingUp,
+        shortcut: 'F5', // Navega + abre modal nuevo ingreso
+    },
+    {
+        title: 'Compras',
+        href: '/purchases',
+        icon: Truck,
+        shortcut: 'F6', // Navega + abre modal nueva compra
+    },
+    {
+        title: 'Gastos',
+        href: '/expenses',
+        icon: Receipt,
+        shortcut: 'F7', // Navega + abre modal nuevo gasto
     },
     {
         title: 'Productos',
         href: '/products',
         icon: Package,
         badgeKey: 'lowStock',
+        shortcut: 'F8',
     },
     {
         title: 'Clientes',
         href: '/customers',
         icon: UserCircle,
+        shortcut: 'F9',
     },
     {
         title: 'Proveedores',
         href: '/suppliers',
         icon: Building2,
-    },
-    {
-        title: 'Compras',
-        href: '/purchases',
-        icon: Truck,
-    },
-    {
-        title: 'Gastos',
-        href: '/expenses',
-        icon: Receipt,
-    },
-    {
-        title: 'Ingresos',
-        href: '/incomes',
-        icon: TrendingUp,
-    },
-    {
-        title: 'Ventas',
-        href: '/sales',
-        icon: ShoppingCart,
-    },
-    {
-        title: 'Caja',
-        href: '/cash-register',
-        icon: Wallet,
-    },
-    {
-        title: 'Cuentas Corrientes',
-        href: '/customer-accounts',
-        icon: CreditCard,
+        shortcut: 'F10',
     },
     {
         title: 'Reportes',
         href: '/reports',
         icon: BarChart3,
+        shortcut: 'F11',
     },
     {
         title: 'Configuración',
@@ -112,6 +127,15 @@ const navItems: NavItem[] = [
 export function Sidebar({ user, onLogout, collapsed = false, onToggle }: SidebarProps) {
     const location = useLocation();
     const { count: lowStockCount } = useLowStockCount();
+    const [version, setVersion] = useState<string>('');
+
+    useEffect(() => {
+        if (window.electronAPI?.getAppVersion) {
+            window.electronAPI.getAppVersion()
+                .then((v) => setVersion(v))
+                .catch((err) => console.error('Error getting app version', err));
+        }
+    }, []);
 
     // Mapa de badges dinámicos
     const badges: Record<string, number> = {
@@ -149,7 +173,7 @@ export function Sidebar({ user, onLogout, collapsed = false, onToggle }: Sidebar
                             </div>
                         ) : (
                             <img
-                                src="/src/assets/logo-nexopos.png"
+                                src={logoNexopos}
                                 alt="NexoPOS"
                                 className="h-10 w-auto"
                             />
@@ -188,6 +212,11 @@ export function Sidebar({ user, onLogout, collapsed = false, onToggle }: Sidebar
                                     {!collapsed && (
                                         <>
                                             <span className="flex-1">{item.title}</span>
+                                            {item.shortcut && (
+                                                <kbd className="pointer-events-none flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-bold text-foreground opacity-100 shadow-sm ml-auto">
+                                                    {item.shortcut}
+                                                </kbd>
+                                            )}
                                             {badgeCount > 0 ? (
                                                 <span
                                                     className={cn(
@@ -261,6 +290,11 @@ export function Sidebar({ user, onLogout, collapsed = false, onToggle }: Sidebar
                                 <LogOut className="mr-2 h-4 w-4" />
                                 Cerrar Sesión
                             </Button>
+                            {version && (
+                                <p className="text-[10px] text-muted-foreground/50 text-center mt-2 font-mono">
+                                    v{version}
+                                </p>
+                            )}
                         </>
                     ) : (
                         <Tooltip>
@@ -281,6 +315,6 @@ export function Sidebar({ user, onLogout, collapsed = false, onToggle }: Sidebar
                     )}
                 </div>
             </div>
-        </TooltipProvider>
+        </TooltipProvider >
     );
 }

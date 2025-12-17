@@ -35,6 +35,7 @@ import { SeparateWsaaTokensByEnvironment1733866700000 } from '../migrations/1733
 import { CategoryProfitMarginAndManyToOne1733877600000 } from '../migrations/1733877600000-CategoryProfitMarginAndManyToOne';
 import { RemoveExpenseCategoryFields1734095590000 } from '../migrations/1734095590000-RemoveExpenseCategoryFields';
 import { AddDescriptionToProducts1734110000000 } from '../migrations/1734110000000-AddDescriptionToProducts';
+import { AddSistemaHabilitado1734310000000 } from '../migrations/1734310000000-AddSistemaHabilitado';
 
 // Cargar variables de entorno
 config();
@@ -45,7 +46,7 @@ const dataSource = new DataSource({
     port: Number.parseInt(process.env.DATABASE_PORT || '5432'),
     username: process.env.DATABASE_USER || 'postgres',
     password: process.env.DATABASE_PASSWORD || 'postgres',
-    database: process.env.DATABASE_NAME || 'sistema_gestion',
+    database: process.env.DATABASE_NAME || 'nexopos',
     entities: [
         User,
         RefreshToken,
@@ -83,6 +84,7 @@ const dataSource = new DataSource({
         CategoryProfitMarginAndManyToOne1733877600000,
         RemoveExpenseCategoryFields1734095590000,
         AddDescriptionToProducts1734110000000,
+        AddSistemaHabilitado1734310000000,
     ],
     synchronize: false,
     logging: true,

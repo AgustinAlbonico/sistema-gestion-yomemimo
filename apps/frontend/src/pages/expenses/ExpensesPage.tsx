@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Tags, RefreshCw, Receipt } from 'lucide-react';
+import { useShortcutAction } from '@/hooks/useKeyboardShortcuts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -68,6 +69,18 @@ export default function ExpensesPage() {
 
     // Estado de la caja actual (si hay caja abierta hoy)
     const { data: openRegister } = useOpenCashRegister();
+
+    // Callback para abrir modal de nuevo gasto (usado por botón y atajo F2)
+    const openCreateModal = useCallback(() => {
+        if (!openRegister) {
+            toast.error('La caja de hoy está cerrada. Abrí la caja para registrar gastos.');
+            return;
+        }
+        setIsCreateOpen(true);
+    }, [openRegister]);
+
+    // Atajo de teclado F2 para nuevo gasto
+    useShortcutAction('NEW_EXPENSE', openCreateModal);
 
     // Query para categorías
     const { data: categories } = useQuery({
@@ -418,15 +431,7 @@ export default function ExpensesPage() {
 
                     {/* Botón Nuevo Gasto (valida caja antes de abrir) */}
                     <div>
-                        <Button
-                            onClick={() => {
-                                if (!openRegister) {
-                                    toast.error('La caja de hoy está cerrada. Abrí la caja para registrar gastos.');
-                                    return;
-                                }
-                                setIsCreateOpen(true);
-                            }}
-                        >
+                        <Button onClick={openCreateModal}>
                             <Plus className="mr-2 h-4 w-4" />
                             Nuevo Gasto
                         </Button>

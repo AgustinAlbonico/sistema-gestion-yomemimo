@@ -42,6 +42,7 @@ import { Customer } from '@/features/customers/types';
 import { Loader2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { PaymentMethodSelect } from '@/components/shared/PaymentMethodSelect';
+import { IvaCondition } from '@/types/iva-condition';
 
 interface IncomeFormProps {
     readonly initialData?: Partial<IncomeFormValues>;
@@ -164,8 +165,8 @@ export function IncomeForm({
                     )}
                 />
 
-                {/* Fila 2: Monto, Fecha, Categoría (3 columnas) */}
-                <div className="grid grid-cols-3 gap-4">
+                {/* Fila 2: Monto, Fecha, Categoría (vertical) */}
+                <div className="flex flex-col gap-4">
                     <FormField
                         control={form.control}
                         name="amount"
@@ -299,7 +300,7 @@ export function IncomeForm({
                                 onChange={field.onChange}
                                 label="Método de Pago"
                                 required={true}
-                                variant="grid"
+                                variant="select"
                             />
                         )}
                     />
@@ -362,7 +363,7 @@ export function IncomeForm({
                         initialData={{
                             firstName: '',
                             lastName: '',
-                            ivaCondition: 'CONSUMIDOR_FINAL' as any,
+                            ivaCondition: IvaCondition.CONSUMIDOR_FINAL,
                             isActive: true,
                         }}
                         onSubmit={handleCreateCustomer}

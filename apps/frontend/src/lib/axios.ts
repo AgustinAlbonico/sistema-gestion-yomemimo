@@ -1,7 +1,30 @@
 import axios from 'axios';
 
-// Usa la misma IP/hostname que el frontend pero en puerto 3000
-const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3000`;
+/**
+ * Detecta si la aplicación está corriendo dentro de Electron
+ */
+function isElectron(): boolean {
+    return typeof window !== 'undefined' &&
+        (window as { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron === true;
+}
+
+/**
+ * Obtiene la URL base del API según el entorno
+ * - En Electron: siempre localhost:3000 (backend embebido)
+ * - En Web: usa variable de entorno o el hostname actual
+ */
+function getApiBaseUrl(): string {
+    // En Electron, obtener URL dinámica (puede ser localhost o remota si es cliente)
+    if (isElectron()) {
+        const electronApi = (window as any).electronAPI;
+        return electronApi?.apiUrl || 'http://localhost:3000';
+    }
+
+    // En web, usar variable de entorno o hostname dinámico
+    return import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3000`;
+}
+
+const API_URL = getApiBaseUrl();
 
 export const api = axios.create({
     baseURL: API_URL,
@@ -46,7 +69,7 @@ api.interceptors.response.use(
                     // No hay refresh token, redirigir a login
                     localStorage.removeItem('accessToken');
                     localStorage.removeItem('refreshToken');
-                    window.location.href = '/login';
+                    window.location.href = '#/login';
                     return Promise.reject(error);
                 }
 
@@ -68,7 +91,7 @@ api.interceptors.response.use(
                 // Refresh token expirado o inválido
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
-                window.location.href = '/login';
+                window.location.href = '#/login';
                 return Promise.reject(refreshError);
             }
         }

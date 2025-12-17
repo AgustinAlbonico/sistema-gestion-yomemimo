@@ -14,6 +14,10 @@ export class SystemConfiguration {
     @Column('int', { default: 5 })
     minStockAlert!: number;
 
+    /** Control de acceso: si es false, el sistema muestra pantalla de bloqueo */
+    @Column('boolean', { default: true })
+    sistemaHabilitado!: boolean;
+
     @CreateDateColumn()
     createdAt!: Date;
 

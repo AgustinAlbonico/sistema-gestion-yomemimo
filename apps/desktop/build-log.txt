@@ -1,0 +1,4 @@
+﻿  ÔÇó electron-builder  version=24.13.3 os=10.0.26200
+  ÔÇó loaded configuration  file=C:\Users\AgustinNotebook\Desktop\Proyectos\sistema-gestion\apps\desktop\electron-builder.yml
+  Ô¿» Cannot compute electron version from installed node modules - none of the possible electron modules are installed and version ("^39.2.7") is not fixed in project.
+See https://github.com/electron-userland/electron-builder/issues/3984#issuecomment-504968246

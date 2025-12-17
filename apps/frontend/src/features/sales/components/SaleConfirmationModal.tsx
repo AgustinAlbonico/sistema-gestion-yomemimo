@@ -300,8 +300,8 @@ export function SaleConfirmationModal({
                                             className="flex justify-between items-center text-sm"
                                         >
                                             <div className="flex items-center gap-2">
-                                                {PaymentMethodIcons[payment.paymentMethod]}
-                                                <span>{PaymentMethodLabels[payment.paymentMethod]}</span>
+                                                {PaymentMethodIcons[(payment.paymentMethod as any)?.code] || PaymentMethodIcons[payment.paymentMethod]}
+                                                <span>{(payment.paymentMethod as any)?.name || PaymentMethodLabels[payment.paymentMethod]}</span>
                                             </div>
                                             <span className="font-medium">
                                                 {formatCurrency(payment.amount)}

@@ -43,6 +43,7 @@ import {
     Sale,
     SaleStatus,
     SaleStatusLabels,
+    PaymentMethodLabels,
     CreateSalePaymentDTO,
 } from '@/features/sales/types';
 import { usePaymentMethods } from '@/features/configuration/hooks/use-payment-methods';
@@ -231,7 +232,7 @@ function SalePaymentsSection({ sale }: { sale: Sale }) {
                                     <CreditCard className="h-4 w-4 text-green-600 dark:text-green-400" />
                                 </div>
                                 <span className="font-medium">
-                                    {payment.paymentMethod}
+                                    {(payment.paymentMethod as any)?.name || PaymentMethodLabels[payment.paymentMethod] || '-'}
                                 </span>
                             </div>
                             <span className="font-semibold text-lg text-green-600 dark:text-green-400">

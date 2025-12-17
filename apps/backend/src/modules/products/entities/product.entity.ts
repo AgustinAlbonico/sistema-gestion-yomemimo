@@ -71,6 +71,7 @@ export class Product {
     stock!: number;
 
     // Relación ManyToOne: Un producto pertenece a UNA categoría (opcional)
+    @Index()
     @Column({ type: 'uuid', nullable: true })
     categoryId!: string | null;
 

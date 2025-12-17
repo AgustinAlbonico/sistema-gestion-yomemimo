@@ -43,6 +43,7 @@ export class Sale {
     @Column({ type: 'varchar', length: 20, unique: true })
     saleNumber!: string; // Ej: "VENTA-2024-00001"
 
+    @Index()
     @Column({ name: 'customer_id', nullable: true })
     customerId!: string | null;
 

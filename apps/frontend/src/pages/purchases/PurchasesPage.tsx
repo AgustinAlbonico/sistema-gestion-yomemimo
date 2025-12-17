@@ -2,10 +2,11 @@
  * Página de Compras
  * Gestión completa de compras a proveedores con integración a inventario y gastos
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Filter, Package, RotateCcw, ShoppingCart } from 'lucide-react';
+import { useShortcutAction } from '@/hooks/useKeyboardShortcuts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,6 +73,18 @@ export default function PurchasesPage() {
 
     // Estado de la caja actual (si hay caja abierta hoy)
     const { data: openRegister } = useOpenCashRegister();
+
+    // Callback para abrir modal de nueva compra (usado por botón y atajo F3)
+    const openCreateModal = useCallback(() => {
+        if (!openRegister) {
+            toast.error('La caja de hoy está cerrada. Abrí la caja para registrar compras.');
+            return;
+        }
+        setIsCreateOpen(true);
+    }, [openRegister]);
+
+    // Atajo de teclado F3 para nueva compra
+    useShortcutAction('NEW_PURCHASE', openCreateModal);
 
     // Mutaciones
     const createMutation = useMutation({
@@ -287,15 +300,7 @@ export default function PurchasesPage() {
                 </div>
                 {/* Botón que verifica si la caja está abierta antes de abrir el modal */}
                 <div>
-                    <Button
-                        onClick={() => {
-                            if (!openRegister) {
-                                toast.error('La caja de hoy está cerrada. Abrí la caja para registrar compras.');
-                                return;
-                            }
-                            setIsCreateOpen(true);
-                        }}
-                    >
+                    <Button onClick={openCreateModal}>
                         <Plus className="mr-2 h-4 w-4" />
                         Nueva Compra
                     </Button>

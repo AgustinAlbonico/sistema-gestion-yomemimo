@@ -371,7 +371,7 @@ export function SaleDetail({ sale: initialSale, saleId, open, onClose }: SaleDet
                                                 </div>
                                                 <div>
                                                     <p className="font-medium">
-                                                        {PaymentMethodLabels[payment.paymentMethod]}
+                                                        {(payment.paymentMethod as any)?.name || PaymentMethodLabels[payment.paymentMethod]}
                                                     </p>
                                                     <div className="flex gap-2 text-xs text-muted-foreground">
                                                         {payment.installments ? (

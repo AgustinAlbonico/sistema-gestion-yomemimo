@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../stores/auth.store';
 import { Sidebar } from './Sidebar';
+import { Loader2 } from 'lucide-react';
 
 export function DashboardLayout() {
     const navigate = useNavigate();
@@ -55,7 +56,13 @@ export function DashboardLayout() {
             <div className="flex-1 flex flex-col overflow-hidden">
                 <main className="flex-1 overflow-y-auto p-6 lg:p-8">
                     <div className="max-w-7xl mx-auto">
-                        <Outlet />
+                        <Suspense fallback={
+                            <div className="flex h-full w-full items-center justify-center p-12">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                        }>
+                            <Outlet />
+                        </Suspense>
                     </div>
                 </main>
             </div>

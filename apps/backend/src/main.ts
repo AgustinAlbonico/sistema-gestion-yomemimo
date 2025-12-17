@@ -6,10 +6,16 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { DataSource } from 'typeorm';
+import { seedAdmin } from './scripts/seed-admin';
+import compression from 'compression';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
+
+  // Habilitar compresión Gzip
+  app.use(compression());
 
   app.enableCors({
     origin: true,
@@ -51,6 +57,29 @@ async function bootstrap() {
 
   const port = process.env.BACKEND_PORT ? Number(process.env.BACKEND_PORT) : 3000;
   await app.listen(port, '0.0.0.0');
+
+  // Ejecutar seed básico (crea admin y configs si no existen)
+  try {
+    const dataSource = app.get(DataSource);
+
+    // Ejecutar migraciones automáticamente si no estamos sincronizando (producción)
+    // Esto es crucial para updates automáticos
+    if (process.env.NODE_ENV === 'production' || process.env.RUN_MIGRATIONS === 'true') {
+      try {
+        console.log('Verificando migraciones pendientes...');
+        await dataSource.runMigrations();
+        console.log('Migraciones completadas.');
+      } catch (error) {
+        console.error('Error crítico al ejecutar migraciones:', error);
+        // No matamos el proceso, pero esto debería investigarse si falla
+      }
+    }
+
+    await seedAdmin(dataSource);
+  } catch (error) {
+    console.error('Error ejecutando seed automático:', error);
+  }
+
   // eslint-disable-next-line no-console
   console.log(`Backend listening on http://0.0.0.0:${port}`);
   console.log(`Swagger docs available at http://0.0.0.0:${port}/api/docs`);

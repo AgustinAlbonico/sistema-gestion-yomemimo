@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+	<title>{{invoiceType}} {{pointOfSale}}-{{invoiceNumber}}</title>
+	<style type="text/css">
+		* {
+			box-sizing: border-box;
+			-webkit-user-select: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			user-select: none;
+		}
+
+		body {
+			margin: 0;
+			padding: 10px;
+		}
+
+		.bill-container {
+			width: 750px;
+			margin: auto;
+			border-collapse: collapse;
+			font-family: sans-serif;
+			font-size: 13px;
+		}
+
+		.bill-emitter-row td {
+			width: 50%;
+			border-bottom: 1px solid;
+			padding-top: 10px;
+			padding-left: 10px;
+			padding-bottom: 10px;
+			vertical-align: top;
+		}
+
+		.bill-emitter-row {
+			position: relative;
+		}
+
+		.bill-emitter-row td:nth-child(2) {
+			padding-left: 60px;
+		}
+
+		.bill-emitter-row td:nth-child(1) {
+			padding-right: 60px;
+		}
+
+		.bill-type {
+			border: 1px solid;
+			border-top: 1px solid;
+			border-bottom: 1px solid;
+			background: white;
+			width: 60px;
+			height: 50px;
+			position: absolute;
+			left: 50%;
+			transform: translateX(-50%);
+			top: -1px;
+			text-align: center;
+			font-size: 40px;
+			font-weight: 600;
+			line-height: 50px;
+		}
+
+		.text-lg {
+			font-size: 24px;
+			font-weight: bold;
+		}
+
+		.text-center {
+			text-align: center;
+		}
+
+		/* Sistema de grillas mejorado con flexbox */
+		.row {
+			display: flex;
+			flex-wrap: wrap;
+			width: 100%;
+		}
+
+		.row::after {
+			content: "";
+			display: table;
+			clear: both;
+		}
+
+		.col-2 {
+			width: 16.66666667%;
+		}
+
+		.col-3 {
+			width: 25%;
+		}
+
+		.col-4 {
+			width: 33.3333333%;
+		}
+
+		.col-5 {
+			width: 41.66666667%;
+		}
+
+		.col-6 {
+			width: 50%;
+		}
+
+		.col-8 {
+			width: 66.66666667%;
+		}
+
+		.col-10 {
+			width: 83.33333333%;
+		}
+
+		.margin-b-0 {
+			margin-bottom: 0px;
+		}
+
+		.bill-row td {
+			padding-top: 5px
+		}
+
+		.bill-row td>div {
+			border-top: 1px solid;
+			border-bottom: 1px solid;
+			margin: 0 -1px 0 -2px;
+			padding: 0 10px 13px 10px;
+		}
+
+		/* Estilos para la sección del receptor */
+		.receiver-section p {
+			margin: 5px 0;
+			word-wrap: break-word;
+			overflow-wrap: break-word;
+		}
+
+		.receiver-section strong {
+			display: inline;
+		}
+
+		/* Tabla de items */
+		.row-details table {
+			border-collapse: collapse;
+			width: 100%;
+			table-layout: fixed;
+		}
+
+		.row-details td>div,
+		.row-qrcode td>div {
+			border: 0;
+			margin: 0 -1px 0 -2px;
+			padding: 0;
+		}
+
+		.row-details table td {
+			padding: 5px;
+			word-wrap: break-word;
+			overflow-wrap: break-word;
+		}
+
+		.row-details table th {
+			padding: 5px;
+		}
+
+		.row-details table thead tr {
+			border-top: 1px solid;
+			border-bottom: 1px solid;
+			background: #c0c0c0;
+			font-weight: bold;
+			text-align: center;
+		}
+
+		.row-details table tbody tr {
+			border-top: 1px solid #c0c0c0;
+		}
+
+		/* Anchos específicos de columnas de la tabla de items */
+		.row-details table th:nth-child(1),
+		.row-details table td:nth-child(1) {
+			width: 12%;
+		}
+
+		/* Código */
+		.row-details table th:nth-child(2),
+		.row-details table td:nth-child(2) {
+			width: 28%;
+		}
+
+		/* Producto/Servicio */
+		.row-details table th:nth-child(3),
+		.row-details table td:nth-child(3) {
+			width: 10%;
+		}
+
+		/* Cantidad */
+		.row-details table th:nth-child(4),
+		.row-details table td:nth-child(4) {
+			width: 10%;
+		}
+
+		/* U. Medida */
+		.row-details table th:nth-child(5),
+		.row-details table td:nth-child(5) {
+			width: 12%;
+		}
+
+		/* Precio Unit. */
+		.row-details table th:nth-child(6),
+		.row-details table td:nth-child(6) {
+			width: 8%;
+		}
+
+		/* % Bonif. */
+		.row-details table th:nth-child(7),
+		.row-details table td:nth-child(7) {
+			width: 10%;
+		}
+
+		/* Imp. Bonif. */
+		.row-details table th:nth-child(8),
+		.row-details table td:nth-child(8) {
+			width: 10%;
+		}
+
+		/* Subtotal */
+
+		.text-right {
+			text-align: right;
+		}
+
+		.margin-b-10 {
+			margin-bottom: 10px;
+		}
+
+		.total-row td>div {
+			border-width: 2px;
+		}
+
+		.row-qrcode td {
+			padding: 10px;
+			vertical-align: top;
+		}
+
+		#qrcode {
+			width: 120px;
+			height: 120px;
+		}
+
+		.code-legend {
+			font-size: 9px;
+			color: #666;
+			margin-top: 3px;
+		}
+
+		.invoice-type-code {
+			font-size: 10px;
+			color: #666;
+		}
+
+		/* Sección de totales */
+		.totals-section .row {
+			justify-content: flex-end;
+		}
+
+		.totals-section p {
+			margin: 3px 0;
+		}
+	</style>
+</head>
+
+<body>
+	<table class="bill-container">
+		<thead style="display:none">
+			<tr>
+				<th scope="col">Sección</th>
+				<th scope="col">Detalle</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr class="bill-emitter-row">
+				<td>
+					<div class="bill-type">
+						{{invoiceTypeLetter}}
+					</div>
+					<div class="text-lg text-center">
+						{{emitter.businessName}}
+					</div>
+					<p><strong>Razón social:</strong> {{emitter.businessName}}</p>
+					<p><strong>Domicilio Comercial:</strong> {{emitter.address}}</p>
+					<p><strong>Condición Frente al IVA:</strong> {{emitter.ivaCondition}}</p>
+				</td>
+				<td>
+					<div>
+						<div class="text-lg">
+							{{invoiceType}}
+						</div>
+						<div class="row">
+							<p class="col-6 margin-b-0">
+								<strong>Punto de Venta: {{pointOfSale}}</strong>
+							</p>
+							<p class="col-6 margin-b-0">
+								<strong>Comp. Nro: {{invoiceNumber}}</strong>
+							</p>
+						</div>
+						<p><strong>Fecha de Emisión:</strong> {{issueDate}}</p>
+						<p><strong>CUIT:</strong> {{emitter.cuit}}</p>
+						<p><strong>Ingresos Brutos:</strong> {{emitter.grossIncome}}</p>
+						<p><strong>Fecha de Inicio de Actividades:</strong> {{emitter.activityStartDate}}</p>
+					</div>
+				</td>
+			</tr>
+			<tr class="bill-row">
+				<td colspan="2">
+					<div class="receiver-section">
+						<p>
+							{{#if receiver.documentNumber}}
+							<strong>{{receiver.documentType}}:</strong> {{receiver.documentNumber}} &nbsp;&nbsp;&nbsp;
+							{{else}}
+							<strong>Sin Identificar</strong> &nbsp;&nbsp;&nbsp;
+							{{/if}}
+							<strong>Apellido y Nombre / Razón social:</strong> {{receiver.name}}
+						</p>
+						<p>
+							<strong>Condición Frente al IVA:</strong> {{receiver.ivaCondition}} &nbsp;&nbsp;&nbsp;
+							<strong>Domicilio:</strong> {{receiver.address}}
+						</p>
+						<p>
+							<strong>Condición de venta:</strong> {{saleCondition}}
+						</p>
+					</div>
+				</td>
+			</tr>
+			<tr class="bill-row row-details">
+				<td colspan="2">
+					<div>
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">Código</th>
+									<th scope="col">Producto / Servicio</th>
+									<th scope="col">Cantidad</th>
+									<th scope="col">U. Medida</th>
+									<th scope="col">Precio Unit.</th>
+									<th scope="col">% Bonif.</th>
+									<th scope="col">Imp. Bonif.</th>
+									<th scope="col">Subtotal</th>
+								</tr>
+							</thead>
+							<tbody>
+								{{#each items}}
+								<tr>
+									<td>{{this.code}}</td>
+									<td>{{this.description}}</td>
+									<td class="text-center">{{this.quantity}}</td>
+									<td class="text-center">{{this.unitOfMeasure}}</td>
+									<td class="text-right">{{this.unitPrice}}</td>
+									<td class="text-center">{{this.discount}}</td>
+									<td class="text-right">{{this.discountAmount}}</td>
+									<td class="text-right">{{this.subtotal}}</td>
+								</tr>
+								{{/each}}
+							</tbody>
+						</table>
+					</div>
+				</td>
+			</tr>
+			<tr class="bill-row total-row">
+				<td colspan="2">
+					<div>
+						<div class="row text-right">
+							<p class="col-10 margin-b-0">
+								<strong>Subtotal: $</strong>
+							</p>
+							<p class="col-2 margin-b-0">
+								<strong>{{subtotal}}</strong>
+							</p>
+						</div>
+						{{#if showIva}}
+						<div class="row text-right">
+							<p class="col-10 margin-b-0">
+								<strong>Neto Gravado: $</strong>
+							</p>
+							<p class="col-2 margin-b-0">
+								<strong>{{netAmount}}</strong>
+							</p>
+						</div>
+						<div class="row text-right">
+							<p class="col-10 margin-b-0">
+								<strong>IVA 21%: $</strong>
+							</p>
+							<p class="col-2 margin-b-0">
+								<strong>{{iva21}}</strong>
+							</p>
+						</div>
+						{{/if}}
+						<div class="row text-right">
+							<p class="col-10 margin-b-0">
+								<strong>Importe Otros Tributos: $</strong>
+							</p>
+							<p class="col-2 margin-b-0">
+								<strong>{{otherTaxes}}</strong>
+							</p>
+						</div>
+						<div class="row text-right">
+							<p class="col-10 margin-b-0">
+								<strong>Importe total: $</strong>
+							</p>
+							<p class="col-2 margin-b-0">
+								<strong>{{total}}</strong>
+							</p>
+						</div>
+					</div>
+				</td>
+			</tr>
+			<tr class="bill-row row-qrcode">
+				<td>
+					<div>
+						<img id="qrcode" src="{{qrImage}}" alt="QR Factura">
+						<div class="code-legend">Comprobante Autorizado</div>
+					</div>
+				</td>
+				<td>
+					<div>
+						<div class="row text-right margin-b-10">
+							<strong>CAE Nº:</strong> {{cae}}
+						</div>
+						<div class="row text-right">
+							<strong>Fecha de Vto. de CAE:</strong> {{caeExpirationDate}}
+						</div>
+					</div>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+</body>
+
+</html>

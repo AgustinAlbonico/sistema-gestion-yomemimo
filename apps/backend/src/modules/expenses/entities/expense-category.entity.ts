@@ -24,6 +24,12 @@ export class ExpenseCategory {
     @Column({ type: 'boolean', default: true })
     isActive!: boolean;
 
+    @Column({ type: 'text', nullable: true })
+    description?: string;
+
+    @Column({ type: 'boolean', default: false })
+    isRecurring!: boolean;
+
     @OneToMany(() => Expense, (expense) => expense.category)
     expenses!: Expense[];
 

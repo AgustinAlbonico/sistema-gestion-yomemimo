@@ -20,7 +20,7 @@ export class ExpenseCategoriesService {
     constructor(
         @InjectRepository(ExpenseCategory)
         private readonly categoryRepo: Repository<ExpenseCategory>,
-    ) {}
+    ) { }
 
     /**
      * Crea una nueva categoría de gasto
@@ -37,7 +37,7 @@ export class ExpenseCategoriesService {
 
         const category = this.categoryRepo.create({
             name: dto.name,
-            description: dto.description ?? null,
+            description: dto.description ?? undefined,
             isRecurring: dto.isRecurring ?? false,
         });
 

@@ -1,10 +1,11 @@
 /**
  * Página de Clientes - Gestión completa de clientes
  */
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Tags, Users } from 'lucide-react';
+import { useShortcutAction } from '@/hooks/useKeyboardShortcuts';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,14 @@ export default function CustomersPage() {
         queryKey: ['customer-categories'],
         queryFn: () => customerCategoriesApi.getAll(),
     });
+
+    // Callback para abrir modal de nuevo cliente (usado por botón y atajo F6)
+    const openCreateModal = useCallback(() => {
+        setIsCreateOpen(true);
+    }, []);
+
+    // Atajo de teclado F6 para nuevo cliente
+    useShortcutAction('NEW_CUSTOMER', openCreateModal);
 
     // Mutations
     const createMutation = useMutation({
@@ -227,7 +236,7 @@ export default function CustomersPage() {
                     </Dialog>
 
                     {/* Botón Nuevo Cliente */}
-                    <Button onClick={() => setIsCreateOpen(true)}>
+                    <Button onClick={openCreateModal}>
                         <Plus className="mr-2 h-4 w-4" />
                         Nuevo Cliente
                     </Button>

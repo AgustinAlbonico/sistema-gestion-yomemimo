@@ -2,10 +2,11 @@
  * Página de Ingresos
  * Gestión completa de ingresos por servicios con estadísticas y categorías
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Tags, RefreshCw, Wallet } from 'lucide-react';
+import { useShortcutAction } from '@/hooks/useKeyboardShortcuts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,6 +70,18 @@ export default function IncomesPage() {
 
     // Estado de la caja actual
     const { data: openRegister } = useOpenCashRegister();
+
+    // Callback para abrir modal de nuevo ingreso (usado por botón y atajo F4)
+    const openCreateModal = useCallback(() => {
+        if (!openRegister) {
+            toast.error('La caja de hoy está cerrada. Abrí la caja para registrar ingresos.');
+            return;
+        }
+        setIsCreateOpen(true);
+    }, [openRegister]);
+
+    // Atajo de teclado F4 para nuevo ingreso
+    useShortcutAction('NEW_INCOME', openCreateModal);
 
     // Query para categorías
     const { data: categories } = useQuery({
@@ -360,15 +373,7 @@ export default function IncomesPage() {
 
                     {/* Botón Nuevo Ingreso */}
                     <div>
-                        <Button
-                            onClick={() => {
-                                if (!openRegister) {
-                                    toast.error('La caja de hoy está cerrada. Abrí la caja para registrar ingresos.');
-                                    return;
-                                }
-                                setIsCreateOpen(true);
-                            }}
-                        >
+                        <Button onClick={openCreateModal}>
                             <Plus className="mr-2 h-4 w-4" />
                             Nuevo Ingreso
                         </Button>

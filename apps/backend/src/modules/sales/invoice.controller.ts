@@ -15,6 +15,7 @@ import {
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Public } from '../auth/decorators/public.decorator';
 import { InvoiceService } from './services/invoice.service';
 import { AfipService } from './services/afip.service';
 import { InvoiceStatus } from './entities/invoice.entity';
@@ -194,5 +195,24 @@ export class InvoiceController {
             success: true,
             message: 'Token de AFIP limpiado. El próximo intento de facturación solicitará un nuevo token.',
         };
+    }
+
+    /**
+     * Consulta el último comprobante autorizado en AFIP
+     */
+    @Public()
+    @Get('afip/last-number')
+    @ApiOperation({ summary: 'Consultar último comprobante autorizado en AFIP' })
+    @ApiQuery({ name: 'pointOfSale', required: true, type: Number })
+    @ApiQuery({ name: 'invoiceType', required: true, type: Number })
+    async getLastAfipNumber(
+        @Query('pointOfSale') pointOfSale: string,
+        @Query('invoiceType') invoiceType: string,
+    ): Promise<{ lastNumber: number }> {
+        const lastNumber = await this.afipService.getLastInvoiceNumber(
+            Number.parseInt(pointOfSale),
+            Number.parseInt(invoiceType)
+        );
+        return { lastNumber };
     }
 }

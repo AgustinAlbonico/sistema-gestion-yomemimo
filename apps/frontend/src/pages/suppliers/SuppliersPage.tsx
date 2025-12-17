@@ -1,10 +1,11 @@
 /**
  * Página de Proveedores - Gestión completa de proveedores
  */
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Truck } from 'lucide-react';
+import { useShortcutAction } from '@/hooks/useKeyboardShortcuts';
 
 import { Button } from '@/components/ui/button';
 import { FormDialog } from '@/components/ui/form-dialog';
@@ -26,6 +27,14 @@ export default function SuppliersPage() {
         queryKey: ['suppliers-stats'],
         queryFn: () => suppliersApi.getStats(),
     });
+
+    // Callback para abrir modal de nuevo proveedor (usado por botón y atajo F7)
+    const openCreateModal = useCallback(() => {
+        setIsCreateOpen(true);
+    }, []);
+
+    // Atajo de teclado F7 para nuevo proveedor
+    useShortcutAction('NEW_SUPPLIER', openCreateModal);
 
     // Mutations
     const createMutation = useMutation({
@@ -104,7 +113,7 @@ export default function SuppliersPage() {
                 </div>
 
                 {/* Botón crear proveedor */}
-                <Button onClick={() => setIsCreateOpen(true)}>
+                <Button onClick={openCreateModal}>
                     <Plus className="mr-2 h-4 w-4" />
                     Nuevo Proveedor
                 </Button>

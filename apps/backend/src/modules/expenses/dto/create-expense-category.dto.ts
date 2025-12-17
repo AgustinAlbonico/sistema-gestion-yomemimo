@@ -6,6 +6,8 @@ import {
     IsString,
     IsNotEmpty,
     MaxLength,
+    IsOptional,
+    IsBoolean,
 } from 'class-validator';
 
 export class CreateExpenseCategoryDto {
@@ -18,5 +20,23 @@ export class CreateExpenseCategoryDto {
     @IsNotEmpty({ message: 'El nombre es requerido' })
     @MaxLength(100)
     name!: string;
+
+    @ApiProperty({
+        description: 'Descripción de la categoría',
+        example: 'Gastos de alquiler mensual',
+        required: false,
+    })
+    @IsOptional()
+    @IsString()
+    description?: string;
+
+    @ApiProperty({
+        description: 'Si es un gasto recurrente',
+        example: true,
+        required: false,
+    })
+    @IsOptional()
+    @IsBoolean()
+    isRecurring?: boolean;
 }
 

@@ -2,10 +2,11 @@
  * Página de Ventas (POS)
  * Gestión completa de ventas con punto de venta integrado
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Filter, ShoppingCart, RotateCcw } from 'lucide-react';
+import { useShortcutAction } from '@/hooks/useKeyboardShortcuts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,6 +73,18 @@ export default function SalesPage() {
 
     // Estado de la caja actual (si hay caja abierta hoy)
     const { data: openRegister } = useOpenCashRegister();
+
+    // Callback para abrir modal de nueva venta (usado por botón y atajo F1)
+    const openCreateModal = useCallback(() => {
+        if (!openRegister) {
+            toast.error('La caja de hoy está cerrada. Abrí la caja para registrar ventas.');
+            return;
+        }
+        setIsCreateOpen(true);
+    }, [openRegister]);
+
+    // Atajo de teclado F1 para nueva venta
+    useShortcutAction('NEW_SALE', openCreateModal);
 
     // Mutaciones
     const createMutation = useMutation({
@@ -289,13 +302,7 @@ export default function SalesPage() {
                     <Button
                         size="lg"
                         className="shadow-lg"
-                        onClick={() => {
-                            if (!openRegister) {
-                                toast.error('La caja de hoy está cerrada. Abrí la caja para registrar ventas.');
-                                return;
-                            }
-                            setIsCreateOpen(true);
-                        }}
+                        onClick={openCreateModal}
                     >
                         <Plus className="mr-2 h-5 w-5" />
                         Nueva Venta

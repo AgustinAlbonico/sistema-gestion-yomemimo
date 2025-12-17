@@ -1,0 +1,33 @@
+{
+    "name": "@sistema/desktop",
+    "version": "1.0.0",
+    "description": "NexoPOS - Aplicación de Escritorio",
+    "main": "dist/electron/main.js",
+    "author": "Agustin Albonico",
+    "license": "UNLICENSED",
+    "scripts": {
+        "dev": "ts-node scripts/dev.ts",
+        "build": "npm run build:frontend && npm run build:backend && npm run build:electron && npm run package",
+        "build:frontend": "npm run build -w @sistema/frontend",
+        "build:backend": "npm run build:bundle -w @sistema/backend",
+        "build:electron": "tsc -p tsconfig.json",
+        "package": "electron-builder --win --config electron-builder.yml",
+        "package:dir": "electron-builder --win --dir --config electron-builder.yml"
+    },
+    "dependencies": {
+        "@types/pg": "^8.16.0",
+        "electron-log": "^5.4.3",
+        "electron-updater": "^6.1.7",
+        "fs-extra": "^11.3.2",
+        "pg": "^8.16.3"
+    },
+    "devDependencies": {
+        "@types/node": "^20.10.0",
+        "concurrently": "^8.2.2",
+        "electron": "^39.2.7",
+        "electron-builder": "^24.9.1",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.3.3",
+        "wait-on": "^7.2.0"
+    }
+}

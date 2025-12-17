@@ -118,7 +118,7 @@ export function SaleList({
         }
 
         const methods = sale.payments.map(
-            (p) => PaymentMethodLabels[p.paymentMethod]
+            (p) => (p.paymentMethod as any)?.name || PaymentMethodLabels[p.paymentMethod]
         );
         return [...new Set(methods)].join(', ');
     };

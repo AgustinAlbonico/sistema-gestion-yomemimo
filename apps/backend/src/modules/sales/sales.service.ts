@@ -440,6 +440,7 @@ export class SalesService {
             .leftJoinAndSelect('sale.items', 'items')
             .leftJoinAndSelect('items.product', 'product')
             .leftJoinAndSelect('sale.payments', 'payments')
+            .leftJoinAndSelect('payments.paymentMethod', 'paymentMethod')
             .leftJoinAndSelect('sale.customer', 'customer')
             .leftJoinAndSelect('sale.createdBy', 'user')
             .leftJoinAndSelect('sale.invoice', 'invoice')
@@ -477,7 +478,7 @@ export class SalesService {
     async findOne(id: string): Promise<Sale> {
         const sale = await this.saleRepo.findOne({
             where: { id },
-            relations: ['items', 'items.product', 'payments', 'customer', 'createdBy', 'invoice'],
+            relations: ['items', 'items.product', 'payments', 'payments.paymentMethod', 'customer', 'createdBy', 'invoice'],
         });
 
         if (!sale) {

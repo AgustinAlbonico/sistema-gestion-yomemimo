@@ -6,7 +6,7 @@ services:
     container_name: sistema-gestion-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: sistema_gestion
+      POSTGRES_DB: nexopos
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       TZ: ${TZ:-America/Argentina/Buenos_Aires}

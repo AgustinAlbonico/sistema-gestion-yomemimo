@@ -18,6 +18,8 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { IncomesModule } from './modules/incomes/incomes.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { BackupModule } from './modules/backup/backup.module';
+import { entities } from './entities';
+import { migrations } from './migrations';
 
 @Module({
   imports: [
@@ -34,8 +36,12 @@ import { BackupModule } from './modules/backup/backup.module';
         username: config.get('DATABASE_USER'),
         password: config.get('DATABASE_PASSWORD'),
         database: config.get('DATABASE_NAME'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: config.get('NODE_ENV') === 'development',
+        // synchronize: false (usar migraciones en producción para seguridad de datos)
+        synchronize: false,
+        // Cargar migraciones explícitamente para el bundle
+        migrations: migrations,
+        // Ejecutar migraciones automáticamente al iniciar
+        migrationsRun: true,
         logging: false,
       }),
     }),
