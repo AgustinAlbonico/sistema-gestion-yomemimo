@@ -3,6 +3,7 @@
  * - % de ganancia por defecto
  * - Stock mínimo global para alertas
  * - Enlaces a configuraciones adicionales
+ * - Estado del servidor y base de datos
  */
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,6 +25,10 @@ import {
     AlertTriangle,
     Loader2,
     Database,
+    Activity,
+    CheckCircle,
+    XCircle,
+    Server,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -35,10 +40,22 @@ interface SystemConfiguration {
     updatedAt: string;
 }
 
+interface HealthStatus {
+    status: 'ok' | 'error';
+    timestamp: string;
+    uptime: number;
+    services: {
+        api: { status: 'up' | 'down' };
+        database: { status: 'up' | 'down' };
+    };
+}
+
 export default function SettingsPage() {
     const queryClient = useQueryClient();
     const [profitMargin, setProfitMargin] = useState('');
     const [minStock, setMinStock] = useState('');
+    const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
+    const [isCheckingHealth, setIsCheckingHealth] = useState(false);
 
     // Obtener configuración actual
     const { data: config, isLoading } = useQuery({
@@ -106,6 +123,47 @@ export default function SettingsPage() {
             defaultProfitMargin: margin,
             minStockAlert: stock,
         });
+    };
+
+    // Función para verificar estado del servidor y BD
+    const checkHealth = async () => {
+        setIsCheckingHealth(true);
+        setHealthStatus(null);
+
+        try {
+            const res = await api.get('/api/health');
+            const health: HealthStatus = res.data;
+            setHealthStatus(health);
+
+            if (health.status === 'ok') {
+                toast.success('✅ Servidor y base de datos funcionando correctamente');
+            } else {
+                toast.error('⚠️ Hay problemas con algún servicio');
+            }
+        } catch (error) {
+            setHealthStatus({
+                status: 'error',
+                timestamp: new Date().toISOString(),
+                uptime: 0,
+                services: {
+                    api: { status: 'down' },
+                    database: { status: 'down' },
+                },
+            });
+            toast.error('❌ No se pudo conectar al servidor');
+        } finally {
+            setIsCheckingHealth(false);
+        }
+    };
+
+    // Formatear tiempo de uptime
+    const formatUptime = (seconds: number): string => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        }
+        return `${minutes}m`;
     };
 
     if (isLoading) {
@@ -365,6 +423,100 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </Link>
+
+                    {/* Estado del Sistema */}
+                    <div className="rounded-xl border bg-card shadow-sm overflow-hidden md:col-span-2">
+                        <div className="p-5 bg-gradient-to-r from-emerald-500/10 to-teal-500/5 border-b">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                                        <Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-lg">Estado del Sistema</h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            Verificar conexión al servidor y base de datos
+                                        </p>
+                                    </div>
+                                </div>
+                                <Button
+                                    onClick={checkHealth}
+                                    disabled={isCheckingHealth}
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-950"
+                                >
+                                    {isCheckingHealth ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                    )}
+                                    Verificar Estado
+                                </Button>
+                            </div>
+                        </div>
+
+                        {healthStatus && (
+                            <div className="p-5">
+                                <div className="grid grid-cols-3 gap-4">
+                                    {/* API Status */}
+                                    <div className="rounded-lg bg-muted/50 p-4 text-center">
+                                        <div className="flex items-center justify-center mb-2">
+                                            <Server className="h-5 w-5 text-muted-foreground mr-2" />
+                                            <span className="text-sm font-medium">API</span>
+                                        </div>
+                                        <div className="flex items-center justify-center gap-2">
+                                            {healthStatus.services.api.status === 'up' ? (
+                                                <>
+                                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                                    <span className="text-green-600 dark:text-green-400 font-semibold">Online</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircle className="h-5 w-5 text-red-500" />
+                                                    <span className="text-red-600 dark:text-red-400 font-semibold">Offline</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Database Status */}
+                                    <div className="rounded-lg bg-muted/50 p-4 text-center">
+                                        <div className="flex items-center justify-center mb-2">
+                                            <Database className="h-5 w-5 text-muted-foreground mr-2" />
+                                            <span className="text-sm font-medium">Base de Datos</span>
+                                        </div>
+                                        <div className="flex items-center justify-center gap-2">
+                                            {healthStatus.services.database.status === 'up' ? (
+                                                <>
+                                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                                    <span className="text-green-600 dark:text-green-400 font-semibold">Online</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircle className="h-5 w-5 text-red-500" />
+                                                    <span className="text-red-600 dark:text-red-400 font-semibold">Offline</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Uptime */}
+                                    <div className="rounded-lg bg-muted/50 p-4 text-center">
+                                        <div className="flex items-center justify-center mb-2">
+                                            <Activity className="h-5 w-5 text-muted-foreground mr-2" />
+                                            <span className="text-sm font-medium">Uptime</span>
+                                        </div>
+                                        <div className="flex items-center justify-center">
+                                            <span className="text-lg font-bold text-foreground">
+                                                {formatUptime(healthStatus.uptime)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

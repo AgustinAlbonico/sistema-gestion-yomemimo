@@ -58,6 +58,16 @@ log.transports.file.level = 'info';
 log.transports.console.level = 'info';
 log.transports.file.resolvePathFn = getLogPath;
 
+// ============================================
+// CONFIGURACIÓN DE ROTACIÓN DE LOGS
+// ============================================
+// Tamaño máximo del archivo de log: 5MB
+// Cuando se alcanza, se crea un nuevo archivo y el anterior se renombra
+log.transports.file.maxSize = 5 * 1024 * 1024; // 5MB
+
+// Formato de fecha más compacto para reducir tamaño
+log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
+
 // Capturar errores no manejados
 log.catchErrors();
 
@@ -556,6 +566,100 @@ function setupAutoUpdater(): void {
 
     log.info('[Electron] Configurando auto-updater...');
 
+    // Ventana de progreso de descarga
+    let progressWindow: BrowserWindow | null = null;
+
+    // Función para crear la ventana de progreso
+    const createProgressWindow = (): BrowserWindow => {
+        const win = new BrowserWindow({
+            width: 400,
+            height: 180,
+            icon: ICON_PATH,
+            frame: false,
+            transparent: true,
+            alwaysOnTop: true,
+            resizable: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+            },
+        });
+
+        const progressHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {
+                    margin: 0;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    font-family: 'Segoe UI', sans-serif;
+                    color: white;
+                    border-radius: 16px;
+                    overflow: hidden;
+                }
+                .container {
+                    text-align: center;
+                    padding: 24px;
+                    width: 100%;
+                }
+                h2 { font-size: 18px; margin: 0 0 8px 0; }
+                p { font-size: 12px; opacity: 0.7; margin: 0 0 16px 0; }
+                .progress-bar {
+                    width: 100%;
+                    height: 8px;
+                    background: rgba(255,255,255,0.2);
+                    border-radius: 4px;
+                    overflow: hidden;
+                    margin-bottom: 12px;
+                }
+                .progress-fill {
+                    height: 100%;
+                    background: linear-gradient(90deg, #4f46e5, #7c3aed);
+                    border-radius: 4px;
+                    transition: width 0.3s ease;
+                    width: 0%;
+                }
+                .stats {
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 11px;
+                    opacity: 0.7;
+                }
+                .percent {
+                    font-size: 28px;
+                    font-weight: bold;
+                    color: #4f46e5;
+                    margin-bottom: 8px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h2>📥 Descargando actualización...</h2>
+                <p id="version">Preparando...</p>
+                <div class="percent" id="percent">0%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="stats">
+                    <span id="speed">-- MB/s</span>
+                    <span id="size">-- / -- MB</span>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(progressHtml)}`);
+        win.center();
+        return win;
+    };
+
     // Eventos del actualizador (configurar ANTES de checkForUpdates)
     autoUpdater.on('checking-for-update', () => {
         log.info('[AutoUpdater] Buscando actualizaciones...');
@@ -563,11 +667,15 @@ function setupAutoUpdater(): void {
 
     autoUpdater.on('update-available', (info) => {
         log.info(`[AutoUpdater] Actualización disponible: ${info.version}`);
-        dialog.showMessageBox({
-            type: 'info',
-            title: 'Actualización disponible',
-            message: `Hay una nueva versión (${info.version}) disponible. Se descargará automáticamente.`,
-            buttons: ['OK'],
+
+        // Crear ventana de progreso
+        progressWindow = createProgressWindow();
+
+        // Actualizar el texto de versión
+        progressWindow.webContents.on('did-finish-load', () => {
+            progressWindow?.webContents.executeJavaScript(
+                `document.getElementById('version').textContent = 'Versión ${info.version}';`
+            );
         });
     });
 
@@ -576,11 +684,33 @@ function setupAutoUpdater(): void {
     });
 
     autoUpdater.on('download-progress', (progress) => {
-        log.info(`[AutoUpdater] Descargando: ${Math.round(progress.percent)}%`);
+        const percent = Math.round(progress.percent);
+        const speed = (progress.bytesPerSecond / 1024 / 1024).toFixed(2);
+        const transferred = (progress.transferred / 1024 / 1024).toFixed(1);
+        const total = (progress.total / 1024 / 1024).toFixed(1);
+
+        log.info(`[AutoUpdater] Descargando: ${percent}% (${speed} MB/s)`);
+
+        // Actualizar la ventana de progreso
+        if (progressWindow && !progressWindow.isDestroyed()) {
+            progressWindow.webContents.executeJavaScript(`
+                document.getElementById('percent').textContent = '${percent}%';
+                document.getElementById('progress-fill').style.width = '${percent}%';
+                document.getElementById('speed').textContent = '${speed} MB/s';
+                document.getElementById('size').textContent = '${transferred} / ${total} MB';
+            `).catch(() => { });
+        }
     });
 
     autoUpdater.on('update-downloaded', (info) => {
         log.info(`[AutoUpdater] Actualización descargada: ${info.version}`);
+
+        // Cerrar ventana de progreso
+        if (progressWindow && !progressWindow.isDestroyed()) {
+            progressWindow.close();
+            progressWindow = null;
+        }
+
         dialog
             .showMessageBox({
                 type: 'info',
@@ -597,6 +727,12 @@ function setupAutoUpdater(): void {
     });
 
     autoUpdater.on('error', (error) => {
+        // Cerrar ventana de progreso si hay error
+        if (progressWindow && !progressWindow.isDestroyed()) {
+            progressWindow.close();
+            progressWindow = null;
+        }
+
         // Ignorar el error de "No published versions" - es normal cuando no hay releases
         if (error?.message?.includes('No published versions')) {
             log.info('[AutoUpdater] No hay versiones publicadas en GitHub todavía');
