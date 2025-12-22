@@ -22,8 +22,10 @@ export enum PaymentMethod {
 
 export interface User {
     id: string;
-    name: string;
-    email: string;
+    name: string | null;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
 }
 
 export interface CashMovement {

@@ -50,7 +50,7 @@ import {
     getCurrentWeekRange,
     formatDateForDisplay,
 } from '@/lib/date-utils';
-import { useOpenCashRegister } from '@/features/cash-register/hooks';
+import { useOpenCashRegister, useCashStatus } from '@/features/cash-register/hooks';
 import { UnclosedCashAlertDialog } from '@/features/cash-register/components/UnclosedCashAlertDialog';
 
 /**
@@ -75,6 +75,12 @@ export default function SalesPage() {
 
     // Estado de la caja actual (si hay caja abierta hoy)
     const { data: openRegister } = useOpenCashRegister();
+
+    // Estado de la caja para detectar si es del día anterior
+    const { data: cashStatus, isLoading: isCashStatusLoading } = useCashStatus();
+
+    // Estado para trackear si el usuario descartó la alerta de caja del día anterior dentro del modal
+    const [dismissedModalCashAlert, setDismissedModalCashAlert] = useState(false);
 
     // Callback para abrir modal de nueva venta (usado por botón y atajo F1)
     const openCreateModal = useCallback(() => {
@@ -322,8 +328,30 @@ export default function SalesPage() {
                         Nueva Venta
                     </Button>
 
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                    <Dialog
+                        open={isCreateOpen}
+                        onOpenChange={(open) => {
+                            setIsCreateOpen(open);
+                            // Resetear el estado de alerta cuando se cierra el modal
+                            if (!open) {
+                                setDismissedModalCashAlert(false);
+                            }
+                        }}
+                    >
                         <DialogContent className="max-w-[98vw] w-full h-[95vh] overflow-hidden p-0 gap-0">
+                            {/* Alerta de caja del día anterior dentro del modal */}
+                            {!isCashStatusLoading &&
+                                cashStatus?.hasOpenRegister &&
+                                cashStatus?.isFromPreviousDay &&
+                                !dismissedModalCashAlert && (
+                                    <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+                                        <UnclosedCashAlertDialog
+                                            onContinue={() => setDismissedModalCashAlert(true)}
+                                            embedded={true}
+                                            cashStatusData={cashStatus}
+                                        />
+                                    </div>
+                                )}
                             <DialogHeader className="px-6 py-4 border-b bg-muted/30">
                                 <div className="flex items-center justify-between">
                                     <div>

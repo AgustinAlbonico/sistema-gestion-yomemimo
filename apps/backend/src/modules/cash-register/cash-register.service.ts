@@ -136,10 +136,11 @@ export class CashRegisterService {
         });
 
         // Recargar con relaciones
-        return this.cashRegisterRepo.findOne({
+        const reloaded = await this.cashRegisterRepo.findOne({
             where: { id: saved.id },
             relations: ['movements', 'openedBy', 'totals'],
-        }) as Promise<CashRegister>;
+        });
+        return this.transformCashRegisterResponse(reloaded);
     }
 
     /**
@@ -225,10 +226,11 @@ export class CashRegisterService {
         });
 
         // Recargar con todas las relaciones
-        return this.cashRegisterRepo.findOne({
+        const reloaded = await this.cashRegisterRepo.findOne({
             where: { id: cashRegister.id },
             relations: ['movements', 'openedBy', 'closedBy', 'totals'],
-        }) as Promise<CashRegister>;
+        });
+        return this.transformCashRegisterResponse(reloaded);
     }
 
     /**
@@ -283,7 +285,7 @@ export class CashRegisterService {
         console.log(`[CashRegister] Caja ${cashRegisterId} reabierta por usuario ${userId}`);
 
         // Recargar con todas las relaciones
-        return this.cashRegisterRepo.findOne({
+        const reloaded = await this.cashRegisterRepo.findOne({
             where: { id: cashRegisterId },
             relations: ['movements', 'movements.createdBy', 'openedBy', 'totals'],
             order: {
@@ -291,7 +293,8 @@ export class CashRegisterService {
                     createdAt: 'DESC',
                 },
             },
-        }) as Promise<CashRegister>;
+        });
+        return this.transformCashRegisterResponse(reloaded);
     }
 
     /**
@@ -367,7 +370,7 @@ export class CashRegisterService {
     /**
      * Obtener la caja abierta actual
      */
-    async getOpenRegister(): Promise<CashRegister | null> {
+    async getOpenRegister(): Promise<any> {
         const register = await this.cashRegisterRepo.findOne({
             where: { status: CashRegisterStatus.OPEN },
             relations: ['openedBy', 'totals', 'totals.paymentMethod'],
@@ -377,7 +380,7 @@ export class CashRegisterService {
             register.movements = await this.loadMovementsWithDetails(register.id);
         }
 
-        return register;
+        return this.transformCashRegisterResponse(register);
     }
 
     /**
@@ -449,7 +452,8 @@ export class CashRegisterService {
             createdBy: {
                 id: m.createdBy_id,
                 firstName: m.createdBy_firstName,
-                lastName: m.createdBy_lastName
+                lastName: m.createdBy_lastName,
+                name: `${m.createdBy_firstName || ''} ${m.createdBy_lastName || ''}`.trim() || null,
             },
             // Campos calculados desde los JOINs
             amount: Number(m.amount),
@@ -1172,7 +1176,10 @@ export class CashRegisterService {
 
         const data = await query.getMany();
 
-        return { data, total };
+        // Transformar cada caja para incluir 'name' en los usuarios
+        const transformedData = data.map(register => this.transformCashRegisterResponse(register));
+
+        return { data: transformedData, total };
     }
 
     /**
@@ -1288,7 +1295,8 @@ export class CashRegisterService {
             createdBy: {
                 id: m.createdBy_id,
                 firstName: m.createdBy_firstName,
-                lastName: m.createdBy_lastName
+                lastName: m.createdBy_lastName,
+                name: `${m.createdBy_firstName || ''} ${m.createdBy_lastName || ''}`.trim() || null,
             },
             // Campos calculados desde los JOINs
             amount: Number(m.amount),
@@ -1299,7 +1307,7 @@ export class CashRegisterService {
             }
         })) as any;
 
-        return cashRegister;
+        return this.transformCashRegisterResponse(cashRegister);
     }
 
     /**
@@ -1332,6 +1340,30 @@ export class CashRegisterService {
             hasOpenRegister: true,
             isFromPreviousDay: cashRegisterDateString !== todayString,
             openRegister,
+        };
+    }
+
+    /**
+     * Helper para agregar el campo 'name' a un objeto User.
+     * TypeORM no serializa getters como 'fullName', así que lo hacemos manualmente.
+     */
+    private mapUserWithName(user: any): any {
+        if (!user) return user;
+        return {
+            ...user,
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || null,
+        };
+    }
+
+    /**
+     * Transformar un CashRegister para incluir 'name' en openedBy y closedBy
+     */
+    private transformCashRegisterResponse(register: CashRegister | null): any {
+        if (!register) return register;
+        return {
+            ...register,
+            openedBy: this.mapUserWithName(register.openedBy),
+            closedBy: this.mapUserWithName(register.closedBy),
         };
     }
 }

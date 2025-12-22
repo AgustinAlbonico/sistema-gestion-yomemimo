@@ -253,6 +253,14 @@ export class InvoiceService {
             throw new NotFoundException('Venta no encontrada');
         }
 
+        // Actualizar datos del receptor desde el cliente actual (por si fueron corregidos)
+        // Esto es crucial para casos donde el CUIT/documento estaba mal y fue corregido
+        invoice.receiverDocumentType = this.getDocumentType(sale.customer);
+        invoice.receiverDocumentNumber = sale.customer?.documentNumber?.replace(/\D/g, '') || null;
+        invoice.receiverName = sale.customerName || (sale.customer ? `${sale.customer.firstName} ${sale.customer.lastName}` : null);
+        invoice.receiverAddress = sale.customer?.address || null;
+        invoice.receiverIvaCondition = sale.customer?.ivaCondition || IvaCondition.CONSUMIDOR_FINAL;
+
         // Recalcular netAmount antes de reintentar (por si había un valor incorrecto guardado)
         invoice.netAmount = this.calculateNetAmount(sale, invoice.invoiceType);
         invoice.iva21 = this.calculateIva21(sale, invoice.invoiceType);

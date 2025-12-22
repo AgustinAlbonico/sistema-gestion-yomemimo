@@ -193,6 +193,30 @@ export function SaleConfirmationModal({
                 </DialogHeader>
 
                 <div className="space-y-4 mt-4">
+                    {/* Alerta de error de factura fiscal */}
+                    {hasFiscalError && (
+                        <Card className="border-2 border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20">
+                            <CardContent className="pt-4 pb-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center shrink-0">
+                                        <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="font-semibold text-orange-800 dark:text-orange-200 mb-1">
+                                            Error al generar Factura Fiscal
+                                        </h4>
+                                        <p className="text-sm text-orange-700 dark:text-orange-300 break-words">
+                                            {sale.fiscalError || sale.invoice?.afipErrorMessage || 'Error desconocido al comunicarse con AFIP'}
+                                        </p>
+                                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+                                            La venta se registró correctamente con Nota de Venta. Podés reintentar la factura desde el listado de ventas.
+                                        </p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     {/* Información básica */}
                     <Card>
                         <CardContent className="pt-6 space-y-3">

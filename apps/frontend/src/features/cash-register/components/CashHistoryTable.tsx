@@ -101,7 +101,7 @@ export function CashHistoryTable({ history, meta, onPageChange }: CashHistoryTab
                                             </p>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-sm">{register.openedBy.name}</TableCell>
+                                    <TableCell className="text-sm">{register.openedBy?.name || '-'}</TableCell>
                                     <TableCell className="text-sm">
                                         {register.closedBy?.name || '-'}
                                     </TableCell>
@@ -116,12 +116,12 @@ export function CashHistoryTable({ history, meta, onPageChange }: CashHistoryTab
                                     </TableCell>
                                     <TableCell
                                         className={`text-right font-semibold ${!isClosed
-                                                ? 'text-muted-foreground'
-                                                : difference > 0
-                                                    ? 'text-green-600'
-                                                    : difference < 0
-                                                        ? 'text-red-600'
-                                                        : 'text-muted-foreground'
+                                            ? 'text-muted-foreground'
+                                            : difference > 0
+                                                ? 'text-green-600'
+                                                : difference < 0
+                                                    ? 'text-red-600'
+                                                    : 'text-muted-foreground'
                                             }`}
                                     >
                                         {!isClosed

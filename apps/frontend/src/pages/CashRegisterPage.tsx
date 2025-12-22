@@ -134,7 +134,7 @@ export function CashRegisterPage() {
                             <div>
                                 <h3 className="font-semibold">Caja Abierta</h3>
                                 <p className="text-xs text-muted-foreground">
-                                    Apertura: {formatDateTime(openRegister.openedAt)} por {openRegister.openedBy.name}
+                                    Apertura: {formatDateTime(openRegister.openedAt)} por {openRegister.openedBy?.name || 'Usuario'}
                                 </p>
                                 {openRegister.openingNotes && (
                                     <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
