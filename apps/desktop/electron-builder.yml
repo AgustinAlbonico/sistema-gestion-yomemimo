@@ -180,8 +180,8 @@ win:
   requestedExecutionLevel: asInvoker
 
 nsis:
-  oneClick: true
-  allowToChangeInstallationDirectory: true
+  oneClick: false
+  allowToChangeInstallationDirectory: false
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
   installerHeaderIcon: build/icon.ico
