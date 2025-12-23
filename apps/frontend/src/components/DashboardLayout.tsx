@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../stores/auth.store';
@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 
 export function DashboardLayout() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const { user, setUser, logout } = useAuthStore();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -17,6 +18,7 @@ export function DashboardLayout() {
         queryKey: ['profile'],
         queryFn: authService.getProfile,
         retry: false,
+        staleTime: 0, // Siempre considerar los datos como stale
     });
 
     useEffect(() => {
@@ -28,11 +30,14 @@ export function DashboardLayout() {
     const handleLogout = async () => {
         try {
             await authService.logout();
+            // Limpiar el cache de React Query para que al hacer login con otro usuario se cargue su perfil
+            queryClient.clear();
             logout();
             toast.success('Sesión cerrada correctamente');
             navigate('/login', { replace: true });
-        } catch (error) {
+        } catch {
             // Incluso si falla en el servidor, cerramos sesión localmente
+            queryClient.clear();
             logout();
             navigate('/login', { replace: true });
         }

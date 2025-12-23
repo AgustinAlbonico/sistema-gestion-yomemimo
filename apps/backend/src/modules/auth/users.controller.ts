@@ -7,6 +7,8 @@ import {
     Param,
     UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { AuthUser } from './interfaces';
 import {
     ApiTags,
     ApiOperation,
@@ -77,8 +79,12 @@ export class UsersController {
     @ApiOperation({ summary: 'Activar/Desactivar usuario' })
     @ApiParam({ name: 'id', description: 'ID del usuario (UUID)' })
     @ApiResponse({ status: 200, description: 'Estado del usuario actualizado' })
+    @ApiResponse({ status: 400, description: 'No se puede desactivar la propia cuenta' })
     @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
-    async toggleStatus(@Param('id') id: string) {
-        return this.usersService.toggleStatus(id);
+    async toggleStatus(
+        @Param('id') id: string,
+        @CurrentUser() currentUser: AuthUser,
+    ) {
+        return this.usersService.toggleStatus(id, currentUser.userId);
     }
 }

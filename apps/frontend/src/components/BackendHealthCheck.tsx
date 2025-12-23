@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { isElectron } from '@/lib/utils';
 
 // Tipos para la respuesta del health check
 interface HealthCheckResponse {
@@ -13,15 +14,7 @@ interface HealthCheckResponse {
 }
 
 interface BackendHealthCheckProps {
-  children: React.ReactNode;
-}
-
-/**
- * Detecta si la aplicación está corriendo dentro de Electron
- */
-function isElectron(): boolean {
-  return typeof window !== 'undefined' &&
-    (window as { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron === true;
+  readonly children: React.ReactNode;
 }
 
 /**
@@ -29,10 +22,10 @@ function isElectron(): boolean {
  */
 function getApiBaseUrl(): string {
   if (isElectron()) {
-    const electronApi = (window as { electronAPI?: { apiUrl?: string } }).electronAPI;
+    const electronApi = (globalThis as unknown as { electronAPI?: { apiUrl?: string } }).electronAPI;
     return electronApi?.apiUrl || 'http://localhost:3000';
   }
-  return import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3000`;
+  return import.meta.env.VITE_API_URL || `http://${globalThis.location.hostname}:3000`;
 }
 
 /**

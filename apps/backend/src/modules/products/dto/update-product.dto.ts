@@ -25,7 +25,7 @@ export class UpdateProductDto {
     @Length(0, 1000)
     description?: string | null;
 
-    @ApiPropertyOptional({ example: 100.00 })
+    @ApiPropertyOptional({ example: 100 })
     @IsOptional()
     @IsNumber()
     @Min(0)

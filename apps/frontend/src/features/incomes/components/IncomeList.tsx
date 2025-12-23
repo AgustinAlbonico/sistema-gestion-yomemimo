@@ -41,6 +41,7 @@ import {
 import { incomesApi } from '../api/incomes.api';
 import { Income, IncomeFilters } from '../types';
 import { formatDateForDisplay } from '@/lib/date-utils';
+import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import { MarkAsPaidDialog } from './MarkAsPaidDialog';
 
@@ -51,27 +52,17 @@ interface IncomeListProps {
 }
 
 /**
- * Formatea un número como moneda ARS
- */
-function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-    }).format(value);
-}
-
-/**
  * Modal para ver detalle de un ingreso con diseño mejorado
  */
 function IncomeDetailDialog({
     income,
     open,
     onClose,
-}: {
+}: Readonly<{
     income: Income | null;
     open: boolean;
     onClose: () => void;
-}) {
+}>) {
     if (!income) return null;
 
     const getCustomerName = () => {

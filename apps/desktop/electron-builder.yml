@@ -2,6 +2,9 @@ appId: com.nexopos.app
 productName: NexoPOS
 copyright: Copyright © 2024
 
+# Versión de Electron fija (requerida cuando se usa en monorepo)
+electronVersion: "30.0.0"
+
 # Nombre del instalador con guiones (compatible con electron-updater)
 artifactName: "${productName}-Setup-${version}.${ext}"
 
@@ -15,161 +18,209 @@ files:
   - dist/scripts/**/*
   - build/**/*
   - package.json
+  # Dependencias de Electron (copiadas por scripts/copy-deps.js)
+  - node_modules/electron-updater/**/*
+  - node_modules/electron-log/**/*
+  - node_modules/builder-util-runtime/**/*
+  - node_modules/fs-extra/**/*
+  - node_modules/graceful-fs/**/*
+  - node_modules/universalify/**/*
+  - node_modules/jsonfile/**/*
+  - node_modules/lazy-val/**/*
+  - node_modules/lodash.isequal/**/*
+  - node_modules/lodash.escaperegexp/**/*
+  - node_modules/semver/**/*
+  - node_modules/sax/**/*
+  - node_modules/tiny-typed-emitter/**/*
+  # js-yaml y argparse (requeridos por electron-updater 6.x)
+  - node_modules/js-yaml/**/*
+  - node_modules/argparse/**/*
+  # debug y ms (requeridos por builder-util-runtime)
+  - node_modules/debug/**/*
+  - node_modules/ms/**/*
+  # Excluir archivos de test y desarrollo
+  - "!**/e2e/**"
+  - "!**/test-results/**"
+  - "!**/playwright-report/**"
+  - "!**/*.spec.*"
+  - "!**/*.test.*"
+  - "!**/playwright.config.*"
 
 extraResources:
   - from: electron/setup
     to: setup
+  # Backend bundleado con webpack (~11MB)
   - from: ../backend/dist-bundle
     to: backend/dist
     filter:
       - "**/*"
       - "!**/*.map"
-  # Copiar node_modules con exclusiones agresivas para reducir archivos
-  - from: ../../node_modules
-    to: backend/node_modules
-    filter:
-      - "**/*"
-      # ========================================
-      # ARCHIVOS INNECESARIOS (reducen cantidad de archivos)
-      # ========================================
-      - "!**/*.md"
-      - "!**/*.markdown"
-      - "!**/*.txt"
-      - "!**/README*"
-      - "!**/readme*"
-      - "!**/CHANGELOG*"
-      - "!**/changelog*"
-      - "!**/HISTORY*"
-      - "!**/history*"
-      - "!**/LICENSE*"
-      - "!**/license*"
-      - "!**/LICENCE*"
-      - "!**/licence*"
-      - "!**/AUTHORS*"
-      - "!**/CONTRIBUTORS*"
-      - "!**/.npmignore"
-      - "!**/.gitignore"
-      - "!**/.gitattributes"
-      - "!**/.editorconfig"
-      - "!**/.eslintrc*"
-      - "!**/.prettierrc*"
-      - "!**/tsconfig*.json"
-      - "!**/tslint.json"
-      - "!**/.travis.yml"
-      - "!**/appveyor.yml"
-      - "!**/.circleci/**"
-      - "!**/.github/**"
-      - "!**/docs/**"
-      - "!**/doc/**"
-      - "!**/test/**"
-      - "!**/tests/**"
-      - "!**/spec/**"
-      - "!**/specs/**"
-      - "!**/__tests__/**"
-      - "!**/__mocks__/**"
-      - "!**/example/**"
-      - "!**/examples/**"
-      - "!**/coverage/**"
-      - "!**/*.map"
-      - "!**/*.ts"
-      - "!**/*.tsx"
-      - "!**/*.d.ts"
-      # ========================================
-      # Excluir definiciones de tipos
-      # ========================================
-      - "!**/@types/**"
-      # ========================================
-      # Excluir paquetes del workspace
-      # ========================================
-      - "!**/@sistema/**"
-      # ========================================
-      # Excluir librerias de frontend (no usadas en backend)
-      # ========================================
-      - "!**/react/**"
-      - "!**/react-dom/**"
-      - "!**/react-redux/**"
-      - "!**/react-router/**"
-      - "!**/react-router-dom/**"
-      - "!**/react-hook-form/**"
-      - "!**/@vitejs/**"
-      - "!**/vite/**"
-      - "!**/@radix-ui/**"
-      - "!**/lucide-react/**"
-      - "!**/recharts/**"
-      - "!**/framer-motion/**"
-      - "!**/tailwindcss/**"
-      - "!**/postcss/**"
-      - "!**/autoprefixer/**"
-      - "!**/cmdk/**"
-      - "!**/sonner/**"
-      - "!**/next-themes/**"
-      - "!**/zustand/**"
-      - "!**/immer/**"
-      - "!**/redux/**"
-      - "!**/@reduxjs/**"
-      - "!**/@tanstack/**"
-      - "!**/class-variance-authority/**"
-      - "!**/clsx/**"
-      - "!**/tailwind-merge/**"
-      # ========================================
-      # Excluir herramientas de desarrollo y build
-      # ========================================
-      - "!**/typescript/**"
-      - "!**/ts-node/**"
-      - "!**/ts-node-dev/**"
-      - "!**/ts-loader/**"
-      - "!**/ts-jest/**"
-      - "!**/eslint/**"
-      - "!**/@eslint/**"
-      - "!**/@typescript-eslint/**"
-      - "!**/eslint-plugin-react/**"
-      - "!**/eslint-plugin-react-hooks/**"
-      - "!**/jest/**"
-      - "!**/@jest/**"
-      - "!**/vitest/**"
-      - "!**/@vitest/**"
-      - "!**/webpack/**"
-      - "!**/webpack-cli/**"
-      - "!**/@webpack-cli/**"
-      - "!**/webpack-node-externals/**"
-      - "!**/copy-webpack-plugin/**"
-      - "!**/babel/**"
-      - "!**/@babel/**"
-      - "!**/prettier/**"
-      - "!**/nodemon/**"
-      - "!**/rimraf/**"
-      - "!**/turbo/**"
-      - "!**/turbo-windows-64/**"
-      # ========================================
-      # Excluir electron-builder (ya se uso)
-      # ========================================
-      - "!**/electron-builder/**"
-      - "!**/electron-builder-squirrel-windows/**"
-      - "!**/app-builder-bin/**"
-      - "!**/app-builder-lib/**"
-      - "!**/7zip-bin/**"
-      - "!**/builder-util/**"
-      - "!**/builder-util-runtime/**"
-      - "!**/dmg-builder/**"
-      - "!**/electron-publish/**"
-      # ========================================
-      # Excluir frameworks no usados
-      # ========================================
-      - "!**/@angular/**"
-      - "!**/vue/**"
-      - "!**/svelte/**"
-      - "!**/preact/**"
-      # ========================================
-      # Binarios de otras plataformas
-      # ========================================
-      - "!**/android/**"
-      - "!**/ios/**"
-      - "!**/darwin/**"
-      - "!**/linux/**"
-      - "!**/*-linux-*/**"
-      - "!**/*-darwin-*/**"
-      - "!**/*-arm64*/**"
-      - "!**/.bin/**"
+  # ========================================
+  # Dependencias de runtime del backend
+  # Express, PG y TODAS sus subdependencias (80 total)
+  # Generado automáticamente por scripts/copy-backend-deps.js
+  # El resto está bundleado en webpack
+  # ========================================
+  - from: ../../node_modules/accepts
+    to: backend/node_modules/accepts
+  - from: ../../node_modules/array-flatten
+    to: backend/node_modules/array-flatten
+  - from: ../../node_modules/body-parser
+    to: backend/node_modules/body-parser
+  - from: ../../node_modules/bytes
+    to: backend/node_modules/bytes
+  - from: ../../node_modules/call-bind-apply-helpers
+    to: backend/node_modules/call-bind-apply-helpers
+  - from: ../../node_modules/call-bound
+    to: backend/node_modules/call-bound
+  - from: ../../node_modules/content-disposition
+    to: backend/node_modules/content-disposition
+  - from: ../../node_modules/content-type
+    to: backend/node_modules/content-type
+  - from: ../../node_modules/cookie
+    to: backend/node_modules/cookie
+  - from: ../../node_modules/cookie-signature
+    to: backend/node_modules/cookie-signature
+  - from: ../../node_modules/debug
+    to: backend/node_modules/debug
+  - from: ../../node_modules/depd
+    to: backend/node_modules/depd
+  - from: ../../node_modules/destroy
+    to: backend/node_modules/destroy
+  - from: ../../node_modules/dunder-proto
+    to: backend/node_modules/dunder-proto
+  - from: ../../node_modules/ee-first
+    to: backend/node_modules/ee-first
+  - from: ../../node_modules/encodeurl
+    to: backend/node_modules/encodeurl
+  - from: ../../node_modules/es-define-property
+    to: backend/node_modules/es-define-property
+  - from: ../../node_modules/es-errors
+    to: backend/node_modules/es-errors
+  - from: ../../node_modules/es-object-atoms
+    to: backend/node_modules/es-object-atoms
+  - from: ../../node_modules/escape-html
+    to: backend/node_modules/escape-html
+  - from: ../../node_modules/etag
+    to: backend/node_modules/etag
+  - from: ../../node_modules/express
+    to: backend/node_modules/express
+  - from: ../../node_modules/finalhandler
+    to: backend/node_modules/finalhandler
+  - from: ../../node_modules/forwarded
+    to: backend/node_modules/forwarded
+  - from: ../../node_modules/fresh
+    to: backend/node_modules/fresh
+  - from: ../../node_modules/function-bind
+    to: backend/node_modules/function-bind
+  - from: ../../node_modules/get-intrinsic
+    to: backend/node_modules/get-intrinsic
+  - from: ../../node_modules/get-proto
+    to: backend/node_modules/get-proto
+  - from: ../../node_modules/gopd
+    to: backend/node_modules/gopd
+  - from: ../../node_modules/has-symbols
+    to: backend/node_modules/has-symbols
+  - from: ../../node_modules/hasown
+    to: backend/node_modules/hasown
+  - from: ../../node_modules/http-errors
+    to: backend/node_modules/http-errors
+  - from: ../../node_modules/iconv-lite
+    to: backend/node_modules/iconv-lite
+  - from: ../../node_modules/inherits
+    to: backend/node_modules/inherits
+  - from: ../../node_modules/ipaddr.js
+    to: backend/node_modules/ipaddr.js
+  - from: ../../node_modules/math-intrinsics
+    to: backend/node_modules/math-intrinsics
+  - from: ../../node_modules/media-typer
+    to: backend/node_modules/media-typer
+  - from: ../../node_modules/merge-descriptors
+    to: backend/node_modules/merge-descriptors
+  - from: ../../node_modules/methods
+    to: backend/node_modules/methods
+  - from: ../../node_modules/mime
+    to: backend/node_modules/mime
+  - from: ../../node_modules/mime-db
+    to: backend/node_modules/mime-db
+  - from: ../../node_modules/mime-types
+    to: backend/node_modules/mime-types
+  - from: ../../node_modules/ms
+    to: backend/node_modules/ms
+  - from: ../../node_modules/negotiator
+    to: backend/node_modules/negotiator
+  - from: ../../node_modules/object-inspect
+    to: backend/node_modules/object-inspect
+  - from: ../../node_modules/on-finished
+    to: backend/node_modules/on-finished
+  - from: ../../node_modules/parseurl
+    to: backend/node_modules/parseurl
+  - from: ../../node_modules/path-to-regexp
+    to: backend/node_modules/path-to-regexp
+  - from: ../../node_modules/pg
+    to: backend/node_modules/pg
+  - from: ../../node_modules/pg-connection-string
+    to: backend/node_modules/pg-connection-string
+  - from: ../../node_modules/pg-int8
+    to: backend/node_modules/pg-int8
+  - from: ../../node_modules/pg-pool
+    to: backend/node_modules/pg-pool
+  - from: ../../node_modules/pg-protocol
+    to: backend/node_modules/pg-protocol
+  - from: ../../node_modules/pg-types
+    to: backend/node_modules/pg-types
+  - from: ../../node_modules/pgpass
+    to: backend/node_modules/pgpass
+  - from: ../../node_modules/postgres-array
+    to: backend/node_modules/postgres-array
+  - from: ../../node_modules/postgres-bytea
+    to: backend/node_modules/postgres-bytea
+  - from: ../../node_modules/postgres-date
+    to: backend/node_modules/postgres-date
+  - from: ../../node_modules/postgres-interval
+    to: backend/node_modules/postgres-interval
+  - from: ../../node_modules/proxy-addr
+    to: backend/node_modules/proxy-addr
+  - from: ../../node_modules/qs
+    to: backend/node_modules/qs
+  - from: ../../node_modules/range-parser
+    to: backend/node_modules/range-parser
+  - from: ../../node_modules/raw-body
+    to: backend/node_modules/raw-body
+  - from: ../../node_modules/safe-buffer
+    to: backend/node_modules/safe-buffer
+  - from: ../../node_modules/safer-buffer
+    to: backend/node_modules/safer-buffer
+  - from: ../../node_modules/send
+    to: backend/node_modules/send
+  - from: ../../node_modules/serve-static
+    to: backend/node_modules/serve-static
+  - from: ../../node_modules/setprototypeof
+    to: backend/node_modules/setprototypeof
+  - from: ../../node_modules/side-channel
+    to: backend/node_modules/side-channel
+  - from: ../../node_modules/side-channel-list
+    to: backend/node_modules/side-channel-list
+  - from: ../../node_modules/side-channel-map
+    to: backend/node_modules/side-channel-map
+  - from: ../../node_modules/side-channel-weakmap
+    to: backend/node_modules/side-channel-weakmap
+  - from: ../../node_modules/split2
+    to: backend/node_modules/split2
+  - from: ../../node_modules/statuses
+    to: backend/node_modules/statuses
+  - from: ../../node_modules/toidentifier
+    to: backend/node_modules/toidentifier
+  - from: ../../node_modules/type-is
+    to: backend/node_modules/type-is
+  - from: ../../node_modules/unpipe
+    to: backend/node_modules/unpipe
+  - from: ../../node_modules/utils-merge
+    to: backend/node_modules/utils-merge
+  - from: ../../node_modules/vary
+    to: backend/node_modules/vary
+  - from: ../../node_modules/xtend
+    to: backend/node_modules/xtend
 
 win:
   target:
@@ -180,7 +231,7 @@ win:
   requestedExecutionLevel: asInvoker
 
 nsis:
-  oneClick: false
+  oneClick: true
   allowToChangeInstallationDirectory: false
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
@@ -202,11 +253,9 @@ publish:
 asar: true
 asarUnpack:
   - "**/*.node"
-  - "**/node_modules/puppeteer/**/*"
 
-# Compresión 'store' = sin compresión = instalación MUCHO más rápida
-# El instalador será más grande pero la instalación será instantánea
-compression: store
+# Compresión máxima para reducir tamaño del instalador
+compression: maximum
 
-# Deshabilitar differential package para evitar procesamiento extra
+# No reconstruir módulos nativos (ya están compilados)
 npmRebuild: false

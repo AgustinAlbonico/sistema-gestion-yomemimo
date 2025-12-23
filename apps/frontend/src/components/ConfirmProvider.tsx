@@ -2,7 +2,7 @@
  * ConfirmProvider - Provider global para modales de confirmación
  * Permite usar confirm() de forma imperativa en cualquier componente
  */
-import { createContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import { ConfirmDialog, ConfirmDialogOptions } from '@/components/ui/confirm-dialog';
 
 interface ConfirmContextValue {
@@ -12,7 +12,7 @@ interface ConfirmContextValue {
 export const ConfirmContext = createContext<ConfirmContextValue | null>(null);
 
 interface ConfirmProviderProps {
-    children: ReactNode;
+    readonly children: ReactNode;
 }
 
 interface ConfirmState extends ConfirmDialogOptions {
@@ -42,8 +42,10 @@ export function ConfirmProvider({ children }: ConfirmProviderProps) {
         }
     }, [confirmState]);
 
+    const contextValue = useMemo(() => ({ confirm }), [confirm]);
+
     return (
-        <ConfirmContext.Provider value={{ confirm }}>
+        <ConfirmContext.Provider value={contextValue}>
             {children}
             {confirmState && (
                 <ConfirmDialog

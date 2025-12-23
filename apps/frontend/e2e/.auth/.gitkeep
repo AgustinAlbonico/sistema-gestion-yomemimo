@@ -1,0 +1,3 @@
+# Directorio para almacenar el estado de autenticación de Playwright
+# Los archivos JSON generados se ignoran en .gitignore
+

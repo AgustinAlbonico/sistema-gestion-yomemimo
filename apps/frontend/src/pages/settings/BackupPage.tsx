@@ -53,7 +53,7 @@ function formatBytes(bytes: number): string {
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+    return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
 // Formatear fecha
@@ -68,7 +68,7 @@ function formatDate(dateString: string): string {
 }
 
 // Icono de estado
-function StatusIcon({ status }: { status: BackupStatus }) {
+function StatusIcon({ status }: Readonly<{ status: BackupStatus }>) {
     switch (status) {
         case BackupStatus.COMPLETED:
             return <CheckCircle className="h-5 w-5 text-green-500" />;
@@ -171,7 +171,7 @@ export default function BackupPage() {
         try {
             const data = await backupApi.browseDirectory();
             setBrowserData(data);
-        } catch (error) {
+        } catch {
             toast.error('Error al cargar directorios');
         } finally {
             setIsLoadingBrowser(false);
@@ -184,7 +184,7 @@ export default function BackupPage() {
         try {
             const data = await backupApi.browseDirectory(folderPath);
             setBrowserData(data);
-        } catch (error) {
+        } catch {
             toast.error('Error al acceder a la carpeta');
         } finally {
             setIsLoadingBrowser(false);
@@ -201,7 +201,7 @@ export default function BackupPage() {
             try {
                 const data = await backupApi.browseDirectory();
                 setBrowserData(data);
-            } catch (error) {
+            } catch {
                 toast.error('Error al cargar unidades');
             } finally {
                 setIsLoadingBrowser(false);

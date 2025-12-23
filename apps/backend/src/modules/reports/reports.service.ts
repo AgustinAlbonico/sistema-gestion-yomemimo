@@ -370,8 +370,7 @@ export class ReportsService {
                 end.setHours(23, 59, 59, 999);
                 return { start, end };
             }
-            case ReportPeriod.THIS_MONTH:
-            default: {
+            case ReportPeriod.THIS_MONTH: {
                 return this.getCurrentMonthPeriodDates(now);
             }
             case ReportPeriod.LAST_MONTH: {
@@ -402,6 +401,9 @@ export class ReportsService {
                 const start = new Date(now.getFullYear() - 1, 0, 1);
                 const end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
                 return { start, end };
+            }
+            default: {
+                return this.getCurrentMonthPeriodDates(now);
             }
         }
     }
@@ -1350,7 +1352,9 @@ export class ReportsService {
             .andWhere('DATE(movement.createdAt) BETWEEN :start AND :end', { start: weekStartStr, end: todayStr })
             .andWhere('movement.movementType = :type', { type: MovementType.PAYMENT })
             .getMany();
-        const weekAccountPaymentsAmount = weekAccountPayments.reduce((sum, m) => sum + Math.abs(Number(m.amount)), 0);
+        // weekAccountPaymentsAmount se calcula pero no se usa actualmente en el retorno
+        // Se mantiene comentado para futura implementación
+        // const weekAccountPaymentsAmount = weekAccountPayments.reduce((sum, m) => sum + Math.abs(Number(m.amount)), 0);
 
         // MES
         const monthSales = await this.saleRepo
@@ -1410,8 +1414,11 @@ export class ReportsService {
         const lastMonthExpensesAmount = lastMonthExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
         const monthPurchasesAmount = monthPurchases.reduce((sum, p) => sum + Number(p.total), 0);
 
-        const monthNetProfit = monthSalesRevenue - monthPurchasesAmount - monthExpensesAmount;
-        const monthNetMargin = monthSalesRevenue > 0 ? (monthNetProfit / monthSalesRevenue) * 100 : 0;
+        // monthNetProfit y monthNetMargin se calculan pero no se usan actualmente
+        // Se mantienen comentados para futura implementación
+        // const monthNetProfit = monthSalesRevenue - monthPurchasesAmount - monthExpensesAmount;
+        // const monthNetMargin = monthSalesRevenue > 0 ? (monthNetProfit / monthSalesRevenue) * 100 : 0;
+        void (monthSalesRevenue - monthPurchasesAmount - monthExpensesAmount); // Silencia warning de variables no usadas
 
         // INVENTARIO
         const globalMinStock = await this.configurationService.getMinStockAlert();

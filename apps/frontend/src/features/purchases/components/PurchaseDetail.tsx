@@ -37,7 +37,6 @@ import {
 import { Separator } from '@/components/ui/separator';
 import {
     Purchase,
-    PurchaseStatusLabels,
     PaymentMethodLabels,
 } from '../types';
 import { formatDateForDisplay } from '@/lib/date-utils';

@@ -16,13 +16,8 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import {
     CheckCircle2,
-    FileText,
     User,
     Calendar,
-    CreditCard,
-    Banknote,
-    Building,
-    Smartphone,
     Receipt,
     Download,
     Loader2,
@@ -91,14 +86,14 @@ export function SaleConfirmationModal({
             });
 
             const blob = new Blob([response.data], { type: 'application/pdf' });
-            const url = window.URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
             link.download = `factura-${String(sale.invoice.pointOfSale).padStart(4, '0')}-${String(sale.invoice.invoiceNumber).padStart(8, '0')}.pdf`;
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
+            link.remove();
+            URL.revokeObjectURL(url);
             toast.success('Factura descargada');
         } catch {
             toast.error('Error al descargar la factura');
@@ -118,14 +113,14 @@ export function SaleConfirmationModal({
             });
 
             const blob = new Blob([response.data], { type: 'application/pdf' });
-            const url = window.URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
             link.download = `nota-venta-${sale.saleNumber}.pdf`;
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
+            link.remove();
+            URL.revokeObjectURL(url);
             toast.success('Nota de venta descargada');
         } catch {
             toast.error('Error al descargar la nota de venta');

@@ -102,19 +102,8 @@ JWT_EXPIRATION=36500d
             console.error('[Setup] Error de conexión:', error);
 
             // Mensajes de error más descriptivos
-            let errorMessage = error.message || 'Error de conexión a Base de Datos';
-
-            if (error.code === 'ECONNREFUSED') {
-                errorMessage = `Conexión rechazada. PostgreSQL no está corriendo en ${config.host}:${config.port}\n\nVerificá que:\n• PostgreSQL esté instalado y corriendo\n• El puerto ${config.port} esté abierto en el firewall`;
-            } else if (error.code === 'ENOTFOUND') {
-                errorMessage = `No se encontró el servidor: ${config.host}\nVerificá la IP o nombre de host`;
-            } else if (error.code === 'ETIMEDOUT') {
-                errorMessage = `Tiempo agotado al conectar a ${config.host}:${config.port}\n\nVerificá que:\n• La IP sea correcta\n• El puerto 5432 esté abierto en el firewall del servidor\n• PostgreSQL acepte conexiones remotas (pg_hba.conf)`;
-            } else if (error.message?.includes('password authentication failed')) {
-                errorMessage = 'Contraseña incorrecta para el usuario especificado';
-            } else if (error.message?.includes('database') && error.message?.includes('does not exist')) {
-                errorMessage = `La base de datos "${config.database}" no existe.\n\nCreala con: createdb -U postgres ${config.database}`;
-            }
+            // Mensajes de error más descriptivos
+            const errorMessage = getDatabaseErrorMessage(error, config);
 
             return { success: false, error: errorMessage };
         }
@@ -129,4 +118,21 @@ JWT_EXPIRATION=36500d
         ipcMain.removeHandler('setup-database');
         onSuccess();
     });
+}
+
+function getDatabaseErrorMessage(error: any, config: any): string {
+    let errorMessage = error.message || 'Error de conexión a Base de Datos';
+
+    if (error.code === 'ECONNREFUSED') {
+        errorMessage = `Conexión rechazada. PostgreSQL no está corriendo en ${config.host}:${config.port}\n\nVerificá que:\n• PostgreSQL esté instalado y corriendo\n• El puerto ${config.port} esté abierto en el firewall`;
+    } else if (error.code === 'ENOTFOUND') {
+        errorMessage = `No se encontró el servidor: ${config.host}\nVerificá la IP o nombre de host`;
+    } else if (error.code === 'ETIMEDOUT') {
+        errorMessage = `Tiempo agotado al conectar a ${config.host}:${config.port}\n\nVerificá que:\n• La IP sea correcta\n• El puerto 5432 esté abierto en el firewall del servidor\n• PostgreSQL acepte conexiones remotas (pg_hba.conf)`;
+    } else if (error.message?.includes('password authentication failed')) {
+        errorMessage = 'Contraseña incorrecta para el usuario especificado';
+    } else if (error.message?.includes('database') && error.message?.includes('does not exist')) {
+        errorMessage = `La base de datos "${config.database}" no existe.\n\nCreala con: createdb -U postgres ${config.database}`;
+    }
+    return errorMessage;
 }

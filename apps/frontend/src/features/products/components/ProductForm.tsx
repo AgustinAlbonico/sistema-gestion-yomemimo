@@ -97,7 +97,7 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing }: Pro
         }
 
         // 2. Margen de la categoría
-        if (selectedCategory && selectedCategory.profitMargin !== null && selectedCategory.profitMargin !== undefined) {
+        if (selectedCategory?.profitMargin !== null && selectedCategory?.profitMargin !== undefined) {
             return {
                 margin: selectedCategory.profitMargin,
                 source: 'categoria' as const,

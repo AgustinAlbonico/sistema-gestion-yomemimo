@@ -5,7 +5,7 @@ import { IsNumber, Min, Max, IsOptional, IsInt } from 'class-validator';
  * DTO para actualizar configuración del sistema
  */
 export class UpdateConfigurationDto {
-    @ApiPropertyOptional({ example: 30.00, description: 'Margen de ganancia por defecto (%)' })
+    @ApiPropertyOptional({ example: 30, description: 'Margen de ganancia por defecto (%)' })
     @IsOptional()
     @IsNumber()
     @Min(0)

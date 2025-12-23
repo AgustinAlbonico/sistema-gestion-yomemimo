@@ -16,6 +16,7 @@ apps/desktop/release/
 apps/desktop/*.exe
 apps/desktop/*.dmg
 apps/desktop/*.zip
+apps/desktop/backend-deps/
 
 # Frameworks & Tooling
 .turbo/
@@ -59,3 +60,6 @@ test-results/
 # Temporary
 tmp/
 temp/
+
+# #sonarqube
+# sonar-project.properties

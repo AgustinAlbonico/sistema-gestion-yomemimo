@@ -175,22 +175,22 @@ export function CloseCashDialog({
 
                                 <div className="grid grid-cols-3 gap-4 text-sm mb-3">
                                     <div>
-                                        <label className="text-xs text-muted-foreground">Inicial</label>
+                                        <span className="text-xs text-muted-foreground block">Inicial</span>
                                         <p className="font-medium">{formatCurrency(cashTotal?.initialAmount || 0)}</p>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-muted-foreground">+ Ingresos</label>
+                                        <span className="text-xs text-muted-foreground block">+ Ingresos</span>
                                         <p className="font-medium text-green-600">{formatCurrency(cashTotal?.totalIncome || 0)}</p>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-muted-foreground">- Egresos</label>
+                                        <span className="text-xs text-muted-foreground block">- Egresos</span>
                                         <p className="font-medium text-red-600">{formatCurrency(cashTotal?.totalExpense || 0)}</p>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs text-muted-foreground">Esperado</label>
+                                        <span className="text-xs text-muted-foreground block">Esperado</span>
                                         <p className="font-semibold">{formatCurrency(cashTotal?.expectedAmount || 0)}</p>
                                     </div>
                                     <FormField
@@ -319,16 +319,17 @@ function PaymentMethodArqueo({ total, actualAmount, onActualAmountChange }: Paym
 
             <div className="grid grid-cols-3 gap-3 text-xs">
                 <div>
-                    <label className="text-muted-foreground">Ingresos</label>
+                    <span className="text-muted-foreground block">Ingresos</span>
                     <p className="font-medium text-green-600">{formatCurrency(total.totalIncome)}</p>
                 </div>
                 <div>
-                    <label className="text-muted-foreground">Esperado</label>
+                    <span className="text-muted-foreground block">Esperado</span>
                     <p className="font-medium">{formatCurrency(total.expectedAmount)}</p>
                 </div>
                 <div>
-                    <label className="text-muted-foreground">Real</label>
+                    <label htmlFor={`actual-${total.paymentMethod.id}`} className="text-muted-foreground block">Real</label>
                     <NumericInput
+                        id={`actual-${total.paymentMethod.id}`}
                         value={actualAmount}
                         onChange={(e) => onActualAmountChange(Number.parseFloat(e.target.value) || 0)}
                         className="h-7 text-xs"

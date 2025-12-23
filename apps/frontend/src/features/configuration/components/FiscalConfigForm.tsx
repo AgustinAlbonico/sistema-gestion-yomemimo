@@ -159,7 +159,7 @@ export function FiscalConfigForm() {
             } else {
                 toast.error('Conexión fallida', { description: result.message });
             }
-        } catch (error) {
+        } catch {
             toast.error('Error al probar conexión');
         } finally {
             setIsTestingConnection(false);
@@ -180,7 +180,7 @@ export function FiscalConfigForm() {
         a.download = filename;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
+        a.remove();
         URL.revokeObjectURL(url);
     };
 

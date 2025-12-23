@@ -40,7 +40,7 @@ export class CreateProductDto {
     @Length(0, 1000)
     description?: string | null;
 
-    @ApiProperty({ example: 100.00, description: 'Costo del producto' })
+    @ApiProperty({ example: 100, description: 'Costo del producto' })
     @IsNumber()
     @Min(0)
     cost!: number;

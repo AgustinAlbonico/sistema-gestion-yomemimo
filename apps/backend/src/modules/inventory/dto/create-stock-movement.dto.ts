@@ -28,7 +28,7 @@ export class CreateStockMovementDto {
     @Min(1)
     quantity!: number;
 
-    @ApiPropertyOptional({ example: 150.50, description: 'Costo unitario (solo para entradas)' })
+    @ApiPropertyOptional({ example: 150.5, description: 'Costo unitario (solo para entradas)' })
     @IsOptional()
     @IsNumber()
     @Min(0)

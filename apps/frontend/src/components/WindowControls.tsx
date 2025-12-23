@@ -33,7 +33,7 @@ export function WindowControls() {
 
     useEffect(() => {
         // Detectar si estamos en Electron
-        const electronAPI = (window as { electronAPI?: { isElectron?: boolean } }).electronAPI;
+        const electronAPI = (globalThis as unknown as { electronAPI?: { isElectron?: boolean } }).electronAPI;
         setIsElectron(electronAPI?.isElectron === true);
 
         // Escuchar cambios de pantalla completa
@@ -51,13 +51,13 @@ export function WindowControls() {
     }
 
     const handleToggleFullscreen = () => {
-        const electronAPI = (window as { electronAPI?: { toggleFullscreen?: () => void } }).electronAPI;
+        const electronAPI = (globalThis as unknown as { electronAPI?: { toggleFullscreen?: () => void } }).electronAPI;
         electronAPI?.toggleFullscreen?.();
         setIsFullscreen(!isFullscreen);
     };
 
     const handleCloseApp = () => {
-        const electronAPI = (window as { electronAPI?: { closeWindow?: () => void } }).electronAPI;
+        const electronAPI = (globalThis as unknown as { electronAPI?: { closeWindow?: () => void } }).electronAPI;
         electronAPI?.closeWindow?.();
     };
 

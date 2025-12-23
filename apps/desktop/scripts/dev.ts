@@ -3,8 +3,8 @@
  * Ejecuta el frontend (Vite) y Electron en paralelo con hot-reload
  */
 
-import { spawn, ChildProcess, execSync } from 'child_process';
-import * as path from 'path';
+import { spawn, ChildProcess, execSync } from 'node:child_process';
+import * as path from 'node:path';
 
 // Puertos utilizados por la aplicación
 const FRONTEND_PORT = 5173;
@@ -40,7 +40,7 @@ function killProcessOnPort(port: number): void {
 
         for (const line of lines) {
             const parts = line.trim().split(/\s+/);
-            const pid = parts[parts.length - 1];
+            const pid = parts.at(-1);
             if (pid && /^\d+$/.test(pid) && pid !== '0' && !pids.includes(pid)) {
                 pids.push(pid);
             }
@@ -234,4 +234,7 @@ async function main(): Promise<void> {
     }
 }
 
-main();
+main().catch((error) => {
+    console.error('Error fatal:', error);
+    process.exit(1);
+});

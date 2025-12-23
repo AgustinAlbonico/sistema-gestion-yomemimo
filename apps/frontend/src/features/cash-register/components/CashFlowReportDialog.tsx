@@ -127,9 +127,9 @@ export function CashFlowReportDialog({ open, onOpenChange }: CashFlowReportDialo
                     {/* Filtros - apilados en móvil, en fila en desktop */}
                     <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-start sm:items-end">
                         <div className="w-full sm:w-auto space-y-1">
-                            <label className="text-xs sm:text-sm font-medium">Período</label>
+                            <label htmlFor="period-select" className="text-xs sm:text-sm font-medium">Período</label>
                             <Select value={periodPreset} onValueChange={(v) => setPeriodPreset(v as PeriodPreset)}>
-                                <SelectTrigger className="w-full sm:w-[180px]">
+                                <SelectTrigger id="period-select" className="w-full sm:w-[180px]">
                                     <SelectValue placeholder="Seleccionar período" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -144,8 +144,9 @@ export function CashFlowReportDialog({ open, onOpenChange }: CashFlowReportDialo
                         {periodPreset === 'custom' && (
                             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                                 <div className="space-y-1 flex-1 sm:flex-none">
-                                    <label className="text-xs sm:text-sm font-medium">Desde</label>
+                                    <label htmlFor="start-date" className="text-xs sm:text-sm font-medium">Desde</label>
                                     <Input
+                                        id="start-date"
                                         type="date"
                                         value={customStartDate}
                                         onChange={(e) => setCustomStartDate(e.target.value)}
@@ -153,8 +154,9 @@ export function CashFlowReportDialog({ open, onOpenChange }: CashFlowReportDialo
                                     />
                                 </div>
                                 <div className="space-y-1 flex-1 sm:flex-none">
-                                    <label className="text-xs sm:text-sm font-medium">Hasta</label>
+                                    <label htmlFor="end-date" className="text-xs sm:text-sm font-medium">Hasta</label>
                                     <Input
+                                        id="end-date"
                                         type="date"
                                         value={customEndDate}
                                         onChange={(e) => setCustomEndDate(e.target.value)}
@@ -181,8 +183,8 @@ export function CashFlowReportDialog({ open, onOpenChange }: CashFlowReportDialo
                     {isLoading ? (
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                                {[...Array(4)].map((_, i) => (
-                                    <Skeleton key={i} className="h-20 sm:h-24" />
+                                {Array.from({ length: 4 }, (_, i) => (
+                                    <Skeleton key={`skeleton-${i}`} className="h-20 sm:h-24" />
                                 ))}
                             </div>
                             <Skeleton className="h-48 sm:h-64" />

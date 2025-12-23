@@ -211,9 +211,9 @@ export function AccountStatementPage() {
                         </div>
 
                         <div>
-                            <label className="mb-1 text-sm text-muted-foreground">
+                            <span className="mb-1 text-sm text-muted-foreground block">
                                 Límite de Crédito
-                            </label>
+                            </span>
                             <p className="text-2xl font-bold">
                                 ${Number(account.creditLimit).toFixed(2)}
                             </p>

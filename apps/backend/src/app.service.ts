@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 
 @Injectable()
 export class AppService {
-  constructor(@InjectDataSource() private dataSource: DataSource) { }
+  constructor(@InjectDataSource() private readonly dataSource: DataSource) { }
 
   getHello() {
     return { message: 'Hello from backend' };

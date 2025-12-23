@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { entities } from '../entities';
 
 // Cargar variables de entorno
@@ -39,11 +39,7 @@ async function generateMigration() {
     console.log(`📋 Tablas encontradas: ${tables.length}`);
 
     // Para cada tabla, obtener el CREATE TABLE completo
-    const createStatements: string[] = [];
 
-    // Primero habilitar uuid-ossp
-    createStatements.push('await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);');
-    createStatements.push('');
 
     for (const { table_name } of tables) {
         // Obtener columnas
@@ -96,14 +92,7 @@ async function generateMigration() {
     console.log('\n📝 Generando SQL schema...');
 
     // Obtener el schema completo como SQL
-    const schemaResult = await dataSource.query(`
-        SELECT 
-            'CREATE TABLE IF NOT EXISTS "' || table_name || '" ();' as create_stmt
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_type = 'BASE TABLE'
-        AND table_name != 'migrations'
-    `);
+
 
     await dataSource.destroy();
 

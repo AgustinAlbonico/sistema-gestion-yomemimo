@@ -22,7 +22,7 @@ export class ConfigurationService implements OnModuleInit {
         const count = await this.configRepository.count();
         if (count === 0) {
             await this.configRepository.save({
-                defaultProfitMargin: 30.00,
+                defaultProfitMargin: 30,
                 minStockAlert: 5,
             });
         }

@@ -4,7 +4,6 @@
  */
 import { useContext } from 'react';
 import { ConfirmContext } from '@/components/ConfirmProvider';
-import { ConfirmDialogOptions } from '@/components/ui/confirm-dialog';
 
 /**
  * Hook que retorna una función confirm() que abre un modal de confirmación
@@ -34,4 +33,4 @@ export function useConfirm() {
 }
 
 // Re-exportar tipos para conveniencia
-export type { ConfirmDialogOptions };
+export type { ConfirmDialogOptions } from '@/components/ui/confirm-dialog';

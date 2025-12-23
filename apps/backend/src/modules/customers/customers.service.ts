@@ -192,7 +192,7 @@ export class CustomersService {
 
             // Emisor RI + Cliente RI = CUIT obligatorio
             const isDocTypeCuit = documentType === 'CUIT' || documentType === DocumentType.CUIT;
-            const hasValidCuit = isDocTypeCuit && documentNumber && documentNumber.trim().length === 11;
+            const hasValidCuit = isDocTypeCuit && documentNumber?.trim().length === 11;
 
             if (!hasValidCuit) {
                 throw new BadRequestException(

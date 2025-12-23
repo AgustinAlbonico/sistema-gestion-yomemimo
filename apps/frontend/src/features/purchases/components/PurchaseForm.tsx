@@ -99,13 +99,13 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
         name: 'items',
     });
 
-    // Queries
-    const { data: providers } = useQuery({
+    // Queries - prefetch para el cache
+    useQuery({
         queryKey: ['purchase-providers'],
         queryFn: purchasesApi.getProviders,
     });
 
-    const { data: suppliers } = useQuery({
+    useQuery({
         queryKey: ['suppliers-active'],
         queryFn: suppliersApi.getActive,
     });
@@ -166,7 +166,8 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
     const tax = form.watch('tax') || 0;
     const discount = form.watch('discount') || 0;
     const status = form.watch('status');
-    const supplierId = form.watch('supplierId');
+    // supplierId se usa internamente en el form
+    form.watch('supplierId');
 
     const subtotal = items.reduce((sum, item) => {
         return sum + (item.quantity || 0) * (item.unitPrice || 0);

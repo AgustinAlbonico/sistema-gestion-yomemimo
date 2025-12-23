@@ -71,8 +71,8 @@ export function CashHistoryDetailDialog({
                 {isLoading && (
                     <div className="space-y-4 py-4">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {[...Array(4)].map((_, i) => (
-                                <Skeleton key={i} className="h-20 w-full" />
+                            {Array.from({ length: 4 }, (_, i) => (
+                                <Skeleton key={`skeleton-${i}`} className="h-20 w-full" />
                             ))}
                         </div>
                         <Skeleton className="h-64 w-full" />

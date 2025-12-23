@@ -62,11 +62,11 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
             if (allowDecimals) {
                 // Permitir: dígitos, un punto decimal, y opcionalmente signo negativo
                 const negativePattern = allowNegative ? '-?' : '';
-                pattern = new RegExp(`^${negativePattern}\\d*\\.?\\d{0,${decimalPlaces}}$`);
+                pattern = new RegExp(String.raw`^${negativePattern}\d*\.?\d{0,${decimalPlaces}}$`);
             } else {
                 // Solo enteros
                 const negativePattern = allowNegative ? '-?' : '';
-                pattern = new RegExp(`^${negativePattern}\\d*$`);
+                pattern = new RegExp(String.raw`^${negativePattern}\d*$`);
             }
 
             // Validar el valor
@@ -86,10 +86,10 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
             let pattern: RegExp;
             if (allowDecimals) {
                 const negativePattern = allowNegative ? '-?' : '';
-                pattern = new RegExp(`^${negativePattern}\\d*\\.?\\d*$`);
+                pattern = new RegExp(String.raw`^${negativePattern}\d*\.?\d*$`);
             } else {
                 const negativePattern = allowNegative ? '-?' : '';
-                pattern = new RegExp(`^${negativePattern}\\d*$`);
+                pattern = new RegExp(String.raw`^${negativePattern}\d*$`);
             }
 
             if (!pattern.test(pastedText)) {

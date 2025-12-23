@@ -7,8 +7,8 @@ import {
     MaxLength,
     IsEmail,
     IsOptional,
-    Matches,
     IsBoolean,
+    ValidateIf,
 } from 'class-validator';
 
 // ==================== LOGIN ====================
@@ -54,10 +54,7 @@ export const RegisterSchema = z.object({
     email: z.string().email('Email inválido').optional().nullable(),
     password: z
         .string()
-        .min(8, 'La contraseña debe tener al menos 8 caracteres')
-        .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
-        .regex(/[a-z]/, 'Debe contener al menos una minúscula')
-        .regex(/[0-9]/, 'Debe contener al menos un número'),
+        .min(6, 'La contraseña debe tener al menos 6 caracteres'),
     firstName: z.string().min(1, 'El nombre es requerido').max(100),
     lastName: z.string().min(1, 'El apellido es requerido').max(100),
 });
@@ -73,15 +70,13 @@ export class RegisterDto implements RegisterDTO {
 
     @ApiProperty({ example: 'user@example.com', required: false })
     @IsOptional()
+    @ValidateIf((o) => o.email !== '' && o.email !== null && o.email !== undefined)
     @IsEmail({}, { message: 'Email inválido' })
     email?: string | null;
 
     @ApiProperty({ example: 'Password123' })
     @IsString()
-    @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-    @Matches(/[A-Z]/, { message: 'Debe contener al menos una mayúscula' })
-    @Matches(/[a-z]/, { message: 'Debe contener al menos una minúscula' })
-    @Matches(/[0-9]/, { message: 'Debe contener al menos un número' })
+    @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
     password!: string;
 
     @ApiProperty({ example: 'Juan' })
@@ -116,10 +111,7 @@ export const ChangePasswordSchema = z.object({
     currentPassword: z.string().min(1, 'La contraseña actual es requerida'),
     newPassword: z
         .string()
-        .min(8, 'La contraseña debe tener al menos 8 caracteres')
-        .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
-        .regex(/[a-z]/, 'Debe contener al menos una minúscula')
-        .regex(/[0-9]/, 'Debe contener al menos un número'),
+        .min(6, 'La contraseña debe tener al menos 6 caracteres'),
 });
 
 export type ChangePasswordDTO = z.infer<typeof ChangePasswordSchema>;
@@ -132,10 +124,7 @@ export class ChangePasswordDto implements ChangePasswordDTO {
 
     @ApiProperty()
     @IsString()
-    @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-    @Matches(/[A-Z]/, { message: 'Debe contener al menos una mayúscula' })
-    @Matches(/[a-z]/, { message: 'Debe contener al menos una minúscula' })
-    @Matches(/[0-9]/, { message: 'Debe contener al menos un número' })
+    @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
     newPassword!: string;
 }
 
@@ -150,10 +139,7 @@ export const CreateUserSchema = z.object({
     email: z.string().email().optional().nullable(),
     password: z
         .string()
-        .min(8, 'La contraseña debe tener al menos 8 caracteres')
-        .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
-        .regex(/[a-z]/, 'Debe contener al menos una minúscula')
-        .regex(/[0-9]/, 'Debe contener al menos un número'),
+        .min(6, 'La contraseña debe tener al menos 6 caracteres'),
     firstName: z.string().min(1, 'El nombre es requerido').max(100),
     lastName: z.string().min(1, 'El apellido es requerido').max(100),
     isActive: z.boolean().default(true),
@@ -170,15 +156,13 @@ export class CreateUserDto implements CreateUserDTO {
 
     @ApiProperty({ example: 'user@example.com', required: false })
     @IsOptional()
+    @ValidateIf((o) => o.email !== '' && o.email !== null && o.email !== undefined)
     @IsEmail()
     email?: string | null;
 
     @ApiProperty({ example: 'Password123' })
     @IsString()
-    @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-    @Matches(/[A-Z]/, { message: 'Debe contener al menos una mayúscula' })
-    @Matches(/[a-z]/, { message: 'Debe contener al menos una minúscula' })
-    @Matches(/[0-9]/, { message: 'Debe contener al menos un número' })
+    @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
     password!: string;
 
     @ApiProperty({ example: 'Juan' })
@@ -200,7 +184,9 @@ export class CreateUserDto implements CreateUserDTO {
 }
 
 // ==================== UPDATE USER ====================
-export const UpdateUserSchema = CreateUserSchema.partial().omit({ password: true });
+export const UpdateUserSchema = CreateUserSchema.partial().extend({
+    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').optional(),
+});
 
 export type UpdateUserDTO = z.infer<typeof UpdateUserSchema>;
 
@@ -214,8 +200,16 @@ export class UpdateUserDto {
 
     @ApiProperty({ example: 'user@example.com', required: false })
     @IsOptional()
+    @ValidateIf((o) => o.email !== '' && o.email !== null && o.email !== undefined)
     @IsEmail()
     email?: string | null;
+
+    @ApiProperty({ example: 'NewPassword123', required: false })
+    @IsOptional()
+    @ValidateIf((o) => o.password !== '' && o.password !== null && o.password !== undefined)
+    @IsString()
+    @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
+    password?: string;
 
     @ApiProperty({ example: 'Juan', required: false })
     @IsOptional()
@@ -259,6 +253,7 @@ export class UpdateProfileDto implements UpdateProfileDTO {
 
     @ApiProperty({ required: false })
     @IsOptional()
+    @ValidateIf((o) => o.email !== '' && o.email !== null && o.email !== undefined)
     @IsEmail()
     email?: string | null;
 }

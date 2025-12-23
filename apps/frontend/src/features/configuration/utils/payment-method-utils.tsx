@@ -4,7 +4,6 @@ import {
     Landmark,
     QrCode,
     FileCheck,
-    Wallet,
     MoreHorizontal
 } from 'lucide-react';
 

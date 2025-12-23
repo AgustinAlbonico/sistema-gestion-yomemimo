@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     useShortcutsStore,
@@ -45,6 +45,83 @@ export function useKeyboardShortcuts(): void {
         isSearchOpen
     } = useShortcutsStore();
 
+    /**
+     * Verifica si el elemento activo es un input
+     */
+    const isInputElement = useCallback((target: EventTarget | null): boolean => {
+        if (!target) return false;
+        const element = target as HTMLElement;
+        return (
+            element.tagName === 'INPUT' ||
+            element.tagName === 'TEXTAREA' ||
+            element.isContentEditable
+        );
+    }, []);
+
+    /**
+     * Maneja la tecla Escape para cerrar modales
+     */
+    const handleEscapeKey = useCallback((event: KeyboardEvent): boolean => {
+        if (event.key !== 'Escape') return false;
+
+        if (isSearchOpen) {
+            event.preventDefault();
+            closeSearch();
+            return true;
+        }
+        if (activeShortcut) {
+            event.preventDefault();
+            clearShortcut();
+            return true;
+        }
+        return true; // Escape manejado (dejar que cierre otros modales)
+    }, [isSearchOpen, activeShortcut, closeSearch, clearShortcut]);
+
+    /**
+     * Maneja Ctrl+B para búsqueda rápida
+     */
+    const handleSearchShortcut = useCallback((event: KeyboardEvent): boolean => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
+            event.preventDefault();
+            toggleSearch();
+            return true;
+        }
+        return false;
+    }, [toggleSearch]);
+
+    /**
+     * Maneja teclas de función F1-F11
+     */
+    const handleFunctionKey = useCallback((event: KeyboardEvent): boolean => {
+        const shortcutAction = SHORTCUT_MAP[event.key] as ShortcutAction | undefined;
+        if (!shortcutAction) return false;
+
+        event.preventDefault();
+
+        const targetRoute = ACTION_ROUTES[shortcutAction];
+        const isModalAction = MODAL_ACTIONS.includes(shortcutAction);
+
+        // Si ya estamos en la ruta correcta
+        if (targetRoute && location.pathname === targetRoute) {
+            if (isModalAction) {
+                triggerShortcut(shortcutAction);
+            }
+            return true;
+        }
+
+        // Navegar a la ruta si es necesario
+        if (targetRoute) {
+            navigate(targetRoute);
+
+            // Disparar modal después de navegar
+            if (isModalAction) {
+                setTimeout(() => triggerShortcut(shortcutAction), 100);
+            }
+        }
+
+        return true;
+    }, [location.pathname, navigate, triggerShortcut]);
+
     useEffect(() => {
         // No activar atajos si no está autenticado o está en login
         if (!isAuthenticated || location.pathname === '/login') {
@@ -52,95 +129,28 @@ export function useKeyboardShortcuts(): void {
         }
 
         const handleKeyDown = (event: KeyboardEvent) => {
-            // No procesar si hay un input/textarea enfocado (excepto para Escape)
-            const target = event.target as HTMLElement;
-            const isInputFocused =
-                target.tagName === 'INPUT' ||
-                target.tagName === 'TEXTAREA' ||
-                target.isContentEditable;
-
-            // Escape siempre funciona para cerrar modales
-            if (event.key === 'Escape') {
-                if (isSearchOpen) {
-                    event.preventDefault();
-                    closeSearch();
-                    return;
-                }
-                if (activeShortcut) {
-                    event.preventDefault();
-                    clearShortcut();
-                    return;
-                }
-                // Dejar que Escape cierre otros modales normalmente
-                return;
-            }
+            // Escape siempre funciona
+            if (handleEscapeKey(event)) return;
 
             // No procesar otros atajos si hay input enfocado
-            if (isInputFocused) {
-                return;
-            }
+            if (isInputElement(event.target)) return;
 
-            // Ctrl+B o Cmd+B para búsqueda rápida
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
-                event.preventDefault();
-                toggleSearch();
-                return;
-            }
+            // Búsqueda rápida
+            if (handleSearchShortcut(event)) return;
 
-            // Procesar teclas F1-F11
-            const shortcutAction = SHORTCUT_MAP[event.key] as ShortcutAction | undefined;
-
-            if (shortcutAction) {
-                event.preventDefault();
-
-                // Obtener la ruta asociada a esta acción
-                const targetRoute = ACTION_ROUTES[shortcutAction];
-                const currentPath = location.pathname;
-                const isModalAction = MODAL_ACTIONS.includes(shortcutAction);
-
-                // Si ya estamos en la ruta correcta
-                if (targetRoute && currentPath === targetRoute) {
-                    // Si es acción de modal, disparar el shortcut inmediatamente
-                    if (isModalAction) {
-                        triggerShortcut(shortcutAction);
-                    }
-                    // Si solo es navegación, ya estamos ahí, no hacer nada
-                    return;
-                }
-
-                // Si necesitamos navegar a otra ruta
-                if (targetRoute) {
-                    // Navegar primero
-                    navigate(targetRoute);
-
-                    // Si es acción de modal, disparar el shortcut después de un pequeño delay
-                    // para dar tiempo a que la página se monte
-                    if (isModalAction) {
-                        setTimeout(() => {
-                            triggerShortcut(shortcutAction);
-                        }, 100);
-                    }
-                }
-            }
+            // Teclas de función
+            handleFunctionKey(event);
         };
 
-        // Agregar listener
-        window.addEventListener('keydown', handleKeyDown);
-
-        // Cleanup
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
+        globalThis.addEventListener('keydown', handleKeyDown);
+        return () => globalThis.removeEventListener('keydown', handleKeyDown);
     }, [
         isAuthenticated,
         location.pathname,
-        triggerShortcut,
-        clearShortcut,
-        toggleSearch,
-        closeSearch,
-        navigate,
-        activeShortcut,
-        isSearchOpen,
+        handleEscapeKey,
+        handleSearchShortcut,
+        handleFunctionKey,
+        isInputElement,
     ]);
 }
 
@@ -164,4 +174,3 @@ export function useShortcutAction(
         }
     }, [activeShortcut, shortcut, callback, clearShortcut]);
 }
-

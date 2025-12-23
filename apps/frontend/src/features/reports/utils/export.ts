@@ -230,7 +230,7 @@ function downloadCSV(rows: (string | number)[][], filename: string): void {
         row.map(cell => {
             const cellStr = String(cell);
             if (cellStr.includes(',') || cellStr.includes('\n') || cellStr.includes('"')) {
-                return `"${cellStr.replace(/"/g, '""')}"`;
+                return `"${cellStr.replaceAll('"', '""')}"`;
             }
             return cellStr;
         }).join(',')
@@ -253,5 +253,5 @@ function downloadCSV(rows: (string | number)[][], filename: string): void {
  * Imprime el reporte actual (versión simple para PDF)
  */
 export function printReport(): void {
-    window.print();
+    globalThis.print();
 }

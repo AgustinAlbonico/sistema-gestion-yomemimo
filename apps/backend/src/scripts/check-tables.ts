@@ -1,3 +1,6 @@
+/**
+ * Script para verificar el estado de las tablas de cuentas corrientes
+ */
 import 'reflect-metadata';
 import { config } from 'dotenv';
 import { DataSource } from 'typeorm';

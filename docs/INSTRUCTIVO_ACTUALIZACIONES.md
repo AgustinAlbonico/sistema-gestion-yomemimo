@@ -18,7 +18,7 @@ Modifica la versión en los siguientes archivos:
 Ejecuta el script de construcción desde la terminal en la carpeta raíz:
 
 ```powershell
-npm run desktop:build
+pnpm desktop:build
 ```
 
 Esto generará los archivos de instalación en:

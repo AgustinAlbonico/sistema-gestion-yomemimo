@@ -2,9 +2,10 @@
  * Página de gestión de usuarios del sistema
  * CRUD completo con desactivación (no eliminación)
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/axios';
+import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -66,7 +67,7 @@ interface User {
 
 interface CreateUserFormData {
     username: string;
-    email: string;
+    email?: string;
     password: string;
     firstName: string;
     lastName: string;
@@ -75,6 +76,7 @@ interface CreateUserFormData {
 interface UpdateUserFormData {
     username?: string;
     email?: string;
+    password?: string;
     firstName?: string;
     lastName?: string;
 }
@@ -105,12 +107,12 @@ function UserFormDialog({
     onClose,
     user,
     onSuccess,
-}: {
+}: Readonly<{
     open: boolean;
     onClose: () => void;
     user: User | null;
     onSuccess: () => void;
-}) {
+}>) {
     const [formData, setFormData] = useState<CreateUserFormData>({
         username: '',
         email: '',
@@ -122,7 +124,7 @@ function UserFormDialog({
     const queryClient = useQueryClient();
 
     // Resetear form cuando cambia el usuario
-    useState(() => {
+    useEffect(() => {
         if (user) {
             setFormData({
                 username: user.username,
@@ -141,7 +143,7 @@ function UserFormDialog({
             });
         }
         setErrors({});
-    });
+    }, [user, open]);
 
     const createMutation = useMutation({
         mutationFn: usersApi.create,
@@ -191,16 +193,11 @@ function UserFormDialog({
             newErrors.lastName = 'El apellido es requerido';
         }
 
+        // Para usuarios nuevos, password es requerido
         if (!user && !formData.password) {
             newErrors.password = 'La contraseña es requerida';
-        } else if (!user && formData.password.length < 8) {
-            newErrors.password = 'Mínimo 8 caracteres';
-        } else if (!user && !/[A-Z]/.test(formData.password)) {
-            newErrors.password = 'Debe contener al menos una mayúscula';
-        } else if (!user && !/[a-z]/.test(formData.password)) {
-            newErrors.password = 'Debe contener al menos una minúscula';
-        } else if (!user && !/[0-9]/.test(formData.password)) {
-            newErrors.password = 'Debe contener al menos un número';
+        } else if (formData.password && formData.password.length < 6) {
+            newErrors.password = 'Mínimo 6 caracteres';
         }
 
         if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -223,12 +220,16 @@ function UserFormDialog({
                 lastName: formData.lastName,
                 email: formData.email || undefined,
             };
+            // Solo enviar password si se escribió uno nuevo
+            if (formData.password) {
+                updateData.password = formData.password;
+            }
             updateMutation.mutate({ id: user.id, data: updateData });
         } else {
             // Crear
             createMutation.mutate({
                 ...formData,
-                email: formData.email || '',
+                email: formData.email || undefined,
             });
         }
     };
@@ -326,29 +327,27 @@ function UserFormDialog({
                         )}
                     </div>
 
-                    {!user && (
-                        <div className="space-y-2">
-                            <Label htmlFor="password">
-                                <Key className="inline h-3 w-3 mr-1" />
-                                Contraseña *
-                            </Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                value={formData.password}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, password: e.target.value })
-                                }
-                                placeholder="••••••••"
-                            />
-                            {errors.password && (
-                                <p className="text-xs text-destructive">{errors.password}</p>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                                Mínimo 8 caracteres, con mayúscula, minúscula y número
-                            </p>
-                        </div>
-                    )}
+                    <div className="space-y-2">
+                        <Label htmlFor="password">
+                            <Key className="inline h-3 w-3 mr-1" />
+                            Contraseña {!user && '*'}
+                        </Label>
+                        <Input
+                            id="password"
+                            type="password"
+                            value={formData.password}
+                            onChange={(e) =>
+                                setFormData({ ...formData, password: e.target.value })
+                            }
+                            placeholder={user ? 'Dejar en blanco para mantener' : '••••••••'}
+                        />
+                        {errors.password && (
+                            <p className="text-xs text-destructive">{errors.password}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                            Mínimo 6 caracteres
+                        </p>
+                    </div>
 
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>
@@ -371,6 +370,7 @@ export default function UsersManagementPage() {
     const [toggleUser, setToggleUser] = useState<User | null>(null);
 
     const queryClient = useQueryClient();
+    const currentUser = useAuthStore((state) => state.user);
 
     // Obtener usuarios
     const { data: users, isLoading } = useQuery({
@@ -390,8 +390,10 @@ export default function UsersManagementPage() {
             );
             setToggleUser(null);
         },
-        onError: () => {
-            toast.error('Error al cambiar el estado del usuario');
+        onError: (error: unknown) => {
+            const axiosError = error as { response?: { data?: { message?: string } } };
+            const message = axiosError.response?.data?.message || 'Error al cambiar el estado del usuario';
+            toast.error(message);
         },
     });
 
@@ -480,7 +482,7 @@ export default function UsersManagementPage() {
                                 </TableRow>
                             )}
                             {users?.map((user) => (
-                                <TableRow key={user.id} className={!user.isActive ? 'opacity-50 bg-muted/20' : 'hover:bg-muted/30'}>
+                                <TableRow key={user.id} className={user.isActive ? 'hover:bg-muted/30' : 'opacity-50 bg-muted/20'}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-3">
                                             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-500/20 to-purple-600/10 flex items-center justify-center text-purple-700 dark:text-purple-300 text-sm font-semibold">
@@ -531,11 +533,21 @@ export default function UsersManagementPage() {
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={() => setToggleUser(user)}
-                                                title={user.isActive ? 'Desactivar' : 'Activar'}
-                                                className={`h-8 w-8 ${user.isActive
-                                                    ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-950'
-                                                    : 'text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-950'
-                                                    }`}
+                                                disabled={user.id === currentUser?.id && user.isActive}
+                                                title={
+                                                    user.id === currentUser?.id && user.isActive
+                                                        ? 'No puedes desactivar tu propia cuenta'
+                                                        : user.isActive 
+                                                            ? 'Desactivar' 
+                                                            : 'Activar'
+                                                }
+                                                className={`h-8 w-8 ${
+                                                    user.id === currentUser?.id && user.isActive
+                                                        ? 'text-muted-foreground cursor-not-allowed opacity-50'
+                                                        : user.isActive
+                                                            ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-950'
+                                                            : 'text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-950'
+                                                }`}
                                             >
                                                 {user.isActive ? (
                                                     <ShieldOff className="h-4 w-4" />

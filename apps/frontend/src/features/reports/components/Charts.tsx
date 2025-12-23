@@ -39,12 +39,12 @@ const COLORS = [
 
 // Tooltip personalizado
 const CustomTooltip = ({ active, payload, label, formatter }: any) => {
-    if (active && payload && payload.length) {
+    if (active && payload?.length) {
         return (
             <div className="bg-popover border rounded-lg shadow-lg p-3 text-sm">
                 {label && <p className="font-medium mb-1">{label}</p>}
                 {payload.map((entry: any, index: number) => (
-                    <p key={index} style={{ color: entry.color }} className="flex items-center gap-2">
+                    <p key={`tooltip-${entry.name}-${index}`} style={{ color: entry.color }} className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
                         {entry.name}: {formatter ? formatter(entry.value) : entry.value}
                     </p>

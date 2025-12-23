@@ -163,6 +163,91 @@ export interface WSFEAuthResponse {
     observations?: string[];
 }
 
+// ============================================
+// Helpers para parseo de respuesta WSFE
+// ============================================
+
+/** Convierte valor a array (útil para respuestas XML que pueden ser objeto o array) */
+function toArray<T>(value: T | T[] | undefined | null): T[] {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+}
+
+/** Extrae mensajes de error de la respuesta */
+function extractErrors(response: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+    const errList = toArray<{ Msg?: string }>(response.Errors?.Err as { Msg?: string }[] | { Msg?: string } | undefined);
+    for (const err of errList) {
+        if (err?.Msg) errors.push(err.Msg);
+    }
+    return errors;
+}
+
+/** Extrae observaciones del detalle del comprobante */
+function extractObservations(detResponse: Record<string, unknown>): string[] {
+    const observations: string[] = [];
+    const obsList = toArray<{ Code?: string; Msg?: string }>(
+        detResponse.Observaciones?.Obs as { Code?: string; Msg?: string }[] | undefined
+    );
+    for (const obs of obsList) {
+        if (!obs?.Msg) continue;
+        const codePrefix = obs.Code ? `[${obs.Code}] ` : '';
+        observations.push(`${codePrefix}${obs.Msg}`);
+    }
+    return observations;
+}
+
+/** Extrae errores del detalle del comprobante */
+function extractDetailErrors(detResponse: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+    const errList = toArray<{ Code?: string; Msg?: string }>(
+        detResponse.Errores?.Err as { Code?: string; Msg?: string }[] | undefined
+    );
+    for (const err of errList) {
+        if (!err?.Msg) continue;
+        const codePrefix = err.Code ? `[${err.Code}] ` : '';
+        errors.push(`${codePrefix}${err.Msg}`);
+    }
+    return errors;
+}
+
+/** Construye respuesta de éxito */
+function buildSuccessResponse(
+    detResponse: Record<string, unknown>,
+    observations: string[]
+): WSFEAuthResponse {
+    return {
+        success: true,
+        cae: detResponse.CAE as string,
+        caeExpirationDate: detResponse.CAEFchVto as string,
+        invoiceNumber: Number.parseInt(detResponse.CbteDesde as string, 10),
+        observations: observations.length > 0 ? observations : undefined,
+    };
+}
+
+/** Construye respuesta de error */
+function buildErrorResponse(
+    resultado: string,
+    errors: string[],
+    observations: string[]
+): WSFEAuthResponse {
+    const finalErrors = [...errors];
+
+    // Si no hay errores específicos, usar observaciones o dar contexto
+    if (finalErrors.length === 0 && observations.length > 0) {
+        finalErrors.push(`Rechazado (${resultado}): ${observations.join('; ')}`);
+    }
+    if (finalErrors.length === 0) {
+        finalErrors.push(`Comprobante rechazado por AFIP (Resultado: ${resultado})`);
+    }
+
+    return {
+        success: false,
+        errors: finalErrors,
+        observations: observations.length > 0 ? observations : undefined,
+    };
+}
+
 /**
  * Parsea respuesta de FECAESolicitar
  */
@@ -176,22 +261,11 @@ export async function parseFECAEResponse(xml: string): Promise<WSFEAuthResponse>
             throw new Error('Respuesta WSFE inválida: no se encontró FECAESolicitarResult');
         }
 
-        const errors: string[] = [];
-        const observations: string[] = [];
+        // Extraer errores generales
+        const errors = extractErrors(response);
 
-        const toArray = <T>(value: T | T[] | undefined | null): T[] => {
-            if (!value) return [];
-            return Array.isArray(value) ? value : [value];
-        };
-
-        // Errores generales
-        for (const err of toArray<{ Msg?: string }>(response.Errors?.Err)) {
-            if (err?.Msg) errors.push(err.Msg);
-        }
-
-        // Detalle del comprobante
+        // Obtener detalle del comprobante
         const detResponse = response.FeDetResp?.FECAEDetResponse;
-
         if (!detResponse) {
             return {
                 success: false,
@@ -199,49 +273,19 @@ export async function parseFECAEResponse(xml: string): Promise<WSFEAuthResponse>
             };
         }
 
+        // Extraer observaciones y errores del detalle
+        const observations = extractObservations(detResponse);
+        const detailErrors = extractDetailErrors(detResponse);
+        errors.push(...detailErrors);
+
         // Resultado: A=Aprobado, R=Rechazado, P=Parcial
         const resultado = detResponse.Resultado;
 
-        // Observaciones
-        for (const obs of toArray<{ Code?: string; Msg?: string }>(detResponse.Observaciones?.Obs)) {
-            const msg = obs?.Msg;
-            if (!msg) continue;
-            const codePrefix = obs?.Code ? `[${obs.Code}] ` : '';
-            observations.push(`${codePrefix}${msg}`);
-        }
-
-        // Errores del detalle del comprobante
-        for (const err of toArray<{ Code?: string; Msg?: string }>(detResponse.Errores?.Err)) {
-            const msg = err?.Msg;
-            if (!msg) continue;
-            const codePrefix = err?.Code ? `[${err.Code}] ` : '';
-            errors.push(`${codePrefix}${msg}`);
-        }
-
         if (resultado === 'A') {
-            return {
-                success: true,
-                cae: detResponse.CAE,
-                caeExpirationDate: detResponse.CAEFchVto,
-                invoiceNumber: Number.parseInt(detResponse.CbteDesde, 10),
-                observations: observations.length > 0 ? observations : undefined,
-            };
+            return buildSuccessResponse(detResponse, observations);
         }
 
-        // Si no hay errores específicos, usar observaciones o dar contexto
-        if (errors.length === 0 && observations.length > 0) {
-            errors.push(`Rechazado (${resultado}): ${observations.join('; ')}`);
-        }
-        if (errors.length === 0) {
-            errors.push(`Comprobante rechazado por AFIP (Resultado: ${resultado})`);
-        }
-
-        return {
-            success: false,
-            errors,
-            observations: observations.length > 0 ? observations : undefined,
-        };
-
+        return buildErrorResponse(resultado, errors, observations);
     } catch (error) {
         throw new Error(`Error al parsear respuesta WSFE: ${(error as Error).message}`);
     }

@@ -167,7 +167,7 @@ export function PaymentDialog({
             setSelectedSales([]);
             setSelectedIncomes([]);
             onOpenChange(false);
-        } catch (error) {
+        } catch {
             // Error ya manejado por el hook de createPayment
         } finally {
             setIsMarkingTransactions(false);

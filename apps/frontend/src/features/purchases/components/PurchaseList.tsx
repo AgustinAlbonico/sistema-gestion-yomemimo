@@ -29,6 +29,7 @@ import {
     PurchaseStatusColors,
 } from '../types';
 import { formatDateForDisplay } from '@/lib/date-utils';
+import { formatCurrency } from '@/lib/utils';
 
 interface PurchaseListProps {
     readonly filters: PurchaseFilters;
@@ -36,16 +37,6 @@ interface PurchaseListProps {
     readonly onEdit?: (purchase: Purchase) => void;
     readonly onDelete?: (id: string) => void;
     readonly onPay?: (purchase: Purchase) => void;
-}
-
-/**
- * Formatea un número como moneda ARS
- */
-function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-    }).format(value);
 }
 
 export function PurchaseList({
@@ -63,8 +54,8 @@ export function PurchaseList({
     if (isLoading) {
         return (
             <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-16 bg-muted animate-pulse rounded" />
+                {Array.from({ length: 5 }, (_, i) => (
+                    <div key={`skeleton-${i}`} className="h-16 bg-muted animate-pulse rounded" />
                 ))}
             </div>
         );
@@ -201,7 +192,7 @@ export function PurchaseList({
 }
 
 // Icono placeholder
-function ShoppingCartIcon({ className }: { className?: string }) {
+function ShoppingCartIcon({ className }: Readonly<{ className?: string }>) {
     return (
         <svg
             className={className}

@@ -1,10 +1,10 @@
 /**
  * Servicio de generación de PDFs para facturas
- * Utiliza Puppeteer para renderizar HTML a PDF
+ * Utiliza el servidor HTTP de Electron (printToPDF)
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as puppeteer from 'puppeteer';
+import * as http from 'node:http';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as Handlebars from 'handlebars';
@@ -186,7 +186,7 @@ export class PdfGeneratorService {
         // Renderizar HTML
         const html = template(renderData);
 
-        // Generar PDF con Puppeteer
+        // Generar PDF
         return this.htmlToPdf(html);
     }
 
@@ -281,37 +281,66 @@ export class PdfGeneratorService {
     }
 
     /**
-     * Convierte HTML a PDF usando Puppeteer
+     * Convierte HTML a PDF usando el servidor HTTP de Electron
+     * El servidor corre en localhost:3001 y usa printToPDF internamente
      */
     private async htmlToPdf(html: string): Promise<Buffer> {
-        let browser: puppeteer.Browser | null = null;
+        const PDF_SERVER_PORT = process.env.PDF_SERVER_PORT || '3001';
+        const PDF_SERVER_HOST = process.env.PDF_SERVER_HOST || '127.0.0.1';
 
-        try {
-            browser = await puppeteer.launch({
-                headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox'],
-            });
+        return new Promise((resolve, reject) => {
+            const postData = JSON.stringify({ html });
 
-            const page = await browser.newPage();
-            await page.setContent(html, { waitUntil: 'networkidle0' });
-
-            const pdfBuffer = await page.pdf({
-                format: 'A4',
-                printBackground: true,
-                margin: {
-                    top: '20px',
-                    right: '20px',
-                    bottom: '20px',
-                    left: '20px',
+            const options: http.RequestOptions = {
+                hostname: PDF_SERVER_HOST,
+                port: Number.parseInt(PDF_SERVER_PORT, 10),
+                path: '/pdf/generate',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(postData),
                 },
+            };
+
+            const req = http.request(options, (res) => {
+                const chunks: Buffer[] = [];
+
+                res.on('data', (chunk: Buffer) => {
+                    chunks.push(chunk);
+                });
+
+                res.on('end', () => {
+                    const buffer = Buffer.concat(chunks);
+
+                    if (res.statusCode !== 200) {
+                        // Intentar parsear error
+                        try {
+                            const error = JSON.parse(buffer.toString());
+                            reject(new Error(`PDF Server error: ${error.error || 'Unknown error'}`));
+                        } catch {
+                            reject(new Error(`PDF Server error: HTTP ${res.statusCode}`));
+                        }
+                        return;
+                    }
+
+                    resolve(buffer);
+                });
             });
 
-            return Buffer.from(pdfBuffer);
-        } finally {
-            if (browser) {
-                await browser.close();
-            }
-        }
+            req.on('error', (error) => {
+                this.logger.error('Error connecting to PDF server:', error);
+                reject(new Error(`Cannot connect to PDF server at ${PDF_SERVER_HOST}:${PDF_SERVER_PORT}. Is Electron running?`));
+            });
+
+            // Timeout de 30 segundos
+            req.setTimeout(30000, () => {
+                req.destroy();
+                reject(new Error('PDF generation timeout'));
+            });
+
+            req.write(postData);
+            req.end();
+        });
     }
 
     /**
@@ -433,15 +462,7 @@ export class PdfGeneratorService {
         return amount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    /**
-     * Formatea método de pago como fallback
-     */
-    private formatPaymentMethod(method: string): string {
-        // Convertir snake_case a texto legible
-        return method
-            .replaceAll('_', ' ')
-            .replaceAll(/\b\w/g, l => l.toUpperCase());
-    }
+
 
     /**
      * Genera el PDF de una nota de venta (no fiscal)
@@ -493,7 +514,7 @@ export class PdfGeneratorService {
         // Renderizar HTML
         const html = this.templateNotaVenta(renderData);
 
-        // Generar PDF con Puppeteer
+        // Generar PDF
         return this.htmlToPdf(html);
     }
 

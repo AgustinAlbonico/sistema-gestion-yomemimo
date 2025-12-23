@@ -87,7 +87,7 @@ export function CommandPalette() {
                         {Object.entries(SHORTCUT_MAP).map(([key, action]) => {
                             if (!action) return null;
                             const Icon = ACTION_ICONS[action] || LayoutDashboard;
-                            const label = SHORTCUT_LABELS[action as keyof typeof SHORTCUT_LABELS];
+                            const label = SHORTCUT_LABELS[action];
 
                             return (
                                 <CommandItem

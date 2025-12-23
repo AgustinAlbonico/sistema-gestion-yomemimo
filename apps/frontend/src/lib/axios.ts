@@ -1,12 +1,5 @@
 import axios from 'axios';
-
-/**
- * Detecta si la aplicación está corriendo dentro de Electron
- */
-function isElectron(): boolean {
-    return typeof window !== 'undefined' &&
-        (window as { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron === true;
-}
+import { isElectron } from './utils';
 
 /**
  * Obtiene la URL base del API según el entorno
@@ -16,12 +9,12 @@ function isElectron(): boolean {
 function getApiBaseUrl(): string {
     // En Electron, obtener URL dinámica (puede ser localhost o remota si es cliente)
     if (isElectron()) {
-        const electronApi = (window as any).electronAPI;
+        const electronApi = (globalThis as unknown as { electronAPI?: { apiUrl?: string } }).electronAPI;
         return electronApi?.apiUrl || 'http://localhost:3000';
     }
 
     // En web, usar variable de entorno o hostname dinámico
-    return import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3000`;
+    return import.meta.env.VITE_API_URL || `http://${globalThis.location.hostname}:3000`;
 }
 
 const API_URL = getApiBaseUrl();
@@ -44,7 +37,7 @@ api.interceptors.request.use(
         return config;
     },
     (error) => {
-        return Promise.reject(error);
+        throw error;
     }
 );
 
@@ -69,8 +62,8 @@ api.interceptors.response.use(
                     // No hay refresh token, redirigir a login
                     localStorage.removeItem('accessToken');
                     localStorage.removeItem('refreshToken');
-                    window.location.href = '#/login';
-                    return Promise.reject(error);
+                    globalThis.location.href = '#/login';
+                    throw error;
                 }
 
                 // Intentar refrescar el token
@@ -91,12 +84,12 @@ api.interceptors.response.use(
                 // Refresh token expirado o inválido
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
-                window.location.href = '#/login';
-                return Promise.reject(refreshError);
+                globalThis.location.href = '#/login';
+                throw refreshError;
             }
         }
 
-        return Promise.reject(error);
+        throw error;
     }
 );
 

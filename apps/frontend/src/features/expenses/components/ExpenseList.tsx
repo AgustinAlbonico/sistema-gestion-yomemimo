@@ -56,11 +56,11 @@ function ExpenseDetailDialog({
     expense,
     open,
     onClose,
-}: {
+}: Readonly<{
     expense: Expense | null;
     open: boolean;
     onClose: () => void;
-}) {
+}>) {
     if (!expense) return null;
 
     const formatDateDisplay = (dateStr: string) => {

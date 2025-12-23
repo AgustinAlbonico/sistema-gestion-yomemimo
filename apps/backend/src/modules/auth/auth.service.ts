@@ -16,12 +16,12 @@ import { LoginAudit } from './entities/login-audit.entity';
 @Injectable()
 export class AuthService {
     constructor(
-        private usersService: UsersService,
-        private tokensService: TokensService,
-        private jwtService: JwtService,
-        private configService: ConfigService,
+        private readonly usersService: UsersService,
+        private readonly tokensService: TokensService,
+        private readonly jwtService: JwtService,
+        private readonly configService: ConfigService,
         @InjectRepository(LoginAudit)
-        private loginAuditRepository: Repository<LoginAudit>,
+        private readonly loginAuditRepository: Repository<LoginAudit>,
     ) { }
 
     async validateUser(username: string, password: string) {
@@ -115,7 +115,7 @@ export class AuthService {
 
         const user = await this.usersService.findOne(storedToken.userId);
 
-        if (!user || !user.isActive) {
+        if (!user?.isActive) {
             throw new UnauthorizedException('Usuario no válido');
         }
 

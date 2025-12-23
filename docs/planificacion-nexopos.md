@@ -140,7 +140,7 @@ function useBarcodeScanner(onScan: (barcode: string) => void) {
 
 **Librería recomendada (ya investigada):**
 ```bash
-npm install node-thermal-printer
+pnpm add node-thermal-printer
 ```
 
 **Implementación:**

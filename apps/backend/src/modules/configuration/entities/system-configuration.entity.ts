@@ -8,7 +8,7 @@ export class SystemConfiguration {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
 
-    @Column('decimal', { precision: 5, scale: 2, default: 30.00 })
+    @Column('decimal', { precision: 5, scale: 2, default: 30 })
     defaultProfitMargin!: number;
 
     @Column('int', { default: 5 })

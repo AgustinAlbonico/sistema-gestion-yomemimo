@@ -6,10 +6,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import * as fs from 'fs';
-import * as path from 'path';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Backup, BackupStatus } from './entities/backup.entity';
 import { CreateBackupDto } from './dto/create-backup.dto';
 
@@ -124,9 +124,9 @@ export class BackupService {
      * Crea un nuevo backup de la base de datos
      */
     async create(dto: CreateBackupDto, username?: string): Promise<Backup> {
-        const timestamp = dto.includeTimestamp !== false
-            ? `_${new Date().toISOString().replaceAll(/[:.]/g, '-').slice(0, 19)}`
-            : '';
+        const timestamp = dto.includeTimestamp === false
+            ? ''
+            : `_${new Date().toISOString().replaceAll(/[:.]/g, '-').slice(0, 19)}`;
 
         // Formato custom comprimido (.backup) - más eficiente que SQL plano
         const filename = `backup${timestamp}.backup`;
@@ -270,10 +270,10 @@ export class BackupService {
      */
     private findPgDumpLocal(): string {
         const pgDumpLocations = [
-            'C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe',
-            'C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe',
-            'C:\\Program Files\\PostgreSQL\\14\\bin\\pg_dump.exe',
-            'C:\\Program Files\\PostgreSQL\\13\\bin\\pg_dump.exe',
+            String.raw`C:\Program Files\PostgreSQL\16\bin\pg_dump.exe`,
+            String.raw`C:\Program Files\PostgreSQL\15\bin\pg_dump.exe`,
+            String.raw`C:\Program Files\PostgreSQL\14\bin\pg_dump.exe`,
+            String.raw`C:\Program Files\PostgreSQL\13\bin\pg_dump.exe`,
         ];
 
         for (const location of pgDumpLocations) {
@@ -306,14 +306,19 @@ export class BackupService {
             for (const disk of disks) {
                 if (disk.DeviceID && disk.Size > 0) {
                     // DriveType: 2 = Removable, 3 = Local, 4 = Network, 5 = CD
-                    const driveType = disk.DriveType === 2 ? 'Removable Disk' :
-                        disk.DriveType === 3 ? 'Local Disk' :
-                            disk.DriveType === 4 ? 'Network Drive' : 'Disk';
+                    const getDriveType = (type: number): string => {
+                        switch (type) {
+                            case 2: return 'Removable Disk';
+                            case 3: return 'Local Disk';
+                            case 4: return 'Network Drive';
+                            default: return 'Disk';
+                        }
+                    };
 
                     drives.push({
                         letter: disk.DeviceID,
                         label: disk.VolumeName || disk.DeviceID,
-                        type: driveType,
+                        type: getDriveType(disk.DriveType),
                         freeSpace: disk.FreeSpace || 0,
                         totalSpace: disk.Size || 0,
                     });
@@ -421,7 +426,7 @@ export class BackupService {
 
         // Calcular el directorio padre
         const parentPath = path.dirname(normalizedPath);
-        const isRoot = parentPath === normalizedPath || normalizedPath.match(/^[A-Za-z]:\\?$/);
+        const isRoot = parentPath === normalizedPath || /^[A-Za-z]:\\?$/.exec(normalizedPath);
 
         return {
             currentPath: normalizedPath,

@@ -55,11 +55,11 @@ function SupplierDetailDialog({
     supplier,
     open,
     onClose,
-}: {
+}: Readonly<{
     supplier: Supplier | null;
     open: boolean;
     onClose: () => void;
-}) {
+}>) {
     if (!supplier) return null;
 
     const hasContactInfo = supplier.email || supplier.phone || supplier.mobile || supplier.website || supplier.contactName;

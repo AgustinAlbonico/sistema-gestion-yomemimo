@@ -7,7 +7,6 @@ import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/common/DataTable';
 import { customersApi, customerCategoriesApi } from '../api/customers.api';
 import { Customer } from '../types';
-import { IvaConditionLabels } from '@/types/iva-condition';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -23,17 +22,6 @@ import {
     Trash,
     MoreHorizontal,
     Eye,
-    Phone,
-    Mail,
-    MapPin,
-    User,
-    Tag,
-    FileText,
-    CreditCard,
-    Receipt,
-    CheckCircle2,
-    XCircle,
-    Calendar,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -43,11 +31,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-    Dialog,
-    DialogContent,
-} from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
 import { CustomerDetailDialog } from './CustomerDetailDialog';
 
 interface CustomerListProps {

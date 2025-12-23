@@ -84,9 +84,9 @@ export class InvoiceService {
         // Validar que para Factura A el cliente tenga CUIT válido
         if (invoiceType === InvoiceType.FACTURA_A) {
             const docType = sale.customer?.documentType?.toUpperCase();
-            const docNumber = sale.customer?.documentNumber?.replace(/\D/g, '');
+            const docNumber = sale.customer?.documentNumber?.replaceAll(/\D/g, '');
 
-            if (docType !== 'CUIT' || !docNumber || docNumber.length !== 11) {
+            if (docType !== 'CUIT' || docNumber?.length !== 11) {
                 throw new BadRequestException(
                     'Para emitir Factura A, el cliente debe tener CUIT válido (11 dígitos). ' +
                     'Por favor, actualice los datos fiscales del cliente.'
@@ -115,7 +115,7 @@ export class InvoiceService {
 
             // Datos del receptor
             receiverDocumentType: this.getDocumentType(sale.customer),
-            receiverDocumentNumber: sale.customer?.documentNumber?.replace(/\D/g, '') || null,
+            receiverDocumentNumber: sale.customer?.documentNumber?.replaceAll(/\D/g, '') || null,
             receiverName: sale.customerName || (sale.customer ? `${sale.customer.firstName} ${sale.customer.lastName}` : null),
             receiverAddress: sale.customer?.address || null,
             receiverIvaCondition: receiverIvaCondition,
@@ -256,7 +256,7 @@ export class InvoiceService {
         // Actualizar datos del receptor desde el cliente actual (por si fueron corregidos)
         // Esto es crucial para casos donde el CUIT/documento estaba mal y fue corregido
         invoice.receiverDocumentType = this.getDocumentType(sale.customer);
-        invoice.receiverDocumentNumber = sale.customer?.documentNumber?.replace(/\D/g, '') || null;
+        invoice.receiverDocumentNumber = sale.customer?.documentNumber?.replaceAll(/\D/g, '') || null;
         invoice.receiverName = sale.customerName || (sale.customer ? `${sale.customer.firstName} ${sale.customer.lastName}` : null);
         invoice.receiverAddress = sale.customer?.address || null;
         invoice.receiverIvaCondition = sale.customer?.ivaCondition || IvaCondition.CONSUMIDOR_FINAL;
@@ -469,7 +469,7 @@ export class InvoiceService {
      * Convierte los valores del enum IvaCondition a strings en minúsculas
      */
     private normalizeIvaCondition(condition: string): string {
-        const normalized = condition.toLowerCase().replace(/_/g, '_');
+        const normalized = condition.toLowerCase().replaceAll('_', '_');
 
         // Mapear a los valores esperados por determineInvoiceType()
         switch (normalized) {

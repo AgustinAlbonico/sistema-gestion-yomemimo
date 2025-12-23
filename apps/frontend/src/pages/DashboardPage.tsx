@@ -82,7 +82,7 @@ export function DashboardPage() {
             <div className="flex flex-col items-center justify-center h-96 space-y-4">
                 <AlertTriangle className="h-16 w-16 text-destructive" />
                 <p className="text-lg text-muted-foreground">Error al cargar el dashboard</p>
-                <Button onClick={() => window.location.reload()}>Reintentar</Button>
+                <Button onClick={() => globalThis.location.reload()}>Reintentar</Button>
             </div>
         );
     }

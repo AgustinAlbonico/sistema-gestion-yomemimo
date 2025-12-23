@@ -44,6 +44,7 @@ import {
     InvoiceStatus,
 } from '../types';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
+import { formatCurrency } from '@/lib/utils';
 
 interface SaleListProps {
     readonly filters?: SaleFilters;
@@ -51,16 +52,6 @@ interface SaleListProps {
     readonly onDelete?: (id: string) => void;
     readonly onCancel?: (id: string) => void;
     readonly onPay?: (sale: Sale) => void;
-}
-
-/**
- * Formatea un número como moneda ARS
- */
-function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-    }).format(value);
 }
 
 export function SaleList({
@@ -86,8 +77,8 @@ export function SaleList({
     if (isLoading) {
         return (
             <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-16 w-full" />
+                {Array.from({ length: 5 }, (_, i) => (
+                    <Skeleton key={`skeleton-${i}`} className="h-16 w-full" />
                 ))}
             </div>
         );

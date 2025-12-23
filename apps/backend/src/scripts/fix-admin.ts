@@ -4,21 +4,20 @@
 import * as bcrypt from 'bcryptjs';
 import { DataSource } from 'typeorm';
 
+const dataSource = new DataSource({
+    type: 'postgres',
+    host: 'localhost',
+    port: 5432,
+    username: 'postgres',
+    password: 'Admin123',
+    database: 'sistema_gestion',
+    synchronize: false,
+    logging: false,
+});
+
 async function fixAdmin() {
-    console.log('🔧 Corrigiendo usuario admin...');
-
-    const dataSource = new DataSource({
-        type: 'postgres',
-        host: 'localhost',
-        port: 5432,
-        username: 'postgres',
-        password: 'Admin123',
-        database: 'sistema_gestion',
-        synchronize: false,
-        logging: false,
-    });
-
     try {
+        console.log('🔧 Corrigiendo usuario admin...');
         await dataSource.initialize();
         console.log('✅ Conexión establecida');
 

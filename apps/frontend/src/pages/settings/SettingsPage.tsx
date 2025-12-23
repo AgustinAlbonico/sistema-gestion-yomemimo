@@ -140,7 +140,7 @@ export default function SettingsPage() {
             } else {
                 toast.error('⚠️ Hay problemas con algún servicio');
             }
-        } catch (error) {
+        } catch {
             setHealthStatus({
                 status: 'error',
                 timestamp: new Date().toISOString(),

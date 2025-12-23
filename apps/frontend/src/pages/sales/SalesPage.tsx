@@ -6,7 +6,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useConfirm } from '@/hooks/useConfirm';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Filter, ShoppingCart, RotateCcw } from 'lucide-react';
+import { Plus, Filter, RotateCcw } from 'lucide-react';
 import { useShortcutAction } from '@/hooks/useKeyboardShortcuts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,10 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
 } from '@/components/ui/dialog';
 import {
     Select,
@@ -42,8 +38,8 @@ import {
     SaleStatusLabels,
     InvoiceFilterStatus,
     InvoiceFilterStatusLabels,
+    CreateSaleDTO,
 } from '@/features/sales/types';
-import { CreateSaleDTO } from '@/features/sales/types';
 import {
     getCurrentMonthRange,
     getTodayRange,
@@ -256,54 +252,53 @@ export default function SalesPage() {
     };
 
     /**
+     * Verifica si el rango coincide con un período predefinido
+     */
+    const matchesPredefinedRange = (
+        start: string | undefined,
+        end: string | undefined,
+        range: { startDate: string; endDate: string }
+    ): boolean => {
+        return start === range.startDate && end === range.endDate;
+    };
+
+    /**
      * Formatea el rango de fechas para mostrar en la UI
      */
     const getDateRangeText = (): string => {
-        if (!filters.startDate && !filters.endDate) {
+        const { startDate, endDate } = filters;
+
+        // Sin filtros de fecha
+        if (!startDate && !endDate) {
             return 'Mostrando todas las ventas';
         }
 
-        const todayRange = getTodayRange();
-        const weekRange = getCurrentWeekRange();
-        const monthRange = getCurrentMonthRange();
-
-        if (
-            filters.startDate === todayRange.startDate &&
-            filters.endDate === todayRange.endDate
-        ) {
-            return `Mostrando ventas de hoy (${formatDateForDisplay(filters.startDate)})`;
+        // Verificar rangos predefinidos
+        if (matchesPredefinedRange(startDate, endDate, getTodayRange())) {
+            return `Mostrando ventas de hoy (${formatDateForDisplay(startDate!)})`;
         }
 
-        if (
-            filters.startDate === weekRange.startDate &&
-            filters.endDate === weekRange.endDate
-        ) {
-            return `Mostrando ventas de esta semana (${formatDateForDisplay(filters.startDate)} - ${formatDateForDisplay(filters.endDate)})`;
+        if (matchesPredefinedRange(startDate, endDate, getCurrentWeekRange())) {
+            return `Mostrando ventas de esta semana (${formatDateForDisplay(startDate!)} - ${formatDateForDisplay(endDate!)})`;
         }
 
-        if (
-            filters.startDate === monthRange.startDate &&
-            filters.endDate === monthRange.endDate
-        ) {
-            return `Mostrando ventas del mes actual (${formatDateForDisplay(filters.startDate)} - ${formatDateForDisplay(filters.endDate)})`;
+        if (matchesPredefinedRange(startDate, endDate, getCurrentMonthRange())) {
+            return `Mostrando ventas del mes actual (${formatDateForDisplay(startDate!)} - ${formatDateForDisplay(endDate!)})`;
         }
 
-        if (filters.startDate && filters.endDate) {
-            if (filters.startDate === filters.endDate) {
-                return `Mostrando ventas del ${formatDateForDisplay(filters.startDate)}`;
-            }
-            return `Mostrando ventas del ${formatDateForDisplay(filters.startDate)} al ${formatDateForDisplay(filters.endDate)}`;
+        // Rango personalizado
+        if (startDate && endDate) {
+            return startDate === endDate
+                ? `Mostrando ventas del ${formatDateForDisplay(startDate)}`
+                : `Mostrando ventas del ${formatDateForDisplay(startDate)} al ${formatDateForDisplay(endDate)}`;
         }
 
-        if (filters.startDate && !filters.endDate) {
-            return `Mostrando ventas desde el ${formatDateForDisplay(filters.startDate)}`;
+        // Solo fecha inicio o solo fecha fin
+        if (startDate) {
+            return `Mostrando ventas desde el ${formatDateForDisplay(startDate)}`;
         }
 
-        if (!filters.startDate && filters.endDate) {
-            return `Mostrando ventas hasta el ${formatDateForDisplay(filters.endDate)}`;
-        }
-
-        return 'Mostrando todas las ventas';
+        return `Mostrando ventas hasta el ${formatDateForDisplay(endDate!)}`;
     };
 
     return (
@@ -352,19 +347,6 @@ export default function SalesPage() {
                                         />
                                     </div>
                                 )}
-                            <DialogHeader className="px-6 py-4 border-b bg-muted/30">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <DialogTitle className="flex items-center gap-2 text-xl">
-                                            <ShoppingCart className="h-5 w-5" />
-                                            Nueva Venta
-                                        </DialogTitle>
-                                        <DialogDescription className="mt-1">
-                                            El stock se actualizará automáticamente al confirmar
-                                        </DialogDescription>
-                                    </div>
-                                </div>
-                            </DialogHeader>
                             <div className="flex-1 overflow-auto p-6">
                                 <SaleForm
                                     onSubmit={handleCreate}

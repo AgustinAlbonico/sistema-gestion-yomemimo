@@ -1,8 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
-import * as path from 'path';
-import * as fs from 'fs';
-import { spawn, ChildProcess, execSync } from 'child_process';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import * as http from 'node:http';
+import { spawn, ChildProcess, execSync } from 'node:child_process';
 import log from 'electron-log';
 
 // ============================================
@@ -17,10 +18,7 @@ import log from 'electron-log';
 function getLogPath(): string {
     let logPath: string;
 
-    if (!app.isPackaged) {
-        // En desarrollo: logs/main.log en la raíz del proyecto desktop
-        logPath = path.join(__dirname, '../../logs/main.log');
-    } else {
+    if (app.isPackaged) {
         // En producción: Construir la ruta manualmente porque app.getPath() 
         // no funciona antes del evento 'ready'
         // Windows: %APPDATA%/NexoPOS/logs/main.log
@@ -38,6 +36,9 @@ function getLogPath(): string {
         }
 
         logPath = path.join(userDataDir, 'logs', 'main.log');
+    } else {
+        // En desarrollo: logs/main.log en la raíz del proyecto desktop
+        logPath = path.join(__dirname, '../../logs/main.log');
     }
 
     // Asegurar que el directorio de logs exista
@@ -117,7 +118,7 @@ function killProcessOnPort(port: number): void {
 
         for (const line of lines) {
             const parts = line.trim().split(/\s+/);
-            const pid = parts[parts.length - 1];
+            const pid = parts.at(-1);
             if (pid && /^\d+$/.test(pid) && pid !== '0' && !pids.includes(pid)) {
                 pids.push(pid);
             }
@@ -128,11 +129,12 @@ function killProcessOnPort(port: number): void {
             try {
                 log.info(`[Electron] Matando proceso PID ${pid} en puerto ${port}`);
                 execSync(`taskkill /F /PID ${pid} /T`, { timeout: 5000 });
-            } catch (e) {
+            } catch {
                 // Ignorar errores si el proceso ya terminó
+                log.debug(`[Electron] Proceso ${pid} ya no existe o no se pudo terminar`);
             }
         }
-    } catch (e) {
+    } catch {
         // No hay proceso en ese puerto, está bien
         log.info(`[Electron] No se encontró proceso en puerto ${port}`);
     }
@@ -148,6 +150,153 @@ const FRONTEND_DEV_PORT = 5173;
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcess | null = null;
 let backendReady = false;
+let pdfServer: http.Server | null = null;
+
+/** Puerto del servidor de PDF */
+const PDF_SERVER_PORT = 3001;
+
+// ============================================
+// SERVIDOR HTTP PARA GENERACIÓN DE PDF
+// ============================================
+
+/**
+ * Genera un PDF a partir de HTML usando Electron printToPDF
+ */
+async function generatePdfFromHtml(html: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        // Crear ventana oculta para renderizar el HTML
+        const pdfWindow = new BrowserWindow({
+            width: 794,  // A4 width in pixels at 96 DPI
+            height: 1123, // A4 height in pixels at 96 DPI
+            show: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                offscreen: true,
+            },
+        });
+
+        // Cargar el HTML
+        pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+        pdfWindow.webContents.on('did-finish-load', async () => {
+            try {
+                // Esperar un poco para que estilos se apliquen completamente
+                await new Promise(r => setTimeout(r, 100));
+
+                // Generar PDF con márgenes pequeños (~5mm)
+                const pdfBuffer = await pdfWindow.webContents.printToPDF({
+                    printBackground: true,
+                    preferCSSPageSize: false,
+                    pageSize: 'A4',
+                    margins: {
+                        top: 0.2,    // ~5mm / ~20px
+                        bottom: 0.2,
+                        left: 0.2,
+                        right: 0.2,
+                    },
+                });
+
+                pdfWindow.close();
+                resolve(Buffer.from(pdfBuffer));
+            } catch (error) {
+                pdfWindow.close();
+                reject(error);
+            }
+        });
+
+        pdfWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription) => {
+            pdfWindow.close();
+            reject(new Error(`Failed to load HTML: ${errorDescription} (${errorCode})`));
+        });
+
+        // Timeout de seguridad
+        setTimeout(() => {
+            if (!pdfWindow.isDestroyed()) {
+                pdfWindow.close();
+                reject(new Error('PDF generation timeout'));
+            }
+        }, 30000);
+    });
+}
+
+/**
+ * Inicia el servidor HTTP para generación de PDFs
+ * El backend llama a POST /pdf/generate con { html: string }
+ */
+function startPdfServer(): void {
+    pdfServer = http.createServer(async (req, res) => {
+        // CORS headers para permitir llamadas desde el backend
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        // Handle preflight
+        if (req.method === 'OPTIONS') {
+            res.writeHead(200);
+            res.end();
+            return;
+        }
+
+        // Solo POST a /pdf/generate
+        if (req.method !== 'POST' || req.url !== '/pdf/generate') {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Not found' }));
+            return;
+        }
+
+        // Leer body
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk.toString();
+        });
+
+        req.on('end', async () => {
+            try {
+                const { html } = JSON.parse(body);
+
+                if (!html) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Missing html field' }));
+                    return;
+                }
+
+                log.info('[PDF Server] Generando PDF...');
+                const pdfBuffer = await generatePdfFromHtml(html);
+                log.info(`[PDF Server] PDF generado: ${pdfBuffer.length} bytes`);
+
+                res.writeHead(200, {
+                    'Content-Type': 'application/pdf',
+                    'Content-Length': pdfBuffer.length.toString(),
+                });
+                res.end(pdfBuffer);
+            } catch (error) {
+                log.error('[PDF Server] Error:', error);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: (error as Error).message }));
+            }
+        });
+    });
+
+    pdfServer.listen(PDF_SERVER_PORT, '127.0.0.1', () => {
+        log.info(`[PDF Server] Servidor de PDF iniciado en http://127.0.0.1:${PDF_SERVER_PORT}`);
+    });
+
+    pdfServer.on('error', (error) => {
+        log.error('[PDF Server] Error del servidor:', error);
+    });
+}
+
+/**
+ * Detiene el servidor de PDF
+ */
+function stopPdfServer(): void {
+    if (pdfServer) {
+        pdfServer.close();
+        pdfServer = null;
+        log.info('[PDF Server] Servidor detenido');
+    }
+}
 
 // ============================================
 // FUNCIONES DEL BACKEND
@@ -217,8 +366,10 @@ function loadExternalEnv(): Record<string, string> {
 
     if (isDev) {
         // En desarrollo: primero apps/desktop/.env, luego raíz del monorepo
-        possiblePaths.push(path.join(__dirname, '../../.env')); // dist/electron -> dist -> desktop
-        possiblePaths.push(path.join(__dirname, '../../../../.env')); // Raíz del monorepo
+        possiblePaths.push(
+            path.join(__dirname, '../../.env'), // dist/electron -> dist -> desktop
+            path.join(__dirname, '../../../../.env') // Raíz del monorepo
+        );
     } else {
         // En producción:
         // 1. PRIMERO: %APPDATA%/NexoPOS/.env (nueva ubicación, persiste entre updates)
@@ -408,7 +559,7 @@ function stopBackend(): void {
     log.info('[Electron] Deteniendo backend...');
 
     // 1. Matar el proceso del backend si existe
-    if (backendProcess && backendProcess.pid) {
+    if (backendProcess?.pid) {
         log.info(`[Electron] Matando proceso backend PID: ${backendProcess.pid}`);
         try {
             if (process.platform === 'win32') {
@@ -416,7 +567,7 @@ function stopBackend(): void {
             } else {
                 backendProcess.kill('SIGTERM');
             }
-        } catch (e) {
+        } catch {
             log.warn('[Electron] Error al matar proceso backend (puede que ya haya terminado)');
         }
         backendProcess = null;
@@ -501,13 +652,7 @@ function createWindow(apiUrl?: string): void {
 
     // Permitir salir de pantalla completa con F11 o Escape
     // Evento para atajos de teclado globales (cancelado para evitar conflictos)
-    /*
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-        if (input.key === 'F11' || (input.key === 'Escape' && mainWindow?.isFullScreen())) {
-            mainWindow?.setFullScreen(!mainWindow.isFullScreen());
-        }
-    });
-    */
+    // Evento para atajos de teclado globales (cancelado para evitar conflictos)
 
     // Manejar cierre de ventana
     mainWindow.on('closed', () => {
@@ -608,25 +753,33 @@ function cleanUpdateCache(): void {
         const dirsToClean = [updateCacheDir, standardCacheDir];
 
         for (const dir of dirsToClean) {
-            if (fs.existsSync(dir)) {
-                const files = fs.readdirSync(dir);
-                for (const file of files) {
-                    // Solo borrar archivos .exe y .blockmap (instaladores)
-                    if (file.endsWith('.exe') || file.endsWith('.blockmap') || file.endsWith('.zip')) {
-                        const filePath = path.join(dir, file);
-                        try {
-                            fs.unlinkSync(filePath);
-                            log.info(`[AutoUpdater] Limpiado cache: ${file}`);
-                        } catch (err) {
-                            // Ignorar si el archivo está en uso
-                            log.warn(`[AutoUpdater] No se pudo borrar ${file}: archivo en uso`);
-                        }
-                    }
+            cleanDirectoryCache(dir);
+        }
+    } catch (err) {
+        log.warn('[AutoUpdater] Error limpiando cache de actualizaciones:', err);
+    }
+}
+
+function cleanDirectoryCache(dir: string): void {
+    if (!fs.existsSync(dir)) return;
+
+    try {
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+            // Solo borrar archivos .exe y .blockmap (instaladores)
+            if (file.endsWith('.exe') || file.endsWith('.blockmap') || file.endsWith('.zip')) {
+                const filePath = path.join(dir, file);
+                try {
+                    fs.unlinkSync(filePath);
+                    log.info(`[AutoUpdater] Limpiado cache: ${file}`);
+                } catch (err) {
+                    // Ignorar si el archivo está en uso
+                    log.warn(`[AutoUpdater] No se pudo borrar ${file}: archivo en uso`);
                 }
             }
         }
     } catch (err) {
-        log.warn('[AutoUpdater] Error limpiando cache de actualizaciones:', err);
+        log.warn(`[AutoUpdater] Error leyendo directorio ${dir}:`, err);
     }
 }
 
@@ -883,7 +1036,7 @@ function setupIpcHandlers(): void {
 // CICLO DE VIDA DE LA APLICACIÓN
 // ============================================
 
-app.whenReady().then(async () => {
+app.whenReady().then(async () => { // NOSONAR: Top-level await not supported in CommonJS
     log.info('[Electron] Aplicación lista, iniciando...');
     log.info(`[Electron] Modo: ${isDev ? 'DESARROLLO' : 'PRODUCCIÓN'}`);
     log.info(`[Electron] app.isPackaged: ${app.isPackaged}`);
@@ -943,6 +1096,9 @@ app.whenReady().then(async () => {
         await startBackend();
         log.info('[Electron] Backend iniciado');
 
+        // 4. Iniciar servidor de PDF
+        startPdfServer();
+
         // Pequeña pausa para asegurar que el backend está completamente listo
         await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -976,6 +1132,7 @@ app.whenReady().then(async () => {
 // Cuando todas las ventanas se cierran
 app.on('window-all-closed', () => {
     log.info('[Electron] Todas las ventanas cerradas');
+    stopPdfServer();
     stopBackend();
 
     // En macOS las apps suelen quedarse abiertas
@@ -994,6 +1151,7 @@ app.on('activate', () => {
 // Antes de cerrar la app
 app.on('before-quit', () => {
     log.info('[Electron] Cerrando aplicación...');
+    stopPdfServer();
     stopBackend();
 });
 

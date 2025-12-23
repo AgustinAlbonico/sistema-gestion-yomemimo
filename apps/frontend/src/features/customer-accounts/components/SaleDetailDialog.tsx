@@ -110,7 +110,7 @@ function SaleNotFoundState() {
     );
 }
 
-function SaleItemsSection({ sale }: { sale: Sale }) {
+function SaleItemsSection({ sale }: Readonly<{ sale: Sale }>) {
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -156,7 +156,7 @@ function SaleItemsSection({ sale }: { sale: Sale }) {
     );
 }
 
-function SaleTotalsSection({ sale }: { sale: Sale }) {
+function SaleTotalsSection({ sale }: Readonly<{ sale: Sale }>) {
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -208,7 +208,7 @@ function SaleTotalsSection({ sale }: { sale: Sale }) {
     );
 }
 
-function SalePaymentsSection({ sale }: { sale: Sale }) {
+function SalePaymentsSection({ sale }: Readonly<{ sale: Sale }>) {
     if (!sale.payments || sale.payments.length === 0) return null;
 
     return (
@@ -256,7 +256,7 @@ function SaleOnAccountSection({
     paymentMethods,
     onConfirmPayment,
     isConfirming,
-}: {
+}: Readonly<{
     sale: Sale;
     canMarkAsPaid: boolean;
     showPaymentForm: boolean;
@@ -266,7 +266,7 @@ function SaleOnAccountSection({
     paymentMethods: Array<{ id: string; name: string }> | undefined;
     onConfirmPayment: () => void;
     isConfirming: boolean;
-}) {
+}>) {
     if (!sale.isOnAccount) return null;
 
     return (
@@ -335,7 +335,7 @@ function SaleOnAccountSection({
     );
 }
 
-function SaleNotesSection({ sale }: { sale: Sale }) {
+function SaleNotesSection({ sale }: Readonly<{ sale: Sale }>) {
     if (!sale.notes) return null;
 
     return (

@@ -27,10 +27,10 @@ export interface ConfirmDialogOptions {
     variant?: 'default' | 'danger' | 'warning';
 }
 
-interface ConfirmDialogProps extends ConfirmDialogOptions {
-    open: boolean;
-    onConfirm: () => void;
-    onCancel: () => void;
+interface ConfirmDialogProps extends Readonly<ConfirmDialogOptions> {
+    readonly open: boolean;
+    readonly onConfirm: () => void;
+    readonly onCancel: () => void;
 }
 
 // Estilos para variantes del botón de confirmación

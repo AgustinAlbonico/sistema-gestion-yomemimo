@@ -1,4 +1,6 @@
-
+/**
+ * Diálogo de detalle de cliente con historial de compras y pagos
+ */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -42,12 +44,174 @@ import { IvaConditionLabels } from '@/types/iva-condition';
 import { salesApi } from '@/features/sales/api/sales.api';
 import { incomesApi } from '@/features/incomes/api/incomes.api';
 import { SaleDetail } from '@/features/sales/components/SaleDetail';
-import { SaleStatus } from '@/features/sales/types';
+import { SaleStatus, Sale } from '@/features/sales/types';
+import { Income } from '@/features/incomes/types';
+
+// ============================================
+// Subcomponentes para reducir complejidad
+// ============================================
+
+/** Estado de carga centrado con spinner */
+function LoadingState() {
+    return (
+        <div className="flex items-center justify-center h-40">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+}
+
+/** Estado vacío con icono y mensaje */
+function EmptyState({ icon: Icon, message }: { readonly icon: typeof ShoppingCart; readonly message: string }) {
+    return (
+        <div className="flex flex-col items-center justify-center h-60 text-muted-foreground bg-background rounded-lg border border-dashed">
+            <Icon className="h-10 w-10 mb-2 opacity-20" />
+            <p>{message}</p>
+        </div>
+    );
+}
+
+/** Obtiene el color del badge según el estado de venta */
+function getStatusColor(status: SaleStatus): string {
+    switch (status) {
+        case SaleStatus.COMPLETED: return 'bg-green-500/10 text-green-600 hover:bg-green-500/20';
+        case SaleStatus.PENDING: return 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20';
+        case SaleStatus.CANCELLED: return 'bg-red-500/10 text-red-600 hover:bg-red-500/20';
+        default: return 'bg-gray-500/10 text-gray-600 hover:bg-gray-500/20';
+    }
+}
+
+/** Obtiene la etiqueta del estado de venta */
+function getStatusLabel(status: SaleStatus): string {
+    switch (status) {
+        case SaleStatus.COMPLETED: return 'Completada';
+        case SaleStatus.PENDING: return 'Pendiente';
+        case SaleStatus.CANCELLED: return 'Cancelada';
+        default: return status;
+    }
+}
+
+/** Tabla de historial de compras */
+function PurchasesTable({ 
+    sales, 
+    onViewSale 
+}: { 
+    readonly sales: Sale[]; 
+    readonly onViewSale: (id: string) => void;
+}) {
+    return (
+        <div className="rounded-md border bg-background overflow-hidden">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>N° Venta</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
+                        <TableHead></TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {sales.map((sale) => (
+                        <TableRow key={sale.id}>
+                            <TableCell>
+                                {new Date(sale.saleDate).toLocaleDateString('es-AR')}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                                {sale.saleNumber}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                                ${Number(sale.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="text-center">
+                                <Badge className={getStatusColor(sale.status)} variant="outline">
+                                    {getStatusLabel(sale.status)}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => onViewSale(sale.id)}
+                                >
+                                    <Eye className="h-4 w-4" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
+/** Tabla de historial de ingresos/pagos */
+function IncomesTable({ incomes }: { readonly incomes: Income[] }) {
+    return (
+        <div className="rounded-md border bg-background overflow-hidden">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Descripción</TableHead>
+                        <TableHead className="text-right">Monto</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {incomes.map((income) => (
+                        <TableRow key={income.id}>
+                            <TableCell>
+                                {new Date(income.incomeDate).toLocaleDateString('es-AR')}
+                            </TableCell>
+                            <TableCell>
+                                {income.description}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                                ${Number(income.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="text-center">
+                                <Badge
+                                    variant={income.isPaid ? 'default' : 'secondary'}
+                                    className={income.isPaid ? 'bg-green-500 hover:bg-green-600' : ''}
+                                >
+                                    {income.isPaid ? 'Cobrado' : 'Pendiente'}
+                                </Badge>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
+/** Renderiza contenido de tab según estado de carga */
+function TabContentWithState<T>({
+    isLoading,
+    data,
+    emptyIcon,
+    emptyMessage,
+    children,
+}: {
+    readonly isLoading: boolean;
+    readonly data: T[] | undefined;
+    readonly emptyIcon: typeof ShoppingCart;
+    readonly emptyMessage: string;
+    readonly children: (data: T[]) => React.ReactNode;
+}) {
+    if (isLoading) return <LoadingState />;
+    if (!data || data.length === 0) return <EmptyState icon={emptyIcon} message={emptyMessage} />;
+    return <>{children(data)}</>;
+}
+
+// ============================================
+// Componente principal
+// ============================================
 
 interface CustomerDetailDialogProps {
-    customer: Customer | null;
-    open: boolean;
-    onClose: () => void;
+    readonly customer: Customer | null;
+    readonly open: boolean;
+    readonly onClose: () => void;
 }
 
 export function CustomerDetailDialog({
@@ -76,33 +240,15 @@ export function CustomerDetailDialog({
     const hasContactInfo = customer.email || customer.phone || customer.mobile;
     const hasAddressInfo = customer.address || customer.city || customer.state;
 
-    const getStatusColor = (status: SaleStatus) => {
-        switch (status) {
-            case SaleStatus.COMPLETED: return 'bg-green-500/10 text-green-600 hover:bg-green-500/20';
-            case SaleStatus.PENDING: return 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20';
-            case SaleStatus.CANCELLED: return 'bg-red-500/10 text-red-600 hover:bg-red-500/20';
-            default: return 'bg-gray-500/10 text-gray-600 hover:bg-gray-500/20';
-        }
-    };
-
-    const getStatusLabel = (status: SaleStatus) => {
-        switch (status) {
-            case SaleStatus.COMPLETED: return 'Completada';
-            case SaleStatus.PENDING: return 'Pendiente';
-            case SaleStatus.CANCELLED: return 'Cancelada';
-            default: return status;
-        }
-    };
-
     return (
         <>
             <Dialog open={open} onOpenChange={onClose}>
-                {/* Ancho responsivo: 95% en móvil, 800px en desktop */}
                 <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[700px] lg:max-w-[800px] p-0 gap-0 overflow-hidden h-[85vh] sm:h-[80vh] flex flex-col">
                     <DialogTitle className="sr-only">Detalle del Cliente {fullName}</DialogTitle>
                     <DialogDescription className="sr-only">
                         Información detallada del cliente {fullName}, historial de compras y pagos.
                     </DialogDescription>
+                    
                     {/* Header con gradiente y nombre del cliente */}
                     <div className="bg-gradient-to-br from-primary/90 via-primary to-primary/80 px-4 sm:px-6 py-4 sm:py-5 text-primary-foreground shrink-0">
                         <div className="flex items-start gap-3 sm:gap-4">
@@ -142,7 +288,6 @@ export function CustomerDetailDialog({
                     </div>
 
                     <Tabs defaultValue="info" className="flex-1 flex flex-col overflow-hidden">
-                        {/* Tabs con scroll horizontal en móvil */}
                         <div className="px-3 sm:px-6 pt-2 border-b shrink-0 bg-background overflow-x-auto">
                             <TabsList className="w-full sm:w-auto justify-start h-10 sm:h-12 bg-transparent p-0 gap-1 sm:gap-4 min-w-max">
                                 <TabsTrigger
@@ -172,8 +317,8 @@ export function CustomerDetailDialog({
                             </TabsList>
                         </div>
 
-                        {/* Contenido principal scrolleable */}
                         <div className="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50">
+                            {/* Tab de información */}
                             <TabsContent value="info" className="p-6 m-0 space-y-5 h-full">
                                 {/* Información fiscal */}
                                 <div className="space-y-3">
@@ -185,7 +330,6 @@ export function CustomerDetailDialog({
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-3">
-                                        {/* Documento */}
                                         <div className="rounded-lg bg-background p-3 border shadow-sm">
                                             <div className="flex items-center gap-1.5 mb-1">
                                                 <CreditCard className="h-3 w-3 text-muted-foreground" />
@@ -200,7 +344,6 @@ export function CustomerDetailDialog({
                                             )}
                                         </div>
 
-                                        {/* Condición IVA */}
                                         <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800/50 shadow-sm">
                                             <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Condición IVA</p>
                                             <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
@@ -325,109 +468,33 @@ export function CustomerDetailDialog({
                                 </div>
                             </TabsContent>
 
+                            {/* Tab de compras */}
                             <TabsContent value="purchases" className="p-6 m-0 h-full">
-                                {isLoadingSales ? (
-                                    <div className="flex items-center justify-center h-40">
-                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                    </div>
-                                ) : salesData?.data.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center h-60 text-muted-foreground bg-background rounded-lg border border-dashed">
-                                        <ShoppingCart className="h-10 w-10 mb-2 opacity-20" />
-                                        <p>No hay compras registradas</p>
-                                    </div>
-                                ) : (
-                                    <div className="rounded-md border bg-background overflow-hidden">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Fecha</TableHead>
-                                                    <TableHead>N° Venta</TableHead>
-                                                    <TableHead className="text-right">Total</TableHead>
-                                                    <TableHead className="text-center">Estado</TableHead>
-                                                    <TableHead></TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {salesData?.data.map((sale) => (
-                                                    <TableRow key={sale.id}>
-                                                        <TableCell>
-                                                            {new Date(sale.saleDate).toLocaleDateString('es-AR')}
-                                                        </TableCell>
-                                                        <TableCell className="font-mono text-xs">
-                                                            {sale.saleNumber}
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-medium">
-                                                            ${Number(sale.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <Badge className={getStatusColor(sale.status)} variant="outline">
-                                                                {getStatusLabel(sale.status)}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => setSelectedSaleId(sale.id)}
-                                                            >
-                                                                <Eye className="h-4 w-4" />
-                                                            </Button>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                )}
+                                <TabContentWithState
+                                    isLoading={isLoadingSales}
+                                    data={salesData?.data}
+                                    emptyIcon={ShoppingCart}
+                                    emptyMessage="No hay compras registradas"
+                                >
+                                    {(sales) => (
+                                        <PurchasesTable 
+                                            sales={sales} 
+                                            onViewSale={setSelectedSaleId} 
+                                        />
+                                    )}
+                                </TabContentWithState>
                             </TabsContent>
 
+                            {/* Tab de ingresos */}
                             <TabsContent value="incomes" className="p-6 m-0 h-full">
-                                {isLoadingIncomes ? (
-                                    <div className="flex items-center justify-center h-40">
-                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                    </div>
-                                ) : incomesData?.data.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center h-60 text-muted-foreground bg-background rounded-lg border border-dashed">
-                                        <DollarSign className="h-10 w-10 mb-2 opacity-20" />
-                                        <p>No hay ingresos registrados</p>
-                                    </div>
-                                ) : (
-                                    <div className="rounded-md border bg-background overflow-hidden">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Fecha</TableHead>
-                                                    <TableHead>Descripción</TableHead>
-                                                    <TableHead className="text-right">Monto</TableHead>
-                                                    <TableHead className="text-center">Estado</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {incomesData?.data.map((income) => (
-                                                    <TableRow key={income.id}>
-                                                        <TableCell>
-                                                            {new Date(income.incomeDate).toLocaleDateString('es-AR')}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {income.description}
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-medium">
-                                                            ${Number(income.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <Badge
-                                                                variant={income.isPaid ? 'default' : 'secondary'}
-                                                                className={income.isPaid ? 'bg-green-500 hover:bg-green-600' : ''}
-                                                            >
-                                                                {income.isPaid ? 'Cobrado' : 'Pendiente'}
-                                                            </Badge>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                )}
+                                <TabContentWithState
+                                    isLoading={isLoadingIncomes}
+                                    data={incomesData?.data}
+                                    emptyIcon={DollarSign}
+                                    emptyMessage="No hay ingresos registrados"
+                                >
+                                    {(incomes) => <IncomesTable incomes={incomes} />}
+                                </TabContentWithState>
                             </TabsContent>
                         </div>
                     </Tabs>

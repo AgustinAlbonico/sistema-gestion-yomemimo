@@ -1,20 +1,24 @@
+/**
+ * Script para aplicar cambios de categorías en la base de datos
+ * Agrega columna profitMargin a categories y categoryId a products
+ */
 import 'reflect-metadata';
 import { config } from 'dotenv';
 import { DataSource } from 'typeorm';
 
 config();
 
-(async () => {
-    const ds = new DataSource({
-        type: 'postgres',
-        host: process.env.DATABASE_HOST || 'localhost',
-        port: Number.parseInt(process.env.DATABASE_PORT || '5432'),
-        username: process.env.DATABASE_USER || 'postgres',
-        password: process.env.DATABASE_PASSWORD || 'postgres',
-        database: process.env.DATABASE_NAME || 'sistema_gestion',
-        logging: true,
-    });
+const ds = new DataSource({
+    type: 'postgres',
+    host: process.env.DATABASE_HOST || 'localhost',
+    port: Number.parseInt(process.env.DATABASE_PORT || '5432'),
+    username: process.env.DATABASE_USER || 'postgres',
+    password: process.env.DATABASE_PASSWORD || 'postgres',
+    database: process.env.DATABASE_NAME || 'sistema_gestion',
+    logging: true,
+});
 
+(async () => {
     try {
         await ds.initialize();
         console.log('✅ Conectado');

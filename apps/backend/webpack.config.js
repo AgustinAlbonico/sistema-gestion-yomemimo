@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require('node:path');
 const webpack = require('webpack');
 const CopyPlugin = require('copy-webpack-plugin');
 
@@ -92,17 +92,8 @@ module.exports = {
     ],
 
     // Externals - Módulos que NO se deben bundlear
-    // Puppeteer tiene binarios nativos, express/mime tienen problemas de bundling
     externals: [
         function ({ request }, callback) {
-            // Puppeteer y sus dependencias deben ser externas (binarios nativos)
-            if (request === 'puppeteer' ||
-                request === 'puppeteer-core' ||
-                request.startsWith('puppeteer/') ||
-                request.startsWith('puppeteer-core/')) {
-                return callback(null, 'commonjs ' + request);
-            }
-
             // Express y sus dependencias críticas que tienen problemas de bundling
             // El módulo mime usado por express tiene problemas cuando se bundlea
             const expressRelated = [

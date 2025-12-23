@@ -113,7 +113,7 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
 
             // Crear URL del blob
             const blob = new Blob([response.data], { type: 'application/pdf' });
-            const url = window.URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
 
             // Crear link y descargar
             const link = document.createElement('a');
@@ -121,12 +121,12 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
             link.download = `factura-${String(invoice.pointOfSale).padStart(4, '0')}-${String(invoice.invoiceNumber).padStart(8, '0')}.pdf`;
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
+            link.remove();
 
             // Limpiar
-            window.URL.revokeObjectURL(url);
+            URL.revokeObjectURL(url);
             toast.success('PDF descargado');
-        } catch (error) {
+        } catch {
             toast.error('Error al descargar PDF');
         } finally {
             setIsDownloading(false);
@@ -146,7 +146,7 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
 
             // Crear URL del blob
             const blob = new Blob([response.data], { type: 'application/pdf' });
-            const url = window.URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
 
             // Crear link y descargar
             const link = document.createElement('a');
@@ -154,12 +154,12 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
             link.download = `nota-venta-${sale.saleNumber}.pdf`;
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
+            link.remove();
 
             // Limpiar
-            window.URL.revokeObjectURL(url);
+            URL.revokeObjectURL(url);
             toast.success('Nota de venta descargada');
-        } catch (error) {
+        } catch {
             toast.error('Error al descargar nota de venta');
         } finally {
             setIsDownloading(false);

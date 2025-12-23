@@ -290,9 +290,7 @@ export class ExpensesService {
             return;
         }
 
-        if (!expense.paidAt) {
-            expense.paidAt = dto.paidAt ? parseLocalDate(dto.paidAt) : expense.expenseDate;
-        }
+        expense.paidAt ??= dto.paidAt ? parseLocalDate(dto.paidAt) : expense.expenseDate;
     }
 
     /**

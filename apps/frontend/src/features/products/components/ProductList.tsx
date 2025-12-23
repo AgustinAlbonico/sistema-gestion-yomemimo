@@ -60,10 +60,10 @@ function ProductDetailDialog({
     onClose,
     globalMinStock = 5,
 }: {
-    product: Product | null;
-    open: boolean;
-    onClose: () => void;
-    globalMinStock?: number;
+    readonly product: Product | null;
+    readonly open: boolean;
+    readonly onClose: () => void;
+    readonly globalMinStock?: number;
 }) {
     if (!product) return null;
 
@@ -179,24 +179,26 @@ function ProductDetailDialog({
 
                         <div className="grid grid-cols-2 gap-3">
                             {/* Stock actual */}
-                            <div className={`rounded-lg p-3 border transition-colors ${isOutOfStock
-                                ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50'
-                                : isLowStock
-                                    ? 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800/50'
-                                    : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800'
-                                }`}>
+                            <div className={`rounded-lg p-3 border transition-colors ${
+                                (() => {
+                                    if (isOutOfStock) return 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50';
+                                    if (isLowStock) return 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800/50';
+                                    return 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800';
+                                })()
+                            }`}>
                                 <div className="flex items-center justify-between mb-1">
                                     <p className="text-xs text-muted-foreground">Stock Actual</p>
                                     {(isLowStock || isOutOfStock) ? (
                                         <AlertTriangle className={`h-3.5 w-3.5 ${isOutOfStock ? 'text-red-500' : 'text-yellow-500'}`} />
                                     ) : null}
                                 </div>
-                                <p className={`text-lg font-semibold ${isOutOfStock
-                                    ? 'text-red-600 dark:text-red-400'
-                                    : isLowStock
-                                        ? 'text-yellow-600 dark:text-yellow-400'
-                                        : ''
-                                    }`}>
+                                <p className={`text-lg font-semibold ${
+                                    (() => {
+                                        if (isOutOfStock) return 'text-red-600 dark:text-red-400';
+                                        if (isLowStock) return 'text-yellow-600 dark:text-yellow-400';
+                                        return '';
+                                    })()
+                                }`}>
                                     {product.stock} <span className="text-sm font-normal text-muted-foreground">unidades</span>
                                 </p>
                             </div>
@@ -266,7 +268,7 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
         queryFn: () => productsApi.getAll({
             limit: 100, // Máximo permitido por el backend
             categoryId: selectedCategoryId && selectedCategoryId !== 'all' ? selectedCategoryId : undefined,
-            stockStatus: stockStatus !== 'all' ? stockStatus : undefined,
+            stockStatus: stockStatus === 'all' ? undefined : stockStatus,
         }),
     });
 
@@ -427,8 +429,11 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
                 return (
                     <div className="flex items-center gap-1">
                         <span className={
-                            isOut ? 'text-destructive font-medium' :
-                                isLow ? 'text-yellow-600 font-medium' : ''
+                            (() => {
+                                if (isOut) return 'text-destructive font-medium';
+                                if (isLow) return 'text-yellow-600 font-medium';
+                                return '';
+                            })()
                         }>
                             {stock}
                         </span>

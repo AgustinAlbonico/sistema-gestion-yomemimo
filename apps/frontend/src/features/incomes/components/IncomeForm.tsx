@@ -62,7 +62,8 @@ export function IncomeForm({
 }: IncomeFormProps) {
     // Estado para el diálogo de crear cliente
     const [createCustomerOpen, setCreateCustomerOpen] = useState(false);
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+    const [_selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+    void _selectedCustomer; // Se usa para actualización del estado
 
     const queryClient = useQueryClient();
 
@@ -84,7 +85,7 @@ export function IncomeForm({
     });
 
     // Query para categorías
-    const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    const { data: categories = [] } = useQuery({
         queryKey: ['income-categories'],
         queryFn: incomeCategoriesApi.getAll,
     });

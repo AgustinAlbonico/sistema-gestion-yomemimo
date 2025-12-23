@@ -336,7 +336,7 @@
                 }
             } catch (error) {
                 // Usar innerHTML para soportar saltos de línea del mensaje de error
-                statusDiv.innerHTML = (error.message || 'Error al conectar').replace(/\n/g, '<br>');
+                statusDiv.innerHTML = (error.message || 'Error al conectar').replaceAll('\n', '<br>');
                 statusDiv.classList.add('status-error');
                 connectBtn.disabled = false;
                 connectBtn.textContent = 'Probar Conexión y Guardar';

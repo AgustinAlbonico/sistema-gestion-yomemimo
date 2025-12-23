@@ -37,26 +37,25 @@ const dataSource = new DataSource({
         if (!user) {
             console.error('❌ El usuario admin no existe. Ejecuta el seed primero.');
             process.exitCode = 1;
-            return;
+        } else {
+            // Generar nuevo hash de contraseña
+            const passwordHash = await bcrypt.hash('Admin123', 10);
+
+            // Actualizar directamente usando query builder para evitar hooks
+            await userRepository
+                .createQueryBuilder()
+                .update(User)
+                .set({ passwordHash, isActive: true })
+                .where('id = :id', { id: user.id })
+                .execute();
+
+            console.log('✅ Contraseña del usuario admin actualizada exitosamente:');
+            console.log(`   Username: ${username}`);
+            console.log(`   Password: Admin123`);
+            console.log('\n💡 Ahora puedes iniciar sesión con estas credenciales.');
+
+            process.exitCode = 0;
         }
-
-        // Generar nuevo hash de contraseña
-        const passwordHash = await bcrypt.hash('Admin123', 10);
-
-        // Actualizar directamente usando query builder para evitar hooks
-        await userRepository
-            .createQueryBuilder()
-            .update(User)
-            .set({ passwordHash, isActive: true })
-            .where('id = :id', { id: user.id })
-            .execute();
-
-        console.log('✅ Contraseña del usuario admin actualizada exitosamente:');
-        console.log(`   Username: ${username}`);
-        console.log(`   Password: Admin123`);
-        console.log('\n💡 Ahora puedes iniciar sesión con estas credenciales.');
-
-        process.exitCode = 0;
     } catch (error) {
         console.error('❌ Error reseteando contraseña:', error);
         process.exitCode = 1;
@@ -67,4 +66,3 @@ const dataSource = new DataSource({
         console.log('\nDatabase connection closed.');
     }
 })();
-

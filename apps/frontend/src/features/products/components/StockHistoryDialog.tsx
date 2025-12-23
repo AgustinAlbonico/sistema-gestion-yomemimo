@@ -83,7 +83,7 @@ function getSourceVariant(source: StockMovementSource): 'default' | 'secondary' 
 /**
  * Componente para un item del historial
  */
-function StockMovementItem({ movement }: { movement: StockMovement }) {
+function StockMovementItem({ movement }: Readonly<{ movement: StockMovement }>) {
     const isEntry = movement.type === StockMovementType.IN;
     
     return (

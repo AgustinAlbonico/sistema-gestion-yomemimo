@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 // Cargar variables de entorno
 config({ path: '../../.env' });
@@ -95,7 +95,7 @@ async function generateFullMigration() {
         let enumValues: string[];
         if (typeof enumType.enum_values === 'string') {
             // Parsear el string de PostgreSQL "{val1,val2,val3}"
-            enumValues = enumType.enum_values.replace(/[{}]/g, '').split(',');
+            enumValues = enumType.enum_values.replaceAll(/[{}]/g, '').split(',');
         } else {
             enumValues = enumType.enum_values;
         }
@@ -220,8 +220,8 @@ async function generateFullMigration() {
     // Agregar foreign keys
     upStatements.push('        // Foreign Keys');
     for (const fk of foreignKeys) {
-        const onDelete = fk.delete_rule !== 'NO ACTION' ? ` ON DELETE ${fk.delete_rule}` : '';
-        const onUpdate = fk.update_rule !== 'NO ACTION' ? ` ON UPDATE ${fk.update_rule}` : '';
+        const onDelete = fk.delete_rule === 'NO ACTION' ? '' : ` ON DELETE ${fk.delete_rule}`;
+        const onUpdate = fk.update_rule === 'NO ACTION' ? '' : ` ON UPDATE ${fk.update_rule}`;
 
         upStatements.push(`        await queryRunner.query(\`
             ALTER TABLE "${fk.table_name}" 
@@ -247,7 +247,7 @@ async function generateFullMigration() {
     upStatements.push('        // Indexes');
     for (const idx of indexes) {
         // Escapar backticks en la definición del índice
-        const indexDef = idx.indexdef.replace(/`/g, '\\`');
+        const indexDef = idx.indexdef.replaceAll(/`/g, '\\`');
         upStatements.push(`        await queryRunner.query(\`${indexDef}\`);`);
     }
 

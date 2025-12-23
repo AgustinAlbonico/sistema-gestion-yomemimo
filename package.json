@@ -12,9 +12,9 @@
     "start": "turbo run start",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "desktop:dev": "npm run dev -w @sistema/desktop",
-    "desktop:build": "npm run build -w @sistema/desktop",
-    "desktop:package": "npm run package -w @sistema/desktop"
+    "desktop:dev": "npm run dev --workspace=@sistema/desktop",
+    "desktop:build": "npm run build --workspace=@sistema/desktop",
+    "desktop:package": "npm run package --workspace=@sistema/desktop"
   },
   "devDependencies": {
     "turbo": "^1.11.0"

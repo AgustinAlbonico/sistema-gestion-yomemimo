@@ -2,6 +2,7 @@ import {
     Injectable,
     NotFoundException,
     ConflictException,
+    BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,10 +13,10 @@ import { CreateUserDTO, UpdateUserDTO, UpdateProfileDTO } from './dto';
 export class UsersService {
     constructor(
         @InjectRepository(User)
-        private usersRepository: Repository<User>,
+        private readonly usersRepository: Repository<User>,
     ) { }
 
-    async create(dto: CreateUserDTO | any): Promise<User> {
+    async create(dto: CreateUserDTO): Promise<User> {
         const existingUser = await this.findByUsername(dto.username);
 
         if (existingUser) {
@@ -49,7 +50,7 @@ export class UsersService {
                 lastLogin: true,
                 createdAt: true,
             },
-        }) as Promise<User[]>;
+        });
     }
 
     async findOne(id: string, includePassword = false): Promise<User> {
@@ -97,7 +98,7 @@ export class UsersService {
         return query.getOne();
     }
 
-    async update(id: string, dto: UpdateUserDTO | any): Promise<User> {
+    async update(id: string, dto: UpdateUserDTO): Promise<User> {
         const user = await this.findOne(id);
 
         if (dto.username && dto.username !== user.username) {
@@ -112,6 +113,12 @@ export class UsersService {
             if (existingEmail) {
                 throw new ConflictException('El email ya está en uso');
             }
+        }
+
+        // Si viene password, asignarlo a passwordHash
+        if (dto.password) {
+            user.passwordHash = dto.password;
+            delete dto.password;
         }
 
         Object.assign(user, dto);
@@ -137,8 +144,18 @@ export class UsersService {
         await this.usersRepository.remove(user);
     }
 
-    async toggleStatus(id: string): Promise<User> {
+    /**
+     * Cambia el estado activo/inactivo de un usuario
+     * No permite desactivar al usuario que está logueado actualmente
+     */
+    async toggleStatus(id: string, currentUserId: string): Promise<User> {
         const user = await this.findOne(id);
+        
+        // Validar que el usuario no intente desactivarse a sí mismo
+        if (id === currentUserId && user.isActive) {
+            throw new BadRequestException('No puedes desactivar tu propia cuenta');
+        }
+        
         user.isActive = !user.isActive;
         return this.usersRepository.save(user);
     }

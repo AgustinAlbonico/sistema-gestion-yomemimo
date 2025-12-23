@@ -10,7 +10,7 @@ import { AccountStatus } from '../entities/customer-account.entity';
  * DTO para crear un cargo (venta a cuenta)
  */
 export class CreateChargeDto {
-    @ApiProperty({ description: 'Monto del cargo', example: 1500.50 })
+    @ApiProperty({ description: 'Monto del cargo', example: 1500.5 })
     @IsNumber()
     @Min(0.01)
     amount!: number;

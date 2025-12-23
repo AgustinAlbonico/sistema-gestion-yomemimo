@@ -4,10 +4,10 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { Repository } from 'typeorm';
 import { AuditLog } from './entities/audit-log.entity';
 import { AuditEntityType, AuditAction } from './enums';
-import { CreateAuditLogDto, AuditFiltersDto } from './dto';
+import { AuditFiltersDto } from './dto';
 
 export interface PaginatedAuditLogs {
     data: AuditLog[];

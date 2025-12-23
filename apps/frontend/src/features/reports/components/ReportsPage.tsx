@@ -18,7 +18,6 @@ import {
     ArrowDownRight,
     AlertTriangle,
     BarChart3,
-    PieChartIcon,
     Briefcase,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

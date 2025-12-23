@@ -26,7 +26,7 @@ Edita el archivo `apps/desktop/package.json` e incrementa el número de versión
 Abre la terminal en la carpeta del proyecto y ejecuta:
 
 ```powershell
-npm run desktop:build
+pnpm desktop:build
 ```
 
 Esto generará los archivos necesarios en la carpeta `apps/desktop/release`. Los archivos críticos son:

@@ -130,8 +130,9 @@ export function Sidebar({ user, onLogout, collapsed = false, onToggle }: Sidebar
     const [version, setVersion] = useState<string>('');
 
     useEffect(() => {
-        if (window.electronAPI?.getAppVersion) {
-            window.electronAPI.getAppVersion()
+        const electronAPI = (globalThis as unknown as { electronAPI?: { getAppVersion?: () => Promise<string> } }).electronAPI;
+        if (electronAPI?.getAppVersion) {
+            electronAPI.getAppVersion()
                 .then((v) => setVersion(v))
                 .catch((err) => console.error('Error getting app version', err));
         }
@@ -265,7 +266,23 @@ export function Sidebar({ user, onLogout, collapsed = false, onToggle }: Sidebar
 
                 {/* User Profile & Logout */}
                 <div className={cn("p-4 border-t border-border bg-muted/30", collapsed && "px-2")}>
-                    {!collapsed ? (
+                    {collapsed ? (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    onClick={onLogout}
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                Cerrar Sesión
+                            </TooltipContent>
+                        </Tooltip>
+                    ) : (
                         <>
                             <div className="flex items-center gap-3 mb-3 px-1">
                                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm flex-shrink-0">
@@ -296,22 +313,6 @@ export function Sidebar({ user, onLogout, collapsed = false, onToggle }: Sidebar
                                 </p>
                             )}
                         </>
-                    ) : (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                    onClick={onLogout}
-                                >
-                                    <LogOut className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right">
-                                Cerrar Sesión
-                            </TooltipContent>
-                        </Tooltip>
                     )}
                 </div>
             </div>

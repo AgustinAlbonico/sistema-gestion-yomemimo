@@ -8,8 +8,8 @@ import { RefreshToken } from './entities/refresh-token.entity';
 export class TokensService {
     constructor(
         @InjectRepository(RefreshToken)
-        private refreshTokenRepository: Repository<RefreshToken>,
-        private configService: ConfigService,
+        private readonly refreshTokenRepository: Repository<RefreshToken>,
+        private readonly configService: ConfigService,
     ) { }
 
     async saveToken(userId: string, token: string): Promise<RefreshToken> {
@@ -48,7 +48,7 @@ export class TokensService {
 
     private calculateExpirationDate(expiresIn: string): Date {
         const now = new Date();
-        const match = expiresIn.match(/^(\d+)([smhd])$/);
+        const match = /^(\d+)([smhd])$/.exec(expiresIn);
 
         if (!match) {
             // Default to 90 days if invalid format

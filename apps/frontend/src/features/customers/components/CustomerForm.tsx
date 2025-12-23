@@ -117,7 +117,7 @@ export function CustomerForm({
             categoryId: '',
             notes: '',
             isActive: true,
-            ...(initialData || {}),
+            ...initialData,
         },
     });
 

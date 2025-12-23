@@ -1,0 +1,6 @@
+# Estado de autenticación guardado
+.auth/user.json
+
+# Resultados de tests
+test-results/
+

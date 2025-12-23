@@ -144,8 +144,9 @@ export function CustomerAccountsPage() {
                 <CardContent>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Buscar cliente</label>
+                            <label htmlFor="search-customer" className="text-sm font-medium">Buscar cliente</label>
                             <Input
+                                id="search-customer"
                                 placeholder="Nombre del cliente..."
                                 value={filters.search || ''}
                                 onChange={(e) =>
@@ -155,7 +156,7 @@ export function CustomerAccountsPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Estado</label>
+                            <label htmlFor="status-filter" className="text-sm font-medium">Estado</label>
                             <Select
                                 value={filters.status || 'all'}
                                 onValueChange={(value) =>
@@ -165,7 +166,7 @@ export function CustomerAccountsPage() {
                                     )
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="status-filter">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -181,7 +182,7 @@ export function CustomerAccountsPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Con deuda</label>
+                            <label htmlFor="debt-filter" className="text-sm font-medium">Con deuda</label>
                             <Select
                                 value={filters.hasDebt === undefined ? 'all' : filters.hasDebt.toString()}
                                 onValueChange={(value) =>
@@ -191,7 +192,7 @@ export function CustomerAccountsPage() {
                                     )
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="debt-filter">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -203,7 +204,7 @@ export function CustomerAccountsPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">En mora</label>
+                            <label htmlFor="overdue-filter" className="text-sm font-medium">En mora</label>
                             <Select
                                 value={
                                     filters.isOverdue === undefined
@@ -217,7 +218,7 @@ export function CustomerAccountsPage() {
                                     )
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="overdue-filter">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>

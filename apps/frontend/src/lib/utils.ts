@@ -45,3 +45,11 @@ export function formatDateTime(date: string | Date): string {
         minute: '2-digit',
     }).format(d);
 }
+
+/**
+ * Detecta si la aplicación está corriendo dentro de Electron
+ */
+export function isElectron(): boolean {
+    return globalThis.window !== undefined &&
+        (globalThis as unknown as { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron === true;
+}
