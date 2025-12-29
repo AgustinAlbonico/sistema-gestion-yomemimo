@@ -13,8 +13,6 @@ import {
     IsBoolean,
     MaxLength,
     IsUUID,
-    ArrayMinSize,
-    ArrayNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -173,8 +171,6 @@ export class CreateSaleDto {
     notes?: string;
 
     @IsArray()
-    @ArrayNotEmpty({ message: 'La venta debe tener al menos un producto' })
-    @ArrayMinSize(1, { message: 'La venta debe tener al menos un producto' })
     @ValidateNested({ each: true })
     @Type(() => CreateSaleItemDto)
     items!: CreateSaleItemDto[];
