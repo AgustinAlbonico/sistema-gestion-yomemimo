@@ -20,6 +20,7 @@ import {
 import { useParkedSales, ParkedSale } from '../hooks/useParkedSales';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useConfirm } from '@/hooks/useConfirm';
 import {
     Table,
     TableBody,
@@ -67,6 +68,7 @@ export function SaleList({
     onResume,
 }: SaleListProps) {
     const { parkedSales, removeSale } = useParkedSales();
+    const confirm = useConfirm();
     const [currentPage, setCurrentPage] = useState(1);
     const limit = 20; // 20 ventas por página por defecto
 
@@ -262,8 +264,15 @@ export function SaleList({
                                         size="sm"
                                         variant="ghost"
                                         className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-100"
-                                        onClick={() => {
-                                            if (confirm('¿Eliminar esta venta pendiente?')) {
+                                        onClick={async () => {
+                                            const confirmed = await confirm({
+                                                title: 'Eliminar venta pendiente',
+                                                description: '¿Estás seguro de que querés eliminar esta venta? Esta acción no se puede deshacer.',
+                                                variant: 'danger',
+                                                confirmLabel: 'Eliminar',
+                                                cancelLabel: 'Cancelar',
+                                            });
+                                            if (confirmed) {
                                                 removeSale(sale.id);
                                             }
                                         }}

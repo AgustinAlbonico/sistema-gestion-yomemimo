@@ -69,6 +69,7 @@ import { Product } from '@/features/products/types';
 
 interface SaleFormProps {
     readonly onSubmit: (data: CreateSaleDTO) => void;
+    readonly onParkSale?: () => void;
     readonly isLoading?: boolean;
     readonly initialData?: CreateSaleFormValues;
 }
@@ -82,7 +83,7 @@ function formatCurrency(value: number): string {
     }).format(value);
 }
 
-export function SaleForm({ onSubmit, isLoading, initialData }: SaleFormProps) {
+export function SaleForm({ onSubmit, onParkSale, isLoading, initialData }: SaleFormProps) {
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(initialData?.customerName ? {
         id: initialData.customerId ?? '',
         firstName: initialData.customerName,
@@ -316,6 +317,7 @@ export function SaleForm({ onSubmit, isLoading, initialData }: SaleFormProps) {
         });
         setSelectedCustomer(null);
         toast.success('Venta pospuesta correctamente');
+        onParkSale?.();
     };
 
     const handleRetrieveParkedSale = (sale: ParkedSale) => {

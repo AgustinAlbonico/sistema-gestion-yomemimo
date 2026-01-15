@@ -365,6 +365,7 @@ export default function SalesPage() {
                             <div className="flex-1 overflow-auto p-6">
                                 <SaleForm
                                     onSubmit={handleCreate}
+                                    onParkSale={() => setIsCreateOpen(false)}
                                     isLoading={createMutation.isPending}
                                     initialData={resumingSale?.data}
                                 />
@@ -550,8 +551,6 @@ export default function SalesPage() {
                     <SaleList
                         filters={filters}
                         onView={handleView}
-                        onDelete={handleDelete}
-                        onCancel={handleCancel}
                         onDelete={handleDelete}
                         onCancel={handleCancel}
                         onPay={handlePay}
