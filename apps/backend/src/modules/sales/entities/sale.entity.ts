@@ -62,7 +62,7 @@ export class Sale {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -74,7 +74,7 @@ export class Sale {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -86,7 +86,7 @@ export class Sale {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -98,7 +98,7 @@ export class Sale {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -110,7 +110,7 @@ export class Sale {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -144,7 +144,7 @@ export class Sale {
 
     @Column({
         type: 'decimal',
-        precision: 4,
+        precision: 10,
         scale: 2,
         nullable: true,
         transformer: {

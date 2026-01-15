@@ -48,14 +48,14 @@ export class CustomerAccount {
      *  balance = 0  => cuenta saldada
      *  balance < 0  => el negocio le debe al cliente (saldo a favor)
      */
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+    @Column({ type: 'decimal', precision: 20, scale: 2, default: 0 })
     balance!: number;
 
     /**
      * Límite de crédito del cliente
      * 0 = sin límite establecido
      */
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+    @Column({ type: 'decimal', precision: 20, scale: 2, default: 0 })
     creditLimit!: number;
 
     @Column({

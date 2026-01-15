@@ -30,7 +30,7 @@ export class UpdateCategoryDto implements Partial<UpdateCategoryDTO> {
     @IsOptional()
     @IsNumber()
     @Min(0)
-    @Max(1000)
+    @Max(1000000)
     profitMargin?: number | null;
 
     @ApiPropertyOptional({ example: true })

@@ -67,4 +67,10 @@ seed_products.sql
 scripts/
 
 # #sonarqube
-# sonar-project.properties
+.scannerwork/
+.sonarlint/
+sonar-project.properties
+
+# Build outputs
+apps/backend/build-output.txt
+apps/backend/dist-bundle/

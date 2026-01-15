@@ -13,10 +13,11 @@ export const BaseProductSchema = z.object({
     cost: z.number().min(0, 'El costo debe ser 0 o mayor'),
     stock: z.number().int().min(0).optional().default(0),
     categoryId: z.string().uuid().optional().nullable(),
+    brandName: z.string().max(100).optional().nullable(),
     isActive: z.boolean().default(true),
     // Margen de ganancia personalizado (opcional)
     useCustomMargin: z.boolean().optional().default(false),
-    customProfitMargin: z.number().min(0).max(1000).optional(),
+    customProfitMargin: z.number().min(0).max(1000000).optional(),
 });
 
 export const CreateProductSchema = BaseProductSchema;
@@ -56,6 +57,12 @@ export class CreateProductDto {
     @IsUUID('4')
     categoryId?: string | null;
 
+    @ApiPropertyOptional({ example: 'Sedal', description: 'Nombre de la marca' })
+    @IsOptional()
+    @IsString()
+    @Length(0, 100)
+    brandName?: string | null;
+
     @ApiPropertyOptional({ example: true, default: true })
     @IsOptional()
     @IsBoolean()
@@ -70,7 +77,7 @@ export class CreateProductDto {
     @IsOptional()
     @IsNumber()
     @Min(0)
-    @Max(1000)
+    @Max(1000000)
     customProfitMargin?: number;
 }
 

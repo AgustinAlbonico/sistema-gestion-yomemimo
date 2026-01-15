@@ -49,7 +49,7 @@ export class SaleItem {
 
     @Column({
         type: 'decimal',
-        precision: 10,
+        precision: 20,
         scale: 2,
         transformer: {
             to: (value: number) => value,
@@ -60,7 +60,7 @@ export class SaleItem {
 
     @Column({
         type: 'decimal',
-        precision: 10,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -72,7 +72,7 @@ export class SaleItem {
 
     @Column({
         type: 'decimal',
-        precision: 5,
+        precision: 10,
         scale: 2,
         default: 0,
         transformer: {
@@ -84,7 +84,7 @@ export class SaleItem {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         transformer: {
             to: (value: number) => value,

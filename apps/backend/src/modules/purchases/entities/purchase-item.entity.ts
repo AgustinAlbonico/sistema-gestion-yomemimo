@@ -21,7 +21,7 @@ export class PurchaseItem {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
 
-    @ManyToOne(() => Purchase, (purchase) => purchase.items, { 
+    @ManyToOne(() => Purchase, (purchase) => purchase.items, {
         onDelete: 'CASCADE',
     })
     @JoinColumn({ name: 'purchase_id' })
@@ -42,7 +42,7 @@ export class PurchaseItem {
 
     @Column({
         type: 'decimal',
-        precision: 10,
+        precision: 20,
         scale: 2,
         transformer: {
             to: (value: number) => value,
@@ -53,7 +53,7 @@ export class PurchaseItem {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         transformer: {
             to: (value: number) => value,

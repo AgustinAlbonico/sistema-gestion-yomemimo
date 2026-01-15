@@ -32,22 +32,22 @@ export class CashRegister {
     @Column({ type: 'timestamp', nullable: true })
     closedAt?: Date;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2 })
+    @Column({ type: 'decimal', precision: 20, scale: 2 })
     initialAmount!: number;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+    @Column({ type: 'decimal', precision: 20, scale: 2, default: 0 })
     totalIncome!: number;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+    @Column({ type: 'decimal', precision: 20, scale: 2, default: 0 })
     totalExpense!: number;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+    @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })
     expectedAmount?: number;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+    @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })
     actualAmount?: number;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+    @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })
     difference?: number;
 
     @Column({

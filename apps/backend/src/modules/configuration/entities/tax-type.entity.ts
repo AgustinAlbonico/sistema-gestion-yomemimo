@@ -10,7 +10,7 @@ export class TaxType {
 
     @Column({
         type: 'decimal',
-        precision: 5,
+        precision: 10,
         scale: 2,
         nullable: true,
         transformer: {

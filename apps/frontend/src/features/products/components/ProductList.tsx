@@ -93,12 +93,26 @@ function ProductDetailDialog({
                             <h2 className="text-xl font-bold tracking-tight truncate">
                                 {product.name}
                             </h2>
-                            {product.category ? (
-                                <div className="flex items-center gap-2 mt-1.5">
-                                    <Tag className="h-3.5 w-3.5 opacity-80" />
-                                    <span className="text-sm opacity-90">{product.category.name}</span>
-                                </div>
-                            ) : null}
+                            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                {product.category ? (
+                                    <div
+                                        className="flex items-center gap-1.5 px-2 py-0.5 rounded-full backdrop-blur-sm"
+                                        style={{
+                                            backgroundColor: product.category.color ? `${product.category.color}40` : 'rgba(255,255,255,0.1)',
+                                            border: product.category.color ? `1px solid ${product.category.color}60` : 'none'
+                                        }}
+                                    >
+                                        <Tag className="h-3.5 w-3.5 opacity-80" />
+                                        <span className="text-sm font-medium opacity-90">{product.category.name}</span>
+                                    </div>
+                                ) : null}
+                                {product.brand ? (
+                                    <div className="flex items-center gap-1.5 bg-white/10 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                                        <Boxes className="h-3.5 w-3.5 opacity-80" />
+                                        <span className="text-sm font-medium opacity-90">{product.brand.name}</span>
+                                    </div>
+                                ) : null}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -179,26 +193,24 @@ function ProductDetailDialog({
 
                         <div className="grid grid-cols-2 gap-3">
                             {/* Stock actual */}
-                            <div className={`rounded-lg p-3 border transition-colors ${
-                                (() => {
-                                    if (isOutOfStock) return 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50';
-                                    if (isLowStock) return 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800/50';
-                                    return 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800';
-                                })()
-                            }`}>
+                            <div className={`rounded-lg p-3 border transition-colors ${(() => {
+                                if (isOutOfStock) return 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50';
+                                if (isLowStock) return 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800/50';
+                                return 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800';
+                            })()
+                                }`}>
                                 <div className="flex items-center justify-between mb-1">
                                     <p className="text-xs text-muted-foreground">Stock Actual</p>
                                     {(isLowStock || isOutOfStock) ? (
                                         <AlertTriangle className={`h-3.5 w-3.5 ${isOutOfStock ? 'text-red-500' : 'text-yellow-500'}`} />
                                     ) : null}
                                 </div>
-                                <p className={`text-lg font-semibold ${
-                                    (() => {
-                                        if (isOutOfStock) return 'text-red-600 dark:text-red-400';
-                                        if (isLowStock) return 'text-yellow-600 dark:text-yellow-400';
-                                        return '';
-                                    })()
-                                }`}>
+                                <p className={`text-lg font-semibold ${(() => {
+                                    if (isOutOfStock) return 'text-red-600 dark:text-red-400';
+                                    if (isLowStock) return 'text-yellow-600 dark:text-yellow-400';
+                                    return '';
+                                })()
+                                    }`}>
                                     {product.stock} <span className="text-sm font-normal text-muted-foreground">unidades</span>
                                 </p>
                             </div>
@@ -266,7 +278,7 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
     const { data, isLoading, error } = useQuery({
         queryKey: ['products', { categoryId: selectedCategoryId, stockStatus }],
         queryFn: () => productsApi.getAll({
-            limit: 100, // Máximo permitido por el backend
+            limit: 10000, // Aumentado para soportar catálogos grandes
             categoryId: selectedCategoryId && selectedCategoryId !== 'all' ? selectedCategoryId : undefined,
             stockStatus: stockStatus === 'all' ? undefined : stockStatus,
         }),
@@ -356,17 +368,30 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
                 return (
                     <Badge
                         variant="outline"
-                        className="text-xs"
+                        className="text-xs font-bold"
                         style={{
                             borderColor: product.category.color || undefined,
-                            backgroundColor: product.category.color ? `${product.category.color}20` : undefined,
+                            backgroundColor: product.category.color ? `${product.category.color}15` : undefined,
+                            color: product.category.color || undefined,
                         }}
                     >
                         {product.category.name}
                         {product.category.profitMargin !== null && product.category.profitMargin !== undefined ? (
-                            <span className="ml-1 text-muted-foreground">({product.category.profitMargin}%)</span>
+                            <span className="ml-1 opacity-70">({product.category.profitMargin}%)</span>
                         ) : null}
                     </Badge>
+                );
+            },
+        },
+        {
+            id: 'brand',
+            header: 'Marca',
+            cell: ({ row }) => {
+                const product = row.original;
+                return product.brand ? (
+                    <span className="text-sm font-medium">{product.brand.name}</span>
+                ) : (
+                    <span className="text-muted-foreground">-</span>
                 );
             },
         },

@@ -16,7 +16,8 @@ export class ProductsRepository extends Repository<Product> {
         const { page, limit, search, categoryId, isActive, stockStatus, sortBy, order } = filters;
 
         const query = this.createQueryBuilder('product')
-            .leftJoinAndSelect('product.category', 'category');
+            .leftJoinAndSelect('product.category', 'category')
+            .leftJoinAndSelect('product.brand', 'brand');
 
         // Búsqueda por texto
         if (search) {

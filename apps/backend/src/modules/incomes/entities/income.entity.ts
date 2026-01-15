@@ -30,7 +30,7 @@ export class Income {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         transformer: {
             to: (value: number) => value,

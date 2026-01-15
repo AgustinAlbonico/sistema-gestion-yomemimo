@@ -17,6 +17,8 @@ import { InventoryService } from '../inventory/inventory.service';
 import { StockMovementType, StockMovementSource } from '../inventory/entities/stock-movement.entity';
 import { Product } from './entities/product.entity';
 import { Category } from './entities/category.entity';
+import { Brand } from './entities/brand.entity';
+import { BrandsRepository } from './brands.repository';
 
 /**
  * Servicio de productos
@@ -31,6 +33,7 @@ export class ProductsService {
     constructor(
         private readonly productsRepository: ProductsRepository,
         private readonly categoriesRepository: CategoriesRepository,
+        private readonly brandsRepository: BrandsRepository,
         private readonly configService: ConfigurationService,
         @Inject(forwardRef(() => InventoryService))
         private readonly inventoryService: InventoryService,
@@ -82,6 +85,12 @@ export class ProductsService {
             category,
         );
 
+        // Procesar marca (opcional)
+        let brand: Brand | null = null;
+        if (dto.brandName && dto.brandName.trim().length > 0) {
+            brand = await this.brandsRepository.findOrCreateByName(dto.brandName);
+        }
+
         // Calcular precio automáticamente
         const price = this.calculatePrice(dto.cost, profitMargin);
 
@@ -97,6 +106,8 @@ export class ProductsService {
             stock: 0, // Inicializar en 0, el movimiento lo actualizará
             category,
             categoryId: dto.categoryId || null,
+            brand,
+            brandId: brand?.id || null,
             isActive: dto.isActive ?? true,
         });
 
@@ -142,7 +153,7 @@ export class ProductsService {
     async findOne(id: string) {
         const product = await this.productsRepository.findOne({
             where: { id },
-            relations: ['category'],
+            relations: ['category', 'brand'],
         });
 
         if (!product) {
@@ -158,6 +169,18 @@ export class ProductsService {
         // Actualizar categoría si se proporciona
         if (dto.categoryId !== undefined) {
             await this.updateProductCategory(product, dto.categoryId);
+        }
+
+        // Actualizar marca si se proporciona
+        if (dto.brandName !== undefined) {
+            if (dto.brandName && dto.brandName.trim().length > 0) {
+                const brand = await this.brandsRepository.findOrCreateByName(dto.brandName);
+                product.brand = brand;
+                product.brandId = brand.id;
+            } else {
+                product.brand = null;
+                product.brandId = null;
+            }
         }
 
         // Manejar cambio de margen y recalcular precio si es necesario

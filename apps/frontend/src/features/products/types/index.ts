@@ -1,3 +1,8 @@
+export interface Brand {
+    id: string;
+    name: string;
+}
+
 export interface Product {
     id: string;
     name: string;
@@ -11,6 +16,8 @@ export interface Product {
     stock: number;
     categoryId?: string | null;
     category?: Category | null;
+    brandId?: string | null;
+    brand?: Brand | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -33,6 +40,7 @@ export interface CreateProductDTO {
     cost: number;
     stock?: number;
     categoryId?: string | null;
+    brandName?: string | null;
     isActive?: boolean;
     useCustomMargin?: boolean;
     customProfitMargin?: number;
@@ -60,6 +68,12 @@ export interface CreateCategoryDTO {
 }
 
 export interface UpdateCategoryDTO extends Partial<CreateCategoryDTO> { }
+
+export interface CategoryDeletionPreview {
+    productCount: number;
+    affectedProductsCount: number;
+    globalMargin: number;
+}
 
 // Tipos de Inventario
 export enum StockMovementType {

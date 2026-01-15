@@ -11,6 +11,7 @@ import {
     BeforeUpdate,
 } from 'typeorm';
 import { Category } from './category.entity';
+import { Brand } from './brand.entity';
 
 @Entity('products')
 @Index(['name'])
@@ -34,7 +35,7 @@ export class Product {
 
     @Column({
         type: 'decimal',
-        precision: 10,
+        precision: 20,
         scale: 2,
         transformer: {
             to: (value: number) => value,
@@ -45,7 +46,7 @@ export class Product {
 
     @Column({
         type: 'decimal',
-        precision: 10,
+        precision: 20,
         scale: 2,
         nullable: true,
         transformer: {
@@ -57,7 +58,7 @@ export class Product {
 
     @Column({
         type: 'decimal',
-        precision: 5,
+        precision: 10,
         scale: 2,
         nullable: true,
         transformer: {
@@ -78,6 +79,15 @@ export class Product {
     @ManyToOne(() => Category, (category) => category.products, { eager: false, nullable: true })
     @JoinColumn({ name: 'categoryId' })
     category!: Category | null;
+
+    // Relación ManyToOne: Un producto tiene UNA marca (opcional)
+    @Index()
+    @Column({ type: 'uuid', nullable: true })
+    brandId!: string | null;
+
+    @ManyToOne(() => Brand, (brand) => brand.products, { eager: false, nullable: true })
+    @JoinColumn({ name: 'brandId' })
+    brand!: Brand | null;
 
     // Indica si el producto usa un margen de ganancia personalizado (no afectado por actualización masiva)
     @Column({ type: 'boolean', default: false })

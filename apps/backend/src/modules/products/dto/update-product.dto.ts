@@ -42,6 +42,12 @@ export class UpdateProductDto {
     @IsUUID('4')
     categoryId?: string | null;
 
+    @ApiPropertyOptional({ example: 'Sedal', description: 'Nombre de la marca' })
+    @IsOptional()
+    @IsString()
+    @Length(0, 100)
+    brandName?: string | null;
+
     @ApiPropertyOptional({ example: true })
     @IsOptional()
     @IsBoolean()
@@ -56,7 +62,7 @@ export class UpdateProductDto {
     @IsOptional()
     @IsNumber()
     @Min(0)
-    @Max(1000)
+    @Max(1000000)
     customProfitMargin?: number;
 }
 

@@ -27,25 +27,25 @@ export class CashRegisterTotals {
     paymentMethodId!: string;
 
     // Solo para CASH - monto inicial de efectivo
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+    @Column({ type: 'decimal', precision: 20, scale: 2, default: 0 })
     initialAmount!: number;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+    @Column({ type: 'decimal', precision: 20, scale: 2, default: 0 })
     totalIncome!: number;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+    @Column({ type: 'decimal', precision: 20, scale: 2, default: 0 })
     totalExpense!: number;
 
     // inicial + ingresos - egresos
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+    @Column({ type: 'decimal', precision: 20, scale: 2, default: 0 })
     expectedAmount!: number;
 
     // Arqueo al cerrar - Contado manualmente
-    @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+    @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })
     actualAmount?: number;
 
     // actual - esperado
-    @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+    @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })
     difference?: number;
 
     @CreateDateColumn()

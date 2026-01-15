@@ -19,6 +19,13 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useState, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -137,10 +144,33 @@ export function DataTable<TData, TValue>({
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                    Página {table.getState().pagination.pageIndex + 1} de{' '}
-                    {table.getPageCount()}
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="text-sm text-muted-foreground">
+                        Página {table.getState().pagination.pageIndex + 1} de{' '}
+                        {table.getPageCount()}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Mostrar:</span>
+                        <Select
+                            value={String(table.getState().pagination.pageSize)}
+                            onValueChange={(value) => {
+                                table.setPageSize(Number(value));
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={table.getState().pagination.pageSize} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 25, 50, 100, 500].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={String(pageSize)}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <span className="text-sm text-muted-foreground">registros</span>
+                    </div>
                 </div>
                 <div className="flex items-center space-x-2">
                     <Button

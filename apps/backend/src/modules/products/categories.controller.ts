@@ -51,6 +51,12 @@ export class CategoriesController {
         return this.categoriesService.update(id, updateCategoryDto);
     }
 
+    @Get(':id/deletion-preview')
+    @ApiOperation({ summary: 'Obtener vista previa de eliminación de categoría' })
+    getDeletionPreview(@Param('id') id: string) {
+        return this.categoriesService.getDeletionPreview(id);
+    }
+
     @Delete(':id')
     @ApiOperation({ summary: 'Eliminar una categoría' })
     remove(@Param('id') id: string) {

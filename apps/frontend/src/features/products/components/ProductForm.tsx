@@ -27,6 +27,7 @@ import { formatCurrency } from '@/lib/utils';
 import { useEffect, useState, useMemo } from 'react';
 import { Percent, Info } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { BrandCombobox } from './BrandCombobox';
 
 interface ProductFormProps {
     readonly initialData?: ProductFormValues;
@@ -65,6 +66,7 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing }: Pro
             isActive: true,
             useCustomMargin: false,
             customProfitMargin: undefined,
+            brandName: null,
         },
     });
 
@@ -152,6 +154,28 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing }: Pro
                                 />
                             </FormControl>
                             <FormDescription>Información adicional sobre el producto (opcional)</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                {/* Marca (Autocomplete / Nueva) */}
+                <FormField
+                    control={form.control}
+                    name="brandName"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-col gap-1">
+                            <FormLabel>Marca</FormLabel>
+                            <FormControl>
+                                <BrandCombobox
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    placeholder="Buscar o crear marca..."
+                                />
+                            </FormControl>
+                            <FormDescription>
+                                Selecciona una existente o escribe para crear una nueva
+                            </FormDescription>
                             <FormMessage />
                         </FormItem>
                     )}

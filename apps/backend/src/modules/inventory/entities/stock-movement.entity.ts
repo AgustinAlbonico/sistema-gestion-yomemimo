@@ -44,7 +44,7 @@ export class StockMovement {
     productId!: string;
 
     @ManyToOne(() => Product)
-    @JoinColumn({ name: 'product_id' })
+    @JoinColumn({ name: 'productId' })
     product!: Product;
 
     @Column({
@@ -63,7 +63,7 @@ export class StockMovement {
     @Column('int')
     quantity!: number;
 
-    @Column('decimal', { precision: 10, scale: 2, nullable: true })
+    @Column('decimal', { precision: 20, scale: 2, nullable: true })
     cost?: number;
 
     @Column({ type: 'varchar', length: 255, nullable: true })

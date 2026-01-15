@@ -5,7 +5,7 @@ import { Type, Transform } from 'class-transformer';
 
 export const QueryProductsSchema = z.object({
     page: z.coerce.number().int().positive().default(1),
-    limit: z.coerce.number().int().positive().max(100).default(10),
+    limit: z.coerce.number().int().positive().max(10000).default(100),
     search: z.string().optional(),
     categoryId: z.string().uuid().optional(),
     isActive: z.coerce.boolean().optional(),
@@ -24,13 +24,13 @@ export class QueryProductsDto implements QueryProductsDTO {
     @Min(1)
     page: number = 1;
 
-    @ApiPropertyOptional({ example: 10 })
+    @ApiPropertyOptional({ example: 100 })
     @IsOptional()
     @Type(() => Number)
     @IsInt()
     @Min(1)
-    @Max(100)
-    limit: number = 10;
+    @Max(10000)
+    limit: number = 100;
 
     @ApiPropertyOptional({ example: 'coca cola' })
     @IsOptional()

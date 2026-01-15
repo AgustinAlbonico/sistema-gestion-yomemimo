@@ -14,10 +14,11 @@ export const productSchema = z.object({
     cost: z.coerce.number().min(0, 'El costo debe ser 0 o mayor'),
     stock: z.coerce.number().int().min(0, 'El stock debe ser 0 o mayor').default(0),
     categoryId: z.string().uuid().optional().nullable(),
+    brandName: z.string().max(100).optional().nullable(),
     isActive: z.boolean().default(true),
     // Margen de ganancia personalizado
     useCustomMargin: z.boolean().default(false),
-    customProfitMargin: z.coerce.number().min(0, 'El margen debe ser 0 o mayor').max(1000).optional(),
+    customProfitMargin: z.coerce.number().min(0, 'El margen debe ser 0 o mayor').max(1000000).optional(),
 });
 
 export type ProductFormValues = z.infer<typeof productSchema>;

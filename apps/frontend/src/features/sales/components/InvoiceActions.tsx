@@ -3,7 +3,7 @@
  * Muestra el estado de la factura y permite generar/descargar PDF
  */
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,8 +15,17 @@ import {
     CheckCircle2,
     AlertCircle,
     Clock,
+    ShieldAlert,
 } from 'lucide-react';
 import { invoicesApi } from '../api/sales.api';
+import { fiscalApi } from '@/features/configuration/api/fiscal.api';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { AlertCircle as AlertCircleIcon } from 'lucide-react';
 import {
     Sale,
     Invoice,
@@ -38,6 +47,14 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
     const [isDownloading, setIsDownloading] = useState(false);
     // Estado local para la factura (permite actualizar después de retry)
     const [invoice, setInvoice] = useState<Invoice | undefined>(initialInvoice);
+
+    // Obtener configuración fiscal para validar si se puede facturar
+    const { data: fiscalConfig } = useQuery({
+        queryKey: ['fiscal-config'],
+        queryFn: fiscalApi.getConfiguration,
+    });
+
+    const isFiscalConfigured = !!fiscalConfig?.isConfigured;
 
     /**
      * Mutación para generar factura
@@ -103,10 +120,10 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
      */
     const handleDownloadPdf = async () => {
         if (!invoice?.id) return;
-        
+
         try {
             setIsDownloading(true);
-            
+
             const response = await api.get(`/api/invoices/${invoice.id}/pdf`, {
                 responseType: 'blob',
             });
@@ -139,7 +156,7 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
     const handleDownloadSaleNote = async () => {
         try {
             setIsDownloading(true);
-            
+
             const response = await api.get(invoicesApi.getSaleNotePdfUrl(sale.id), {
                 responseType: 'blob',
             });
@@ -198,18 +215,18 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
                             </p>
                         </div>
                     </div>
-                    
+
                     {sale.fiscalError && (
                         <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-sm text-orange-700 dark:text-orange-300">
                             <p className="font-medium">Error:</p>
                             <p>{sale.fiscalError}</p>
                         </div>
                     )}
-                    
+
                     <Button
                         size="sm"
                         onClick={() => generateMutation.mutate()}
-                        disabled={generateMutation.isPending}
+                        disabled={generateMutation.isPending || !isFiscalConfigured}
                     >
                         {generateMutation.isPending ? (
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -218,6 +235,13 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
                         )}
                         Reintentar Facturación
                     </Button>
+
+                    {!isFiscalConfigured && (
+                        <p className="text-xs text-amber-600 flex items-center gap-1.5 mt-2">
+                            <AlertCircleIcon className="h-3.5 w-3.5" />
+                            Configuración fiscal incompleta. No se puede facturar.
+                        </p>
+                    )}
                 </div>
             );
         }
@@ -230,18 +254,43 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
                         <FileText className="h-4 w-4" />
                         <span className="text-sm">Sin factura fiscal</span>
                     </div>
-                    <Button
-                        size="sm"
-                        onClick={() => generateMutation.mutate()}
-                        disabled={generateMutation.isPending}
-                    >
-                        {generateMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        ) : (
-                            <FileText className="h-4 w-4 mr-2" />
-                        )}
-                        Generar Factura
-                    </Button>
+
+                    {!isFiscalConfigured ? (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1.5">
+                                        <Button
+                                            size="sm"
+                                            disabled
+                                            className="opacity-50 cursor-not-allowed"
+                                        >
+                                            <ShieldAlert className="h-4 w-4 mr-2" />
+                                            Generar Factura
+                                        </Button>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-[200px]">
+                                    <p className="text-xs">
+                                        La facturación no está configurada. Completá los datos en Configuración → Fiscal.
+                                    </p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    ) : (
+                        <Button
+                            size="sm"
+                            onClick={() => generateMutation.mutate()}
+                            disabled={generateMutation.isPending}
+                        >
+                            {generateMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                                <FileText className="h-4 w-4 mr-2" />
+                            )}
+                            Generar Factura
+                        </Button>
+                    )}
                 </div>
                 <div className="pt-2 border-t">
                     <Button
@@ -279,8 +328,8 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
                     )}
                     {(invoice.status === InvoiceStatus.REJECTED ||
                         invoice.status === InvoiceStatus.ERROR) && (
-                        <AlertCircle className="h-5 w-5 text-red-500" />
-                    )}
+                            <AlertCircle className="h-5 w-5 text-red-500" />
+                        )}
                     <div>
                         <p className="font-medium">
                             {InvoiceTypeLabels[invoice.invoiceType]}
@@ -341,23 +390,23 @@ export function InvoiceActions({ sale, invoice: initialInvoice }: InvoiceActions
                         Descargar PDF
                     </Button>
                 )}
-                
+
                 {(invoice.status === InvoiceStatus.REJECTED ||
                     invoice.status === InvoiceStatus.ERROR) && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => retryMutation.mutate()}
-                        disabled={retryMutation.isPending}
-                    >
-                        {retryMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        ) : (
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                        )}
-                        Reintentar
-                    </Button>
-                )}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => retryMutation.mutate()}
+                            disabled={retryMutation.isPending}
+                        >
+                            {retryMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                            )}
+                            Reintentar
+                        </Button>
+                    )}
             </div>
         </div>
     );

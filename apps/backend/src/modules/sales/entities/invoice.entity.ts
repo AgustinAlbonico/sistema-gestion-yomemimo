@@ -113,7 +113,7 @@ export class Invoice {
     // === IMPORTES ===
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         transformer: {
             to: (value: number) => value,
@@ -124,7 +124,7 @@ export class Invoice {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -136,7 +136,7 @@ export class Invoice {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -148,7 +148,7 @@ export class Invoice {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         transformer: {
             to: (value: number) => value,
@@ -160,7 +160,7 @@ export class Invoice {
     // === IVA (solo para Responsable Inscripto) ===
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -172,7 +172,7 @@ export class Invoice {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -184,7 +184,7 @@ export class Invoice {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -196,7 +196,7 @@ export class Invoice {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {
@@ -208,7 +208,7 @@ export class Invoice {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {

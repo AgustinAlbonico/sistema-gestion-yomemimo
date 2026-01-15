@@ -249,6 +249,7 @@ publish:
     owner: AgustinAlbonico
     repo: sistema-gestion
     releaseType: release
+    private: true
 
 asar: true
 asarUnpack:

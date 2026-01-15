@@ -1,0 +1,21 @@
+services:
+  # PostgreSQL para tests de integración
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: nexopos-test-db
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: nexopos_test
+    ports:
+      - "5433:5432"  # Puerto diferente para no chocar con dev
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d nexopos_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-test-data:

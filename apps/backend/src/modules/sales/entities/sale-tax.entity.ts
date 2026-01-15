@@ -24,7 +24,7 @@ export class SaleTax {
 
     @Column({
         type: 'decimal',
-        precision: 5,
+        precision: 10,
         scale: 2,
         nullable: true,
         transformer: {
@@ -36,7 +36,7 @@ export class SaleTax {
 
     @Column({
         type: 'decimal',
-        precision: 12,
+        precision: 20,
         scale: 2,
         default: 0,
         transformer: {

@@ -10,11 +10,18 @@
     "start:bundle": "node dist-bundle/main.js",
     "lint": "eslint 'src/**/*.ts' --fix",
     "test": "jest",
-    "migration:run": "ts-node src/scripts/run-migrations.ts",
+    "test:unit": "jest --selectProjects unit",
+    "test:integration": "jest --selectProjects integration",
+    "test:api": "jest --selectProjects api",
+    "test:all": "jest --coverage",
+    "test:watch": "jest --watch --selectProjects unit",
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/data-source.ts",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts",
     "seed": "ts-node src/scripts/seed.ts",
     "seed-admin": "ts-node src/scripts/seed-admin.ts",
     "reset-admin": "ts-node src/scripts/reset-admin-password.ts",
-    "debug-admin": "ts-node src/scripts/debug-admin.ts"
+    "debug-admin": "ts-node src/scripts/debug-admin.ts",
+    "populate-products": "ts-node src/scripts/populate-products.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

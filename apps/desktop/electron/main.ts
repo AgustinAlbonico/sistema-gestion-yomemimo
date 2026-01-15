@@ -795,6 +795,23 @@ function setupAutoUpdater(): void {
     log.info('[Electron] Configurando auto-updater...');
 
     // ============================================
+    // CONFIGURACIÓN PARA REPOSITORIOS PRIVADOS
+    // ============================================
+    // Token de GitHub para acceder a releases de repositorio privado
+    // IMPORTANTE: Este token solo necesita permisos de "repo" para leer releases
+    // Regenerar si se compromete: https://github.com/settings/tokens
+    const GH_UPDATE_TOKEN = ''; // TODO: Configurar vía variable de entorno o dejar vacío para repo público
+
+    if (GH_UPDATE_TOKEN) {
+        log.info('[AutoUpdater] Token de GitHub configurado para repo privado');
+        autoUpdater.requestHeaders = {
+            Authorization: `token ${GH_UPDATE_TOKEN}`
+        };
+    } else {
+        log.warn('[AutoUpdater] GH_TOKEN no configurado. Configurá el token en main.ts');
+    }
+
+    // ============================================
     // CONFIGURACIÓN PARA LIBERAR ESPACIO
     // ============================================
     // Instalar automáticamente al cerrar la app y borrar el instalador

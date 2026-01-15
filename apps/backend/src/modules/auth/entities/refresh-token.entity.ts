@@ -20,7 +20,7 @@ export class RefreshToken {
     userId!: string;
 
     @ManyToOne(() => User, (user) => user.refreshTokens, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'user_id' })
+    @JoinColumn({ name: 'userId' })
     user!: User;
 
     @Column({ type: 'varchar', length: 500, unique: true })

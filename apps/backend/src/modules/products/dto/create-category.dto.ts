@@ -6,7 +6,7 @@ export const CreateCategorySchema = z.object({
     name: z.string().min(1, 'El nombre es requerido').max(100),
     description: z.string().max(500).optional(),
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Color inválido (formato: #RRGGBB)').optional(),
-    profitMargin: z.number().min(0).max(1000).optional().nullable(),
+    profitMargin: z.number().min(0).max(1000000).optional().nullable(),
     isActive: z.boolean().default(true),
 });
 
@@ -34,7 +34,7 @@ export class CreateCategoryDto implements CreateCategoryDTO {
     @IsOptional()
     @IsNumber()
     @Min(0)
-    @Max(1000)
+    @Max(1000000)
     profitMargin?: number | null;
 
     @ApiProperty({ example: true, default: true })

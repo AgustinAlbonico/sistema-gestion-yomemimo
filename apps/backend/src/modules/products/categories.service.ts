@@ -9,6 +9,10 @@ import { CategoriesRepository } from './categories.repository';
 import { CreateCategoryDTO, UpdateCategoryDTO } from './dto';
 import { generateColorFromName } from '../../common/utils/color.utils';
 import { ProductsService } from './products.service';
+import { CategoryDeletionPreviewDTO } from './dto/category-deletion-preview.dto';
+import { DataSource } from 'typeorm';
+import { Product } from './entities/product.entity';
+import { ConfigurationService } from '../configuration/configuration.service';
 
 @Injectable()
 export class CategoriesService {
@@ -16,6 +20,8 @@ export class CategoriesService {
         private readonly categoriesRepository: CategoriesRepository,
         @Inject(forwardRef(() => ProductsService))
         private readonly productsService: ProductsService,
+        private readonly configService: ConfigurationService,
+        private readonly dataSource: DataSource,
     ) { }
 
     async create(dto: CreateCategoryDTO) {
@@ -86,11 +92,70 @@ export class CategoriesService {
         return savedCategory;
     }
 
-    async remove(id: string) {
+    async getDeletionPreview(id: string): Promise<CategoryDeletionPreviewDTO> {
         const category = await this.findOne(id);
 
-        await this.categoriesRepository.remove(category);
+        const productRepo = this.dataSource.getRepository(Product);
 
-        return { message: 'Categoría eliminada exitosamente' };
+        const [productCount, affectedProductsCount, globalMargin] = await Promise.all([
+            productRepo.count({ where: { categoryId: id } }),
+            productRepo.count({ where: { categoryId: id, useCustomMargin: false } }),
+            this.configService.getDefaultProfitMargin(),
+        ]);
+
+        return {
+            productCount,
+            affectedProductsCount,
+            globalMargin,
+        };
+    }
+
+    async remove(id: string) {
+        const category = await this.findOne(id);
+        const globalMargin = await this.configService.getDefaultProfitMargin();
+
+        if (isNaN(globalMargin) || globalMargin < 0) {
+            throw new ConflictException('El margen global del sistema no es válido');
+        }
+
+        // Ejecutar en transacción para asegurar consistencia
+        await this.dataSource.transaction(async (transactionalEntityManager) => {
+            const productRepo = transactionalEntityManager.getRepository(Product);
+
+            // 1. Actualizar productos que NO tienen margen personalizado
+            // Estos productos heredarán el margen global y se recalculará su precio
+            await productRepo
+                .createQueryBuilder()
+                .update(Product)
+                .set({
+                    categoryId: null,
+                    profitMargin: globalMargin,
+                    // Recalcular precio: precio = costo * (1 + margin/100)
+                    // Usamos una expresión SQL para asegurar precisión y evitar overflows de JS
+                    price: () => `ROUND(cost * (1 + ${globalMargin} / 100), 2)`,
+                    updatedAt: new Date(),
+                })
+                .where('categoryId = :id', { id })
+                .andWhere('useCustomMargin = :useCustomMargin', { useCustomMargin: false })
+                .execute();
+
+            // 2. Actualizar productos que SÍ tienen margen personalizado
+            // Solo quitamos la categoría, mantenemos su margen y precio actual
+            await productRepo
+                .createQueryBuilder()
+                .update(Product)
+                .set({
+                    categoryId: null,
+                    updatedAt: new Date(),
+                })
+                .where('categoryId = :id', { id })
+                .andWhere('useCustomMargin = :useCustomMargin', { useCustomMargin: true })
+                .execute();
+
+            // 3. Eliminar la categoría
+            await transactionalEntityManager.remove(category);
+        });
+
+        return { message: 'Categoría eliminada exitosamente y productos actualizados' };
     }
 }

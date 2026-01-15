@@ -7,7 +7,32 @@ import {
     Category,
     CreateCategoryDTO,
     UpdateCategoryDTO,
+    Brand,
+    CategoryDeletionPreview,
 } from '../types';
+
+export const brandsApi = {
+    search: async (query: string) => {
+        const response = await api.get<Brand[]>('/api/brands/search', { params: { q: query } });
+        return response.data;
+    },
+    getAll: async () => {
+        const response = await api.get<Brand[]>('/api/brands');
+        return response.data;
+    },
+    getProductCount: async (id: string) => {
+        const response = await api.get<{ count: number }>(`/api/brands/${id}/product-count`);
+        return response.data;
+    },
+    update: async (id: string, name: string) => {
+        const response = await api.patch<Brand>(`/api/brands/${id}`, { name });
+        return response.data;
+    },
+    delete: async (id: string) => {
+        const response = await api.delete<{ message: string; productsAffected: number }>(`/api/brands/${id}`);
+        return response.data;
+    },
+};
 
 export const productsApi = {
     getAll: async (params?: ProductFilters) => {
@@ -65,6 +90,11 @@ export const categoriesApi = {
 
     update: async (id: string, data: UpdateCategoryDTO) => {
         const response = await api.patch<Category>(`/api/categories/${id}`, data);
+        return response.data;
+    },
+
+    getDeletionPreview: async (id: string) => {
+        const response = await api.get<CategoryDeletionPreview>(`/api/categories/${id}/deletion-preview`);
         return response.data;
     },
 

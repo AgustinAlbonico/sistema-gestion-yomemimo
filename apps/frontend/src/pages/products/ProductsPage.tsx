@@ -114,6 +114,7 @@ export default function ProductsPage() {
         mutationFn: categoriesApi.delete,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['categories'] });
+            queryClient.invalidateQueries({ queryKey: ['products'] });
             toast.success('Categoría eliminada');
         },
         onError: () => {
@@ -243,14 +244,50 @@ export default function ProductsPage() {
                                                             size="icon"
                                                             className="text-destructive hover:text-destructive"
                                                             onClick={async () => {
-                                                                const confirmed = await confirm({
-                                                                    title: 'Eliminar categoría',
-                                                                    description: `¿Estás seguro de eliminar "${cat.name}"?`,
-                                                                    variant: 'danger',
-                                                                    confirmLabel: 'Eliminar',
-                                                                });
-                                                                if (confirmed) {
-                                                                    deleteCategoryMutation.mutate(cat.id);
+                                                                try {
+                                                                    // Obtener preview antes de confirmar
+                                                                    const preview = await categoriesApi.getDeletionPreview(cat.id);
+
+                                                                    const confirmed = await confirm({
+                                                                        title: 'Eliminar categoría',
+                                                                        description: (
+                                                                            <div className="space-y-3 pt-2">
+                                                                                <p>
+                                                                                    ¿Estás seguro de eliminar la categoría <strong>"{cat.name}"</strong>?
+                                                                                </p>
+                                                                                <div className="bg-muted p-3 rounded-md text-sm space-y-2 border">
+                                                                                    <p className="flex items-center gap-2">
+                                                                                        <Package className="h-4 w-4 text-primary" />
+                                                                                        <span>Productos en esta categoría: <strong>{preview.productCount}</strong></span>
+                                                                                    </p>
+                                                                                    {preview.productCount > 0 && (
+                                                                                        <>
+                                                                                            <p className="text-muted-foreground ml-6">
+                                                                                                • Los productos perderán esta categoría.
+                                                                                            </p>
+                                                                                            <p className="text-muted-foreground ml-6">
+                                                                                                • {preview.affectedProductsCount} productos sin margen personalizado usarán el <strong>margen global ({preview.globalMargin}%)</strong>.
+                                                                                            </p>
+                                                                                            <p className="text-muted-foreground ml-6">
+                                                                                                • Productos con margen personalizado mantendrán su precio actual.
+                                                                                            </p>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                                <p className="text-sm font-medium text-destructive">
+                                                                                    Esta acción no se puede deshacer.
+                                                                                </p>
+                                                                            </div>
+                                                                        ),
+                                                                        variant: 'danger',
+                                                                        confirmLabel: 'Eliminar Categoría y Actualizar Productos',
+                                                                    });
+
+                                                                    if (confirmed) {
+                                                                        deleteCategoryMutation.mutate(cat.id);
+                                                                    }
+                                                                } catch (error) {
+                                                                    toast.error('Error al obtener información de la categoría');
                                                                 }
                                                             }}
                                                         >

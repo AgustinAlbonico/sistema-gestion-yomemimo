@@ -50,7 +50,7 @@ export class CashMovement {
     createdBy?: User;
 
     // Campos para movimientos manuales (solo se usan cuando referenceType = 'manual')
-    @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+    @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })
     manualAmount?: number;
 
     @Column({ type: 'varchar', length: 200, nullable: true })

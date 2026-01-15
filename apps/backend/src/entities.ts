@@ -45,6 +45,7 @@ import { StockMovement } from './modules/inventory/entities/stock-movement.entit
 // Products
 import { Category } from './modules/products/entities/category.entity';
 import { Product } from './modules/products/entities/product.entity';
+import { Brand } from './modules/products/entities/brand.entity';
 
 // Purchases
 import { PurchaseItem } from './modules/purchases/entities/purchase-item.entity';
@@ -85,6 +86,7 @@ export const entities = [
     StockMovement,
     Category,
     Product,
+    Brand,
     PurchaseItem,
     Purchase,
     Invoice,

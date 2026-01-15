@@ -29,7 +29,7 @@ export class Category {
     // a menos que tengan un margen personalizado (useCustomMargin = true)
     @Column({
         type: 'decimal',
-        precision: 5,
+        precision: 10,
         scale: 2,
         nullable: true,
         transformer: {

@@ -56,19 +56,19 @@ export class AccountMovement {
      *  amount > 0  => débito al cliente (cargo, venta, interés)
      *  amount < 0  => crédito al cliente (pago, descuento, ajuste a favor)
      */
-    @Column({ type: 'decimal', precision: 12, scale: 2 })
+    @Column({ type: 'decimal', precision: 20, scale: 2 })
     amount!: number;
 
     /**
      * Saldo antes del movimiento (para auditoría)
      */
-    @Column({ type: 'decimal', precision: 12, scale: 2 })
+    @Column({ type: 'decimal', precision: 20, scale: 2 })
     balanceBefore!: number;
 
     /**
      * Saldo después del movimiento (running balance)
      */
-    @Column({ type: 'decimal', precision: 12, scale: 2 })
+    @Column({ type: 'decimal', precision: 20, scale: 2 })
     balanceAfter!: number;
 
     /**

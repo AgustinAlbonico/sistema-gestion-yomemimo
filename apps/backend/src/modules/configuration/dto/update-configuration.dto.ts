@@ -9,7 +9,7 @@ export class UpdateConfigurationDto {
     @IsOptional()
     @IsNumber()
     @Min(0)
-    @Max(1000)
+    @Max(1000000)
     defaultProfitMargin?: number;
 
     @ApiPropertyOptional({ example: 5, description: 'Stock mínimo para alertas' })

@@ -11,19 +11,26 @@ import { Category } from './entities/category.entity';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { InventoryModule } from '../inventory/inventory.module';
 
+import { Brand } from './entities/brand.entity';
+import { BrandsController } from './brands.controller';
+import { BrandsService } from './brands.service';
+import { BrandsRepository } from './brands.repository';
+
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Product, Category]),
+        TypeOrmModule.forFeature([Product, Category, Brand]),
         ConfigurationModule,
         forwardRef(() => InventoryModule),
     ],
-    controllers: [ProductsController, CategoriesController],
+    controllers: [ProductsController, CategoriesController, BrandsController],
     providers: [
         ProductsService,
         ProductsRepository,
         CategoriesService,
         CategoriesRepository,
+        BrandsService,
+        BrandsRepository,
     ],
-    exports: [ProductsService, CategoriesService],
+    exports: [ProductsService, CategoriesService, BrandsService],
 })
 export class ProductsModule { }
