@@ -23,6 +23,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useParkedSales, ParkedSale } from '@/features/sales/hooks/useParkedSales';
 import {
     SaleForm,
     SaleList,
@@ -58,6 +59,10 @@ export default function SalesPage() {
     const [confirmedSale, setConfirmedSale] = useState<Sale | null>(null);
     // Estado para controlar si el usuario decidió continuar a pesar de la alerta de caja
     const [dismissedCashAlert, setDismissedCashAlert] = useState(false);
+
+    // Estado para recuperar venta pendiente
+    const [resumingSale, setResumingSale] = useState<ParkedSale | null>(null);
+    const { retrieveSale } = useParkedSales();
 
     // Inicializar filtros con el mes actual por defecto
     const defaultMonthRange = useMemo(() => getCurrentMonthRange(), []);
@@ -141,6 +146,16 @@ export default function SalesPage() {
     // Handlers
     const handleCreate = (data: CreateSaleDTO) => {
         createMutation.mutate(data);
+    };
+
+    const handleResumeParkedSale = (parkedSale: ParkedSale) => {
+        if (!openRegister) {
+            toast.error('La caja de hoy está cerrada. Abrí la caja para registrar ventas.');
+            return;
+        }
+        setResumingSale(parkedSale);
+        retrieveSale(parkedSale.id); // Mark as retrieved/remove if needed by logic, but mostly to sync state
+        setIsCreateOpen(true);
     };
 
     const handleView = (sale: Sale) => {
@@ -327,8 +342,8 @@ export default function SalesPage() {
                         open={isCreateOpen}
                         onOpenChange={(open) => {
                             setIsCreateOpen(open);
-                            // Resetear el estado de alerta cuando se cierra el modal
                             if (!open) {
+                                setResumingSale(null); // Limpiar al cerrar
                                 setDismissedModalCashAlert(false);
                             }
                         }}
@@ -351,6 +366,7 @@ export default function SalesPage() {
                                 <SaleForm
                                     onSubmit={handleCreate}
                                     isLoading={createMutation.isPending}
+                                    initialData={resumingSale?.data}
                                 />
                             </div>
                         </DialogContent>
@@ -536,7 +552,10 @@ export default function SalesPage() {
                         onView={handleView}
                         onDelete={handleDelete}
                         onCancel={handleCancel}
+                        onDelete={handleDelete}
+                        onCancel={handleCancel}
                         onPay={handlePay}
+                        onResume={handleResumeParkedSale}
                     />
                 </CardContent>
             </Card>

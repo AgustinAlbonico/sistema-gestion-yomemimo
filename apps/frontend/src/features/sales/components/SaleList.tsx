@@ -14,7 +14,10 @@ import {
     FileX,
     ChevronLeft,
     ChevronRight,
+    PauseCircle,
+    PlayCircle,
 } from 'lucide-react';
+import { useParkedSales, ParkedSale } from '../hooks/useParkedSales';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -52,6 +55,7 @@ interface SaleListProps {
     readonly onDelete?: (id: string) => void;
     readonly onCancel?: (id: string) => void;
     readonly onPay?: (sale: Sale) => void;
+    readonly onResume?: (sale: ParkedSale) => void;
 }
 
 export function SaleList({
@@ -60,7 +64,9 @@ export function SaleList({
     onDelete,
     onCancel,
     onPay,
+    onResume,
 }: SaleListProps) {
+    const { parkedSales, removeSale } = useParkedSales();
     const [currentPage, setCurrentPage] = useState(1);
     const limit = 20; // 20 ventas por página por defecto
 
@@ -208,6 +214,68 @@ export function SaleList({
                     </TableRow>
                 </TableHeader>
                 <TableBody>
+                    {/* Ventas Pendientes (Parked) - Solo en página 1 y sin filtros activos (opcional, por ahora mostrar siempre si page=1) */}
+                    {currentPage === 1 && parkedSales.map((sale) => (
+                        <TableRow
+                            key={`parked-${sale.id}`}
+                            className="bg-orange-50/50 hover:bg-orange-50 border-l-4 border-l-orange-400"
+                        >
+                            <TableCell className="font-medium text-orange-700">
+                                <span className="flex items-center gap-1">
+                                    <PauseCircle className="h-4 w-4" />
+                                    Pendiente
+                                </span>
+                            </TableCell>
+                            <TableCell>
+                                {formatDateTimeForDisplay(sale.date)}
+                            </TableCell>
+                            <TableCell>
+                                {sale.customerName || 'Cliente Ocasional'}
+                            </TableCell>
+                            <TableCell>
+                                <span className="text-muted-foreground">
+                                    {sale.itemCount} item(s)
+                                </span>
+                            </TableCell>
+                            <TableCell>-</TableCell>
+                            <TableCell className="text-right font-medium">
+                                {formatCurrency(sale.total)}
+                            </TableCell>
+                            <TableCell>-</TableCell>
+                            <TableCell>
+                                <Badge variant="outline" className="border-orange-400 text-orange-700 bg-orange-100">
+                                    POSPUESTA
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
+                                        onClick={() => onResume?.(sale)}
+                                        title="Retomar venta"
+                                    >
+                                        <PlayCircle className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-100"
+                                        onClick={() => {
+                                            if (confirm('¿Eliminar esta venta pendiente?')) {
+                                                removeSale(sale.id);
+                                            }
+                                        }}
+                                        title="Eliminar venta pendiente"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+
                     {data.data.map((sale) => (
                         <TableRow
                             key={sale.id}

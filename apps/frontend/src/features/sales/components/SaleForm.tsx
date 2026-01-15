@@ -61,10 +61,16 @@ import {
 import { SaleItemsList } from './SaleItemsList';
 import { SaleTotals } from './SaleTotals';
 import { SalePayments } from './SalePayments';
+import { useParkedSales, ParkedSale } from '../hooks/useParkedSales';
+import { ParkedSalesDialog } from './ParkedSalesDialog';
+import { ProductFormDialog } from '@/features/products/components/ProductFormDialog';
+import { PauseCircle, History } from 'lucide-react';
+import { Product } from '@/features/products/types';
 
 interface SaleFormProps {
     readonly onSubmit: (data: CreateSaleDTO) => void;
     readonly isLoading?: boolean;
+    readonly initialData?: CreateSaleFormValues;
 }
 
 function formatCurrency(value: number): string {
@@ -76,8 +82,21 @@ function formatCurrency(value: number): string {
     }).format(value);
 }
 
-export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+export function SaleForm({ onSubmit, isLoading, initialData }: SaleFormProps) {
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(initialData?.customerName ? {
+        id: initialData.customerId ?? '',
+        firstName: initialData.customerName,
+        lastName: '',
+        documentNumber: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        category: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+    } as any : null); // Mock customer if only name is present, ideally pass full customer object if available
     const [createCustomerOpen, setCreateCustomerOpen] = useState(false);
     const ivaPercentage = 21; // IVA por defecto 21%
 
@@ -97,9 +116,16 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
 
     const isMonotributista = fiscalConfig?.ivaCondition === IvaCondition.RESPONSABLE_MONOTRIBUTO;
 
+    // Parked Sales
+    const { parkSale, parkedSales, retrieveSale, removeSale } = useParkedSales();
+    const [showParkedSales, setShowParkedSales] = useState(false);
+
+    // Inline Product Creation
+    const [showCreateProduct, setShowCreateProduct] = useState(false);
+
     const form = useForm<CreateSaleFormValues>({
         resolver: zodResolver(createSaleSchema),
-        defaultValues: {
+        defaultValues: initialData || {
             customerId: undefined,
             customerName: '',
             saleDate: getTodayLocal(),
@@ -204,6 +230,10 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
     });
 
     const handleProductSelect = (productId: string, product: any) => {
+        addItemToSale(productId, product);
+    };
+
+    const addItemToSale = (productId: string, product: any) => {
         // Verificar si el producto ya está en la lista
         const existingIndex = items.findIndex(item => item.productId === productId);
 
@@ -232,6 +262,15 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
             });
             toast.success(`${product.name} agregado`);
         }
+    }
+
+    const handleCreateProduct = () => {
+        setShowCreateProduct(true);
+    };
+
+    const handleProductCreated = (product: Product) => {
+        // Agregar el producto creado a la venta automáticamente
+        addItemToSale(product.id, product);
     };
 
     const updateQuantity = (index: number, delta: number) => {
@@ -250,6 +289,50 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
         }
 
         form.setValue(`items.${index}.quantity`, newQty);
+    };
+
+    const handleParkSale = () => {
+        if (items.length === 0) {
+            toast.error('Agregá productos antes de posponer la venta');
+            return;
+        }
+
+        parkSale(form.getValues(), total, selectedCustomer);
+
+        // Reset form
+        form.reset({
+            customerId: undefined,
+            customerName: '',
+            saleDate: getTodayLocal(),
+            discount: 0,
+            surcharge: 0,
+            tax: 0,
+            isOnAccount: false,
+            generateInvoice: false,
+            notes: '',
+            items: [],
+            taxes: [],
+            payments: [{ paymentMethod: PaymentMethod.CASH, amount: 0 }],
+        });
+        setSelectedCustomer(null);
+        toast.success('Venta pospuesta correctamente');
+    };
+
+    const handleRetrieveParkedSale = (sale: ParkedSale) => {
+        retrieveSale(sale.id);
+
+        // Restore form data
+        form.reset(sale.data);
+
+        // Restore specific state
+        if (sale.customer) {
+            setSelectedCustomer(sale.customer);
+        } else {
+            setSelectedCustomer(null);
+        }
+
+        setShowParkedSales(false);
+        toast.info('Venta recuperada');
     };
 
     const handleSubmit = (data: CreateSaleFormValues) => {
@@ -324,6 +407,16 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                     <DialogTitle className="flex items-center gap-2 text-xl">
                                         <ShoppingCart className="h-5 w-5" />
                                         Nueva Venta
+                                        {parkedSales.length > 0 && (
+                                            <Badge
+                                                variant="secondary"
+                                                className="ml-2 cursor-pointer hover:bg-secondary/80 bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200"
+                                                onClick={() => setShowParkedSales(true)}
+                                            >
+                                                <History className="h-3 w-3 mr-1" />
+                                                {parkedSales.length} pendiente{parkedSales.length !== 1 ? 's' : ''}
+                                            </Badge>
+                                        )}
                                     </DialogTitle>
                                     <DialogDescription className="mt-1">
                                         Stock automático
@@ -459,6 +552,8 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                     className="h-12 text-lg"
                                     excludeIds={items.map(item => item.productId).filter(id => id !== '')}
                                     excludeOutOfStock
+                                    allowCreate
+                                    onCreateClick={handleCreateProduct}
                                 />
                             </div>
 
@@ -533,6 +628,33 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                                     'CONFIRMAR VENTA'
                                 )}
                             </Button>
+
+                            <div className="grid grid-cols-2 gap-3 mt-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800"
+                                    onClick={handleParkSale}
+                                    disabled={items.length === 0}
+                                >
+                                    <PauseCircle className="mr-2 h-4 w-4" />
+                                    Posponer
+                                </Button>
+
+                                {parkedSales.length > 0 ? (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="text-muted-foreground"
+                                        onClick={() => setShowParkedSales(true)}
+                                    >
+                                        <History className="mr-2 h-4 w-4" />
+                                        Recuperar ({parkedSales.length})
+                                    </Button>
+                                ) : (
+                                    <div />
+                                )}
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -554,6 +676,23 @@ export function SaleForm({ onSubmit, isLoading }: SaleFormProps) {
                     />
                 </DialogContent>
             </Dialog>
+
+            <ParkedSalesDialog
+                open={showParkedSales}
+                onOpenChange={setShowParkedSales}
+                parkedSales={parkedSales}
+                onSelect={handleRetrieveParkedSale}
+                onDelete={(id) => {
+                    removeSale(id);
+                    toast.success('Venta pendiente eliminada');
+                }}
+            />
+
+            <ProductFormDialog
+                open={showCreateProduct}
+                onOpenChange={setShowCreateProduct}
+                onProductCreated={handleProductCreated}
+            />
         </div>
     );
 }

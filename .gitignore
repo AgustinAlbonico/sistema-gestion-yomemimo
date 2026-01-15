@@ -61,5 +61,10 @@ test-results/
 tmp/
 temp/
 
+#Extras
+productos/
+seed_products.sql
+scripts/
+
 # #sonarqube
 # sonar-project.properties
