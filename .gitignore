@@ -64,7 +64,6 @@ temp/
 #Extras
 productos/
 seed_products.sql
-scripts/
 
 # #sonarqube
 .scannerwork/
@@ -74,3 +73,6 @@ sonar-project.properties
 # Build outputs
 apps/backend/build-output.txt
 apps/backend/dist-bundle/
+
+# Auto Claude data directory
+.auto-claude/

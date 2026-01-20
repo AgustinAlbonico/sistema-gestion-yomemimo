@@ -49,6 +49,9 @@ const config: Config = {
     // Timeouts
     testTimeout: 30000,
 
+    // Workers limitado para evitar problemas de memoria
+    maxWorkers: 2,
+
     // Verbose output
     verbose: true,
 

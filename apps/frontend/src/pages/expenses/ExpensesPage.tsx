@@ -649,7 +649,7 @@ export default function ExpensesPage() {
                             amount: editingExpense.amount,
                             expenseDate: editingExpense.expenseDate.split('T')[0],
                             categoryId: editingExpense.categoryId ?? undefined,
-                            paymentMethodId: editingExpense.paymentMethodId ?? undefined,
+                            paymentMethodId: editingExpense.paymentMethodId ?? editingExpense.paymentMethod?.id,
                             receiptNumber: editingExpense.receiptNumber ?? '',
                             isPaid: editingExpense.isPaid,
                             notes: editingExpense.notes ?? '',

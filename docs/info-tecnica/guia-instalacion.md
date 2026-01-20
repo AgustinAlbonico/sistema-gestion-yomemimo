@@ -86,13 +86,19 @@ cd "C:\Program Files\PostgreSQL\18\bin"
    C:\Program Files\PostgreSQL\18\data\pg_hba.conf
    ```
 
-2. Agregar esta línea al final (antes de cualquier comentario):
+2. Agregar las líneas necesarias al final (antes de cualquier comentario):
+
+   **Para red local típica:**
    ```
-   host    all    all    0.0.0.0/0 md5
    host    all    all    192.168.0.0/16    scram-sha-256
    ```
+
+   **Para permitir conexión desde cualquier IP (sin restricciones de origen):**
+   ```
+   host    all    all    0.0.0.0/0         md5
+   ```
    
-   > Esto permite conexiones desde cualquier IP que empiece con `192.168.x.x` (red local típica).
+   > Nota: La línea `0.0.0.0/0` permite conexiones desde absolutamente cualquier dirección IP. Útil si no se conoce el rango de red local o para casos específicos de acceso remoto.
 
 3. Guardar el archivo.
 
@@ -254,7 +260,7 @@ cd "C:\Program Files\PostgreSQL\18\bin"
 - [ ] PostgreSQL instalado
 - [ ] Base de datos `nexopos` creada
 - [ ] `postgresql.conf` → `listen_addresses = '*'`
-- [ ] `pg_hba.conf` → regla para red local agregada
+- [ ] `pg_hba.conf` → regla para red local o cualquier IP agregada
 - [ ] Servicio PostgreSQL reiniciado
 - [ ] Firewall → puerto 5432 abierto
 - [ ] NexoPOS instalado y configurado

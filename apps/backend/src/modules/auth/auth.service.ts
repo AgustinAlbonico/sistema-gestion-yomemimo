@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from './users.service';
 import { TokensService } from './tokens.service';
 import { LoginDTO, RegisterDTO, ChangePasswordDTO } from './dto';
+import { User } from './entities/user.entity';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -173,7 +174,7 @@ export class AuthService {
         };
     }
 
-    private async generateTokens(user: any) {
+    private async generateTokens(user: User) {
         const payload = {
             sub: user.id,
             username: user.username, // Cambiado de email a username

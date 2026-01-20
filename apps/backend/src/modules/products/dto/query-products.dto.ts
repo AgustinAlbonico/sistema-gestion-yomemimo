@@ -8,6 +8,7 @@ export const QueryProductsSchema = z.object({
     limit: z.coerce.number().int().positive().max(10000).default(100),
     search: z.string().optional(),
     categoryId: z.string().uuid().optional(),
+    brandId: z.string().uuid().optional(),
     isActive: z.coerce.boolean().optional(),
     stockStatus: z.enum(['all', 'critical']).optional(),
     sortBy: z.enum(['name', 'price', 'cost', 'stock', 'createdAt']).default('name'),
@@ -41,6 +42,11 @@ export class QueryProductsDto implements QueryProductsDTO {
     @IsOptional()
     @IsUUID()
     categoryId?: string;
+
+    @ApiPropertyOptional({ format: 'uuid', description: 'Filtrar por marca' })
+    @IsOptional()
+    @IsUUID()
+    brandId?: string;
 
     @ApiPropertyOptional({ example: true })
     @IsOptional()

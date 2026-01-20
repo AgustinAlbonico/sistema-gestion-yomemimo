@@ -13,6 +13,7 @@ import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 import { LoginAudit } from '../modules/auth/entities/login-audit.entity';
 import { Category } from '../modules/products/entities/category.entity';
 import { Product } from '../modules/products/entities/product.entity';
+import { Brand } from '../modules/products/entities/brand.entity';
 import { SystemConfiguration } from '../modules/configuration/entities/system-configuration.entity';
 import { FiscalConfiguration } from '../modules/configuration/entities/fiscal-configuration.entity';
 import { TaxType } from '../modules/configuration/entities/tax-type.entity';
@@ -52,7 +53,7 @@ const dataSource = new DataSource({
     database: process.env.DATABASE_NAME || 'sistema_gestion',
     entities: [
         User, RefreshToken, LoginAudit,
-        Category, Product,
+        Category, Product, Brand,
         SystemConfiguration, FiscalConfiguration, TaxType, PaymentMethodEntity,
         CustomerCategory, Customer, CustomerAccount, AccountMovement,
         ExpenseCategory, Expense,

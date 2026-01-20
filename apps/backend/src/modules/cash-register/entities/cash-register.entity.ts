@@ -74,9 +74,15 @@ export class CashRegister {
     @JoinColumn({ name: 'opened_by' })
     openedBy!: User;
 
+    @Column({ name: 'opened_by' })
+    openedById!: string;
+
     @ManyToOne(() => User, { nullable: true })
     @JoinColumn({ name: 'closed_by' })
     closedBy?: User;
+
+    @Column({ name: 'closed_by', nullable: true })
+    closedById?: string;
 
     @CreateDateColumn()
     createdAt!: Date;

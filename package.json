@@ -12,6 +12,12 @@
     "start": "turbo run start",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:unit": "turbo run test --filter=@sistema/backend --filter=@sistema/frontend",
+    "test:coverage": "cd apps/backend && npm run test:all && cd ../frontend && npm run test:coverage",
+    "test:e2e": "turbo run test:e2e --filter=@sistema/backend --filter=@sistema/frontend",
+    "test:all": "npm run test:coverage",
+    "sonar:backend": "cd apps/backend && npm run test:all && npm run sonar:scan",
+    "sonar:frontend": "cd apps/frontend && npm run test:coverage && npm run sonar:scan",
     "desktop:dev": "npm run dev --workspace=@sistema/desktop",
     "desktop:build": "npm run build --workspace=@sistema/desktop",
     "desktop:package": "npm run package --workspace=@sistema/desktop"

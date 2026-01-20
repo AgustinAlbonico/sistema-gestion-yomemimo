@@ -5,6 +5,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
+import request from 'supertest';
 
 export let app: INestApplication;
 export let moduleRef: TestingModule;
@@ -38,9 +39,7 @@ afterAll(async () => {
 
 // Helper para obtener token de autenticación
 export const getAuthToken = async (): Promise<string> => {
-    const request = await import('supertest');
-
-    const res = await request.default(app.getHttpServer())
+    const res = await request(app.getHttpServer())
         .post('/api/auth/login')
         .send({
             username: 'admin',

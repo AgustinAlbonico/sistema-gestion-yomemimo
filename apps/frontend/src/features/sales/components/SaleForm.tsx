@@ -84,20 +84,25 @@ function formatCurrency(value: number): string {
 }
 
 export function SaleForm({ onSubmit, onParkSale, isLoading, initialData }: SaleFormProps) {
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(initialData?.customerName ? {
-        id: initialData.customerId ?? '',
-        firstName: initialData.customerName,
-        lastName: '',
-        documentNumber: '',
-        email: '',
-        phone: '',
-        address: '',
-        city: '',
-        category: null,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-    } as any : null); // Mock customer if only name is present, ideally pass full customer object if available
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+        initialData?.customerName
+            ? ({
+                id: initialData.customerId ?? '',
+                firstName: initialData.customerName,
+                lastName: '',
+                fullName: initialData.customerName,
+                documentNumber: '',
+                email: '',
+                phone: '',
+                address: '',
+                city: '',
+                category: undefined,
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            } as Customer)
+            : null
+    ); // Mock customer if only name is present, ideally pass full customer object if available
     const [createCustomerOpen, setCreateCustomerOpen] = useState(false);
     const ivaPercentage = 21; // IVA por defecto 21%
 

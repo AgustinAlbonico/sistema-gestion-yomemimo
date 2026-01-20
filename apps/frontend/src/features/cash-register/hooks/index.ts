@@ -8,6 +8,7 @@ import type {
     CashFlowReportFilters,
     CashHistoryFilters,
 } from '../types';
+import type { AxiosError } from 'axios';
 
 const QUERY_KEYS = {
     current: ['cash-register', 'current'] as const,
@@ -21,6 +22,23 @@ const QUERY_KEYS = {
     cashFlowReport: (filters: CashFlowReportFilters) =>
         ['cash-register', 'cash-flow-report', filters] as const,
 };
+
+/**
+ * Helper function para extraer mensaje de error de una respuesta API
+ */
+function getErrorMessage(error: unknown): string {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as AxiosError<unknown>;
+        if (axiosError.response?.data) {
+            const data = axiosError.response.data as { message?: string };
+            if (data.message) return data.message;
+        }
+    }
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return 'Ocurrió un error inesperado';
+}
 
 
 // ===== Sprint 1: Saldo Sugerido =====
@@ -62,8 +80,8 @@ export function useOpenCashRegisterMutation() {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.suggestedInitial });
             toast.success('Caja abierta exitosamente');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Error al abrir la caja');
+        onError: (error: unknown) => {
+            toast.error(getErrorMessage(error));
         },
     });
 }
@@ -83,8 +101,8 @@ export function useCloseCashRegisterMutation() {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.suggestedInitial });
             toast.success('Caja cerrada exitosamente');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Error al cerrar la caja');
+        onError: (error: unknown) => {
+            toast.error(getErrorMessage(error));
         },
     });
 }
@@ -102,8 +120,8 @@ export function useReopenCashRegisterMutation() {
             queryClient.invalidateQueries({ queryKey: ['cash-register', 'history'] });
             toast.success('Caja reabierta exitosamente');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Error al reabrir la caja');
+        onError: (error: unknown) => {
+            toast.error(getErrorMessage(error));
         },
     });
 }
@@ -120,8 +138,8 @@ export function useCreateCashMovementMutation() {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.current });
             toast.success('Movimiento registrado exitosamente');
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Error al registrar el movimiento');
+        onError: (error: unknown) => {
+            toast.error(getErrorMessage(error));
         },
     });
 }

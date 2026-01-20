@@ -87,6 +87,28 @@ export default defineConfig({
       dependencies: ['setup'],
     },
 
+    // Setup de autenticación con caja abierta (para ventas, ingresos, gastos, compras)
+    {
+      name: 'setup-with-cash',
+      testMatch: /auth\.setup-with-cash\.ts/,
+    },
+
+    // Tests que requieren caja abierta (ventas, ingresos, gastos, compras)
+    // NOTA: Se ejecutan en serie con un solo worker porque comparten el estado
+    // de caja en el servidor. Solo puede haber una caja abierta por usuario a la vez.
+    {
+      name: 'with-cash',
+      testMatch: /(sales|incomes|expenses|purchases)\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices['Desktop Chrome'],
+        // Usar estado de autenticación con caja ya abierta
+        storageState: 'e2e/.auth/user-with-cash.json',
+      },
+      dependencies: ['setup-with-cash'],
+    },
+
     // Tests en Firefox (opcional)
     // {
     //   name: 'firefox',

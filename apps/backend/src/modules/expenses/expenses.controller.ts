@@ -29,6 +29,7 @@ import {
     ExpenseFiltersDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuthenticatedRequest } from '../auth/types';
 
 @ApiTags('expenses')
 @Controller('expenses')
@@ -41,7 +42,7 @@ export class ExpensesController {
     @ApiOperation({ summary: 'Registrar nuevo gasto' })
     @ApiResponse({ status: 201, description: 'Gasto registrado' })
     @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
-    create(@Body() dto: CreateExpenseDto, @Request() req: any) {
+    create(@Body() dto: CreateExpenseDto, @Request() req: AuthenticatedRequest) {
         return this.expensesService.create(dto, req.user?.userId);
     }
 
@@ -87,7 +88,7 @@ export class ExpensesController {
     @ApiOperation({ summary: 'Eliminar gasto' })
     @ApiResponse({ status: 200, description: 'Gasto eliminado' })
     @ApiResponse({ status: 404, description: 'Gasto no encontrado' })
-    remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: AuthenticatedRequest) {
         return this.expensesService.remove(id, req.user?.userId);
     }
 

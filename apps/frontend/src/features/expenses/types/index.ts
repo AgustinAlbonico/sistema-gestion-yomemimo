@@ -42,6 +42,7 @@ export interface Expense {
     category: ExpenseCategory;
     categoryId: string;
     paymentMethod?: PaymentMethodEntity | null;
+    paymentMethodId?: string | null;
     receiptNumber?: string | null;
     isPaid: boolean;
     paidAt?: string | null;

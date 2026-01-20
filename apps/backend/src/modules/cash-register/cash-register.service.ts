@@ -15,6 +15,13 @@ import { CashFlowReportFiltersDto } from './dto/cash-flow-report-filters.dto';
 import { getTodayLocalDate } from '../../common/utils/date.utils';
 import { AuditService } from '../audit/audit.service';
 import { AuditEntityType, AuditAction } from '../audit/enums';
+import {
+    RawMovementResult,
+    MappedMovement,
+    UserWithName,
+    CashRegisterWithNames,
+} from './types/cash-movement.types';
+import { User } from '../auth/entities/user.entity';
 
 @Injectable()
 export class CashRegisterService {
@@ -64,7 +71,7 @@ export class CashRegisterService {
     /**
      * Abrir una nueva caja
      */
-    async open(dto: OpenCashRegisterDto, userId: string): Promise<CashRegister> {
+    async open(dto: OpenCashRegisterDto, userId: string): Promise<CashRegisterWithNames> {
         // Verificar que no hay caja abierta
         const openRegister = await this.getOpenRegister();
         if (openRegister) {
@@ -140,7 +147,12 @@ export class CashRegisterService {
             where: { id: saved.id },
             relations: ['movements', 'openedBy', 'totals'],
         });
-        return this.transformCashRegisterResponse(reloaded);
+
+        if (!reloaded) {
+            throw new NotFoundException('Caja no encontrada al recargar');
+        }
+
+        return this.transformCashRegisterResponseNonNull(reloaded);
     }
 
     /**
@@ -169,7 +181,7 @@ export class CashRegisterService {
     /**
      * Cerrar la caja abierta con arqueo detallado
      */
-    async close(dto: CloseCashRegisterDto, userId: string): Promise<CashRegister> {
+    async close(dto: CloseCashRegisterDto, userId: string): Promise<CashRegisterWithNames> {
         const cashRegister = await this.cashRegisterRepo.findOne({
             where: { status: CashRegisterStatus.OPEN },
             relations: ['totals'],
@@ -230,13 +242,18 @@ export class CashRegisterService {
             where: { id: cashRegister.id },
             relations: ['movements', 'openedBy', 'closedBy', 'totals'],
         });
-        return this.transformCashRegisterResponse(reloaded);
+
+        if (!reloaded) {
+            throw new NotFoundException('Caja no encontrada al recargar');
+        }
+
+        return this.transformCashRegisterResponseNonNull(reloaded);
     }
 
     /**
      * Reabrir una caja cerrada del día actual
      */
-    async reopen(cashRegisterId: string, userId: string): Promise<CashRegister> {
+    async reopen(cashRegisterId: string, userId: string): Promise<CashRegisterWithNames> {
         const cashRegister = await this.cashRegisterRepo.findOne({
             where: { id: cashRegisterId },
             relations: ['movements', 'openedBy', 'totals'],
@@ -294,7 +311,12 @@ export class CashRegisterService {
                 },
             },
         });
-        return this.transformCashRegisterResponse(reloaded);
+
+        if (!reloaded) {
+            throw new NotFoundException('Caja no encontrada al recargar');
+        }
+
+        return this.transformCashRegisterResponseNonNull(reloaded);
     }
 
     /**
@@ -442,8 +464,8 @@ export class CashRegisterService {
      * Mapear resultados raw a objetos que el frontend pueda entender
      * getRawMany() devuelve campos con prefijos como movement_id, movement_createdAt, etc.
      */
-    private mapRawMovements(movements: any[]): any[] {
-        return movements.map(m => ({
+    private mapRawMovements(movements: RawMovementResult[]): MappedMovement[] {
+        return movements.map((m): MappedMovement => ({
             id: m.movement_id,
             movementType: m.movement_movementType,
             referenceType: m.movement_referenceType,
@@ -1209,7 +1231,7 @@ export class CashRegisterService {
         date?: string;
         startDate?: string;
         endDate?: string;
-    }): Promise<{ data: CashRegister[]; total: number }> {
+    }): Promise<{ data: CashRegisterWithNames[]; total: number }> {
         const page = filters?.page || 1;
         const limit = filters?.limit || 10;
         const skip = (page - 1) * limit;
@@ -1242,7 +1264,9 @@ export class CashRegisterService {
         const data = await query.getMany();
 
         // Transformar cada caja para incluir 'name' en los usuarios
-        const transformedData = data.map(register => this.transformCashRegisterResponse(register));
+        const transformedData = data
+            .map(register => this.transformCashRegisterResponse(register))
+            .filter((register): register is CashRegisterWithNames => register !== null);
 
         return { data: transformedData, total };
     }
@@ -1294,7 +1318,7 @@ export class CashRegisterService {
     /**
      * Obtener una caja por ID
      */
-    async findOne(id: string): Promise<CashRegister> {
+    async findOne(id: string): Promise<CashRegisterWithNames> {
         const cashRegister = await this.cashRegisterRepo.findOne({
             where: { id },
             relations: ['openedBy', 'closedBy', 'totals', 'totals.paymentMethod'],
@@ -1372,7 +1396,8 @@ export class CashRegisterService {
             }
         })) as any;
 
-        return this.transformCashRegisterResponse(cashRegister);
+        // cashRegister ya se validó que no es null arriba
+        return this.transformCashRegisterResponseNonNull(cashRegister);
     }
 
     /**
@@ -1412,8 +1437,8 @@ export class CashRegisterService {
      * Helper para agregar el campo 'name' a un objeto User.
      * TypeORM no serializa getters como 'fullName', así que lo hacemos manualmente.
      */
-    private mapUserWithName(user: any): any {
-        if (!user) return user;
+    private mapUserWithName(user: User | null): UserWithName | null {
+        if (!user) return null;
         return {
             ...user,
             name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || null,
@@ -1422,13 +1447,22 @@ export class CashRegisterService {
 
     /**
      * Transformar un CashRegister para incluir 'name' en openedBy y closedBy
+     * Versión que retorna null si el registro es null
      */
-    private transformCashRegisterResponse(register: CashRegister | null): any {
-        if (!register) return register;
+    private transformCashRegisterResponse(register: CashRegister | null): CashRegisterWithNames | null {
+        if (!register) return null;
+        return this.transformCashRegisterResponseNonNull(register);
+    }
+
+    /**
+     * Transformar un CashRegister para incluir 'name' en openedBy y closedBy
+     * Versión que asume que el registro no es null (para usar cuando se validó previamente)
+     */
+    private transformCashRegisterResponseNonNull(register: CashRegister): CashRegisterWithNames {
         return {
             ...register,
-            openedBy: this.mapUserWithName(register.openedBy),
-            closedBy: this.mapUserWithName(register.closedBy),
+            openedBy: this.mapUserWithName(register.openedBy ?? null),
+            closedBy: this.mapUserWithName(register.closedBy ?? null),
         };
     }
 }

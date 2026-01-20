@@ -112,59 +112,223 @@ describe('ProductsService', () => {
     });
 
     describe('FIX 7.7: calculatePrice - Productos con costo $0', () => {
-        // Accedemos al método privado para testear
-        // En producción, esto se testearía indirectamente a través de create/update
-
-        it('debe retornar 0 cuando el costo es 0', () => {
-            // Usamos reflection para acceder al método privado
+            // Accedemos al método privado para testear
             const calculatePrice = (service as any).calculatePrice.bind(service);
 
-            const result = calculatePrice(0, 30);
+            it('debe retornar 0 cuando el costo es 0', () => {
+                const result = calculatePrice(0, 30);
+                expect(result).toBe(0);
+            });
 
-            expect(result).toBe(0);
+            it('debe retornar 0 cuando el costo es negativo', () => {
+                const result = calculatePrice(-10, 30);
+                expect(result).toBe(0);
+            });
+
+            it('debe calcular precio correctamente para costos positivos', () => {
+                const result = calculatePrice(100, 30);
+                expect(result).toBe(130);
+            });
+
+            it('debe redondear a 2 decimales', () => {
+                const result = calculatePrice(100, 33.33);
+                expect(result).toBe(133.33);
+            });
+
+            it('debe manejar margen 0%', () => {
+                const result = calculatePrice(100, 0);
+                expect(result).toBe(100);
+            });
+
+            it('debe manejar margen 100%', () => {
+                const result = calculatePrice(100, 100);
+                expect(result).toBe(200);
+            });
         });
 
-        it('debe retornar 0 cuando el costo es negativo', () => {
-            const calculatePrice = (service as any).calculatePrice.bind(service);
+    describe('findAll - Filtros básicos', () => {
+        it('retorna todos los productos sin filtros', async () => {
+                const mockProducts = [
+                    { id: '1', name: 'Producto 1', cost: 100, price: 130, stock: 10 },
+                    { id: '2', name: 'Producto 2', cost: 50, price: 65, stock: 5 },
+                ];
+                mockProductsRepository.findWithFilters.mockResolvedValue([mockProducts, 0]);
+                mockProductsRepository.findWithFilters.mockResolvedValue(0);
 
-            const result = calculatePrice(-10, 30);
+                const result = await service.findAll({});
+                expect(result).toEqual({
+                    data: mockProducts,
+                    total: 2,
+                    page: 1,
+                    limit: 100,
+                    totalPages: 1,
+                });
+                expect(mockProductsRepository.findWithFilters).toHaveBeenCalledWith({
+                    filters: expect.any(Object),
+                    minStockAlert: undefined,
+                });
+            });
 
-            expect(result).toBe(0);
-        });
+            it('filtra por búsqueda en nombre', async () => {
+                const mockProducts = [
+                    { id: '1', name: 'Coca Cola', cost: 100, price: 130, stock: 10 },
+                    { id: '2', name: 'Pepsi', cost: 50, price: 65, stock: 5 },
+                ];
+                mockProductsRepository.findWithFilters.mockResolvedValue([mockProducts, 0]);
+                mockProductsRepository.findWithFilters.mockResolvedValue(0);
 
-        it('debe calcular precio correctamente para costos positivos', () => {
-            const calculatePrice = (service as any).calculatePrice.bind(service);
+                const result = await service.findAll({ search: 'cola' });
+                expect(result).toEqual({
+                    data: [mockProducts[0]],
+                    total: 1,
+                    page: 1,
+                    limit: 100,
+                    totalPages: 1,
+                });
+            });
 
-            // Costo $100 con 30% margen = $130
-            const result = calculatePrice(100, 30);
+            it('filtra por categoryId', async () => {
+                const mockProducts = [
+                    { id: '1', name: 'Producto 1', categoryId: 'cat-1', cost: 100, price: 130, stock: 10 },
+                    { id: '2', name: 'Producto 2', categoryId: 'cat-2', cost: 50, price: 65, stock: 5 },
+                ];
+                mockProductsRepository.findWithFilters.mockResolvedValue([mockProducts, 0]);
+                mockProductsRepository.findWithFilters.mockResolvedValue(0);
 
-            expect(result).toBe(130);
-        });
+                const result = await service.findAll({ categoryId: 'cat-1' });
+                expect(result).toEqual({
+                    data: mockProducts,
+                    total: 2,
+                    page: 1,
+                    limit: 100,
+                    totalPages: 1,
+                });
+                expect(mockProductsRepository.findWithFilters).toHaveBeenCalledWith({
+                    filters: expect.objectContaining({ categoryId: 'cat-1' }),
+                    minStockAlert: undefined,
+                });
+            });
 
-        it('debe redondear a 2 decimales', () => {
-            const calculatePrice = (service as any).calculatePrice.bind(service);
+            it('filtra por isActive = true', async () => {
+                const mockProducts = [
+                    { id: '1', name: 'Producto Activo', cost: 100, price: 130, stock: 10, isActive: true },
+                    { id: '2', name: 'Producto Inactivo', cost: 50, price: 65, stock: 5, isActive: false },
+                ];
+                mockProductsRepository.findWithFilters.mockResolvedValue([mockProducts, 0]);
+                mockProductsRepository.findWithFilters.mockResolvedValue(0);
 
-            // Costo $100 con 33.33% margen = $133.33
-            const result = calculatePrice(100, 33.33);
+                const result = await service.findAll({ isActive: true });
+                expect(result).toEqual({
+                    data: [mockProducts[0]],
+                    total: 1,
+                    page: 1,
+                    limit: 100,
+                    totalPages: 1,
+                });
+            });
 
-            expect(result).toBe(133.33);
-        });
+            it('filtra por isActive = false', async () => {
+                const mockProducts = [
+                    { id: '1', name: 'Producto Activo', cost: 100, price: 130, stock: 10, isActive: true },
+                ];
+                mockProductsRepository.findWithFilters.mockResolvedValue([mockProducts, 0]);
+                mockProductsRepository.findWithFilters.mockResolvedValue(0);
 
-        it('debe manejar margen 0%', () => {
-            const calculatePrice = (service as any).calculatePrice.bind(service);
+                const result = await service.findAll({ isActive: false });
+                expect(result).toEqual({
+                    data: mockProducts,
+                    total: 1,
+                    page: 1,
+                    limit: 100,
+                    totalPages: 1,
+                });
+            });
 
-            const result = calculatePrice(100, 0);
+            it('combina búsqueda y categoryId', async () => {
+                const mockProducts = [
+                    { id: '1', name: 'Cola', categoryId: 'cat-1', cost: 100, price: 130, stock: 10 },
+                    { id: '2', name: 'Pepsi', categoryId: 'cat-1', cost: 50, price: 65, stock: 5 },
+                ];
+                mockProductsRepository.findWithFilters.mockResolvedValue([mockProducts, 0]);
+                mockProductsRepository.findWithFilters.mockResolvedValue(0);
 
-            expect(result).toBe(100);
-        });
+                const result = await service.findAll({ search: 'cola', categoryId: 'cat-1' });
+                expect(result).toEqual({
+                    data: [mockProducts[0]],
+                    total: 1,
+                    page: 1,
+                    limit: 100,
+                    totalPages: 1,
+                });
+            });
 
-        it('debe manejar margen 100%', () => {
-            const calculatePrice = (service as any).calculatePrice.bind(service);
+            it('ordena por name DESC', async () => {
+                const mockProducts = [
+                    { id: '1', name: 'Z' },
+                    { id: '2', name: 'A' },
+                ];
+                mockProductsRepository.findWithFilters.mockResolvedValue([mockProducts, 0]);
+                mockProductsRepository.findWithFilters.mockResolvedValue(0);
 
-            const result = calculatePrice(100, 100);
+                const result = await service.findAll({ sortBy: 'name', order: 'DESC' });
+                expect(result).toEqual({
+                    data: [mockProducts[1], mockProducts[0]],
+                    total: 2,
+                    page: 1,
+                    limit: 100,
+                    totalPages: 1,
+                });
+            });
 
-            expect(result).toBe(200);
-        });
+            it('ordena por price ASC', async () => {
+                const mockProducts = [
+                    { id: '1', name: 'Producto A', cost: 100, price: 130 },
+                    { id: '2', name: 'Producto B', cost: 50, price: 65 },
+                ];
+                mockProductsRepository.findWithFilters.mockResolvedValue([mockProducts, 0]);
+                mockProductsRepository.findWithFilters.mockResolvedValue(0);
+
+                const result = await service.findAll({ sortBy: 'price', order: 'ASC' });
+                expect(result).toEqual({
+                    data: [mockProducts[1], mockProducts[0]],
+                    total: 2,
+                    page: 1,
+                    limit: 100,
+                    totalPages: 1,
+                });
+            });
+
+            it('paginación correcta', async () => {
+                const mockProducts = Array.from({ length: 150 }, (_, i) => ({
+                    id: `p-${i}`,
+                    name: `Producto ${i}`,
+                    cost: 100,
+                    price: 130,
+                    stock: 10,
+                }));
+                mockProductsRepository.findWithFilters.mockResolvedValue([mockProducts, 0]);
+                mockProductsRepository.findWithFilters.mockResolvedValue(0);
+
+                const result = await service.findAll({ page: 1, limit: 10 });
+                expect(result.data).toHaveLength(10);
+                expect(result.page).toBe(1);
+                expect(result.limit).toBe(10);
+                expect(result.totalPages).toBe(15);
+            });
+
+            it('calcula totalPages correctamente', async () => {
+                const mockProducts = Array.from({ length: 100 }, (_, i) => ({
+                    id: `p-${i}`,
+                    name: `Producto ${i}`,
+                    cost: 100,
+                    price: 130,
+                }));
+                mockProductsRepository.findWithFilters.mockResolvedValue([mockProducts, 0]);
+                mockProductsRepository.findWithFilters.mockResolvedValue(0);
+
+                const result = await service.findAll({ limit: 15 });
+                expect(result.totalPages).toBe(Math.ceil(100 / 15));
+            });
     });
 
     describe('create', () => {
@@ -237,6 +401,21 @@ describe('ProductsService', () => {
             await service.create(createProductDTO as any);
 
             expect(mockInventoryService.createMovement).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('remove (soft delete)', () => {
+        it('soft delete marca producto como inactivo', async () => {
+            const mockProduct = { id: 'uuid-123', name: 'Original', isActive: true };
+            mockProductsRepository.findOne.mockResolvedValue(mockProduct);
+            const result = await service.remove('uuid-123');
+            expect(result).toEqual({ message: 'Producto eliminado' });
+            expect(mockProductsRepository.save).toHaveBeenCalledWith({ ...mockProduct, isActive: false });
+        });
+
+        it('lanza NotFoundException cuando producto no existe', async () => {
+            mockProductsRepository.findOne.mockResolvedValue(null);
+            await expect(service.remove('invalid-id')).rejects.toThrow(NotFoundException);
         });
     });
 });

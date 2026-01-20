@@ -12,6 +12,7 @@ import { Invoice, InvoiceType } from '../entities/invoice.entity';
 import { IvaCondition } from '../../../common/enums/iva-condition.enum';
 import { SaleItem } from '../entities';
 import { QrGeneratorService } from './qr-generator.service';
+import { PaymentMethod } from '../../configuration/entities/payment-method.entity';
 
 /**
  * Datos para renderizar la factura
@@ -485,7 +486,7 @@ export class PdfGeneratorService {
             customerName?: string | null;
             items: SaleItem[];
             payments?: {
-                paymentMethod: any;
+                paymentMethod: PaymentMethod;
                 amount: number;
             }[];
             subtotal: number;
@@ -536,7 +537,7 @@ export class PdfGeneratorService {
             customerName?: string | null;
             items: SaleItem[];
             payments?: {
-                paymentMethod: any;
+                paymentMethod: PaymentMethod;
                 amount: number;
             }[];
             subtotal: number;

@@ -22,6 +22,7 @@ import {
     ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuthenticatedRequest } from '../auth/types';
 import { CustomerAccountsService } from './customer-accounts.service';
 import { CreateChargeDto, CreatePaymentDto, UpdateAccountDto, AccountFiltersDto } from './dto';
 import { ApplySurchargeDto } from './dto/apply-surcharge.dto';
@@ -117,7 +118,7 @@ export class CustomerAccountsController {
     async createCharge(
         @Param('customerId') customerId: string,
         @Body() dto: CreateChargeDto,
-        @Request() req: any,
+        @Request() req: AuthenticatedRequest,
     ) {
         const userId = req.user?.userId;
         return this.accountsService.createCharge(customerId, dto, userId);
@@ -134,7 +135,7 @@ export class CustomerAccountsController {
     async createPayment(
         @Param('customerId') customerId: string,
         @Body() dto: CreatePaymentDto,
-        @Request() req: any,
+        @Request() req: AuthenticatedRequest,
     ) {
         const userId = req.user?.userId;
         return this.accountsService.createPayment(customerId, dto, userId);
@@ -151,7 +152,7 @@ export class CustomerAccountsController {
     async applySurcharge(
         @Param('customerId') customerId: string,
         @Body() dto: ApplySurchargeDto,
-        @Request() req: any,
+        @Request() req: AuthenticatedRequest,
     ) {
         const userId = req.user?.userId;
         return this.accountsService.applySurcharge(customerId, dto, userId);
@@ -202,7 +203,7 @@ export class CustomerAccountsController {
     @ApiResponse({ status: 200, description: 'Cargos sincronizados' })
     async syncMissingCharges(
         @Param('customerId') customerId: string,
-        @Request() req: any,
+        @Request() req: AuthenticatedRequest,
     ) {
         const userId = req.user?.userId;
         return this.accountsService.syncMissingCharges(customerId, userId);

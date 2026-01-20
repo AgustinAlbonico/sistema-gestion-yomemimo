@@ -1,0 +1,9 @@
+{
+  "active": true,
+  "iteration": 2,
+  "maxIterations": 0,
+  "completionPromise": "COMPLETE",
+  "prompt": "Necesito crear smoke tests tests unitarios y tests de integracion en todo el frontend .\\apps\\frontend\\ para llegar como minimo a 90% de cobertura",
+  "startedAt": "2026-01-20T04:34:55.922Z",
+  "model": ""
+}

@@ -18,6 +18,7 @@ import {
 import { PurchasesService } from './purchases.service';
 import { CreatePurchaseDto, UpdatePurchaseDto, PurchaseFiltersDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuthenticatedRequest } from '../auth/types';
 
 @Controller('purchases')
 @UseGuards(JwtAuthGuard)
@@ -28,7 +29,7 @@ export class PurchasesController {
      * Crea una nueva compra
      */
     @Post()
-    create(@Body() dto: CreatePurchaseDto, @Request() req: any) {
+    create(@Body() dto: CreatePurchaseDto, @Request() req: AuthenticatedRequest) {
         return this.purchasesService.create(dto, req.user?.userId);
     }
 
@@ -94,7 +95,7 @@ export class PurchasesController {
      * Elimina una compra (soft delete)
      */
     @Delete(':id')
-    remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: AuthenticatedRequest) {
         return this.purchasesService.remove(id, req.user?.userId);
     }
 }

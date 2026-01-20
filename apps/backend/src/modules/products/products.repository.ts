@@ -13,7 +13,7 @@ export class ProductsRepository extends Repository<Product> {
         filters: QueryProductsDTO,
         minStockAlert?: number,
     ): Promise<[Product[], number]> {
-        const { page, limit, search, categoryId, isActive, stockStatus, sortBy, order } = filters;
+        const { page, limit, search, categoryId, brandId, isActive, stockStatus, sortBy, order } = filters;
 
         const query = this.createQueryBuilder('product')
             .leftJoinAndSelect('product.category', 'category')
@@ -30,6 +30,11 @@ export class ProductsRepository extends Repository<Product> {
         // Filtro por categoría
         if (categoryId) {
             query.andWhere('product.categoryId = :categoryId', { categoryId });
+        }
+
+        // Filtro por marca
+        if (brandId) {
+            query.andWhere('product.brandId = :brandId', { brandId });
         }
 
         // Filtro por estado

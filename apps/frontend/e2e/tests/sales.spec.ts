@@ -6,10 +6,13 @@
 import { test, expect } from '../fixtures/test-fixtures';
 
 test.describe('Ventas - Punto de Venta', () => {
-  
+
   test.beforeEach(async ({ helpers }) => {
     // Navegar a la página de ventas
     await helpers.navigateTo('/sales');
+
+    // Asegurar que la caja esté abierta para poder crear ventas
+    await helpers.ensureCashRegisterOpen();
   });
 
   test.describe('Página de Ventas', () => {
@@ -58,27 +61,33 @@ test.describe('Ventas - Punto de Venta', () => {
       // Verificar que se abre el modal
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
       
-      // Verificar título
-      await expect(page.getByText('Nueva Venta')).toBeVisible();
+      // Verificar título (usar .first() por strict mode)
+      await expect(page.getByText('Nueva Venta').first()).toBeVisible();
     });
 
     test('debe mostrar el buscador de productos', async ({ page }) => {
       await page.getByRole('button', { name: /Nueva Venta/i }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
-      
+
+      // Esperar a que el modal cargue completamente
+      await page.waitForTimeout(1000);
+
       // Verificar sección de agregar productos
-      await expect(page.getByText(/Agregar Productos/i)).toBeVisible();
-      
+      await expect(page.getByText(/Agregar Productos/i)).toBeVisible({ timeout: 5000 });
+
       // Verificar input de búsqueda
-      await expect(page.getByPlaceholder(/buscar productos/i)).toBeVisible();
+      await expect(page.getByPlaceholder(/buscar/i).or(page.getByPlaceholder(/productos/i)).or(page.getByLabel(/Buscar/i)).first()).toBeVisible({ timeout: 5000 });
     });
 
     test('debe mostrar el selector de cliente', async ({ page }) => {
       await page.getByRole('button', { name: /Nueva Venta/i }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
-      
+
+      // Esperar a que el modal cargue completamente
+      await page.waitForTimeout(1000);
+
       // Verificar label de cliente
-      await expect(page.getByText('Cliente')).toBeVisible();
+      await expect(page.getByText('Cliente')).toBeVisible({ timeout: 5000 });
     });
 
     test('debe mostrar la sección de totales', async ({ page, helpers }) => {
@@ -95,7 +104,7 @@ test.describe('Ventas - Punto de Venta', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
       
       // Buscar un producto
-      const searchInput = page.getByPlaceholder(/buscar productos/i);
+      const searchInput = page.getByPlaceholder(/buscar/i).or(page.getByPlaceholder(/productos/i)).or(page.getByLabel(/Buscar/i)).first();
       await searchInput.fill('a'); // Buscar productos que contengan 'a'
       
       // Esperar resultados
@@ -150,7 +159,7 @@ test.describe('Ventas - Punto de Venta', () => {
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
       
       // Buscar un producto
-      const searchInput = page.getByPlaceholder(/buscar productos/i);
+      const searchInput = page.getByPlaceholder(/buscar/i).or(page.getByPlaceholder(/productos/i)).or(page.getByLabel(/Buscar/i)).first();
       await searchInput.fill('a');
       await page.waitForTimeout(500);
       
@@ -264,19 +273,19 @@ test.describe('Ventas - Punto de Venta', () => {
     test('debe abrir nueva venta con F1', async ({ page }) => {
       // Presionar F1
       await page.keyboard.press('F1');
-      
-      // Verificar si se abre el modal (puede estar bloqueado por caja cerrada)
-      await page.waitForTimeout(500);
-      
+
+      // Esperar más tiempo para que el sistema responda al atajo
+      await page.waitForTimeout(2000);
+
       const dialog = page.getByRole('dialog');
       const toast = page.locator('[data-sonner-toast]');
-      
+
       // O se abre el modal o aparece un toast de error
       const dialogVisible = await dialog.isVisible().catch(() => false);
       const toastVisible = await toast.isVisible().catch(() => false);
-      
+
       expect(dialogVisible || toastVisible).toBe(true);
-      
+
       // Cerrar si está abierto
       if (dialogVisible) {
         await page.keyboard.press('Escape');

@@ -9,58 +9,79 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 export class SchemaImprovements1768003661000 implements MigrationInterface {
     name = 'SchemaImprovements1768003661000'
 
+    /**
+     * Verifica si una columna existe en una tabla
+     */
+    private async columnExists(queryRunner: QueryRunner, tableName: string, columnName: string): Promise<boolean> {
+        const result = await queryRunner.query(`
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public'
+                AND table_name = '${tableName}'
+                AND column_name = '${columnName}'
+            )
+        `);
+        return result[0]?.exists || false;
+    }
+
     public async up(queryRunner: QueryRunner): Promise<void> {
         // ============================================
-        // 1. CORREGIR COLUMNAS DUPLICADAS
+        // 1. CORREGIR COLUMNAS DUPLICADAS (si existen)
         // ============================================
 
-        // refresh_tokens: tiene userId y user_id duplicados
-        // Migrar datos de user_id a userId si es necesario
-        await queryRunner.query(`
-            UPDATE "refresh_tokens" 
-            SET "userId" = "user_id" 
-            WHERE "userId" IS NULL AND "user_id" IS NOT NULL
-        `);
+        // refresh_tokens: verificar si existe columna user_id duplicada
+        const hasUserIdSnake = await this.columnExists(queryRunner, 'refresh_tokens', 'user_id');
+        if (hasUserIdSnake) {
+            // Migrar datos de user_id a userId si es necesario
+            await queryRunner.query(`
+                UPDATE "refresh_tokens"
+                SET "userId" = "user_id"
+                WHERE "userId" IS NULL AND "user_id" IS NOT NULL
+            `);
 
-        // Eliminar la FK de user_id si existe
-        await queryRunner.query(`
-            ALTER TABLE "refresh_tokens" 
-            DROP CONSTRAINT IF EXISTS "FK_3ddc983c5f7bcf132fd8732c3f4"
-        `);
+            // Eliminar la FK de user_id si existe
+            await queryRunner.query(`
+                ALTER TABLE "refresh_tokens"
+                DROP CONSTRAINT IF EXISTS "FK_3ddc983c5f7bcf132fd8732c3f4"
+            `);
 
-        // Eliminar columna user_id duplicada
-        await queryRunner.query(`
-            ALTER TABLE "refresh_tokens" 
-            DROP COLUMN IF EXISTS "user_id"
-        `);
+            // Eliminar columna user_id duplicada
+            await queryRunner.query(`
+                ALTER TABLE "refresh_tokens"
+                DROP COLUMN IF EXISTS "user_id"
+            `);
+        }
 
-        // stock_movements: tiene productId y product_id duplicados
-        // Migrar datos de product_id a productId si es necesario
-        await queryRunner.query(`
-            UPDATE "stock_movements" 
-            SET "productId" = "product_id" 
-            WHERE "productId" IS NULL AND "product_id" IS NOT NULL
-        `);
+        // stock_movements: verificar si existe columna product_id duplicada
+        const hasProductIdSnake = await this.columnExists(queryRunner, 'stock_movements', 'product_id');
+        if (hasProductIdSnake) {
+            // Migrar datos de product_id a productId si es necesario
+            await queryRunner.query(`
+                UPDATE "stock_movements"
+                SET "productId" = "product_id"
+                WHERE "productId" IS NULL AND "product_id" IS NOT NULL
+            `);
 
-        // Eliminar la FK de product_id si existe
-        await queryRunner.query(`
-            ALTER TABLE "stock_movements" 
-            DROP CONSTRAINT IF EXISTS "FK_2c1bb05b80ddcc562cd28d826c6"
-        `);
+            // Eliminar la FK de product_id si existe
+            await queryRunner.query(`
+                ALTER TABLE "stock_movements"
+                DROP CONSTRAINT IF EXISTS "FK_2c1bb05b80ddcc562cd28d826c6"
+            `);
 
-        // Eliminar columna product_id duplicada
-        await queryRunner.query(`
-            ALTER TABLE "stock_movements" 
-            DROP COLUMN IF EXISTS "product_id"
-        `);
+            // Eliminar columna product_id duplicada
+            await queryRunner.query(`
+                ALTER TABLE "stock_movements"
+                DROP COLUMN IF EXISTS "product_id"
+            `);
 
-        // Recrear FK para productId
-        await queryRunner.query(`
-            ALTER TABLE "stock_movements" 
-            ADD CONSTRAINT "FK_stock_movements_productId" 
-            FOREIGN KEY ("productId") 
-            REFERENCES "products"("id") ON DELETE CASCADE
-        `);
+            // Recrear FK para productId
+            await queryRunner.query(`
+                ALTER TABLE "stock_movements"
+                ADD CONSTRAINT "FK_stock_movements_productId"
+                FOREIGN KEY ("productId")
+                REFERENCES "products"("id") ON DELETE CASCADE
+            `);
+        }
 
         // ============================================
         // 2. UNIFICAR ENUMS DOCUMENTTYPE

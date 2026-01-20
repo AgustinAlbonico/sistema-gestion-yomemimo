@@ -5,6 +5,11 @@ import { AppService } from './app.service';
 export class AppController {
   constructor(private readonly appService: AppService) { }
 
+  @Get()
+  getHello() {
+    return { message: 'Sistema de Gestión API', version: '1.0' };
+  }
+
   @Get('health')
   async health() {
     const health = await this.appService.getHealthCheck();

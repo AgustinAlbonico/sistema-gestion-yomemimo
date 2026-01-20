@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Control } from 'react-hook-form';
 import {
     ShoppingCart,
     Package,
@@ -16,11 +17,16 @@ import { CreateSaleFormValues } from '../schemas/sale.schema';
 
 interface SaleItemsListProps {
     readonly items: CreateSaleFormValues['items'];
-    readonly itemFields: readonly any[];
+    readonly itemFields: readonly {
+        id: string;
+        header: string;
+        accessor: string;
+        cell?: (item: CreateSaleFormValues['items'][number]) => React.ReactNode;
+    }[];
     readonly onUpdateQuantity: (index: number, delta: number) => void;
     readonly onRemoveItem: (index: number) => void;
     readonly subtotal: number;
-    readonly control: any;
+    readonly control: Control<CreateSaleFormValues>;
 }
 
 function formatCurrency(value: number): string {

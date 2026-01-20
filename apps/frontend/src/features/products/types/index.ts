@@ -53,6 +53,7 @@ export interface ProductFilters {
     limit?: number;
     search?: string;
     categoryId?: string;
+    brandId?: string;
     isActive?: boolean;
     stockStatus?: 'all' | 'critical';
     sortBy?: 'name' | 'price' | 'cost' | 'stock' | 'createdAt';

@@ -1,39 +1,173 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Migración inicial que crea todas las tablas del sistema.
- * Generada automáticamente basándose en el schema existente.
- * 
+ * Migracion inicial que crea todas las tablas del sistema.
+ * Generada automaticamente basandose en el schema existente.
+ *
  * Incluye:
  * - 31 tablas
  * - 16 enums
  * - 36 foreign keys
- * - 48 índices
+ * - 48 indices
  */
 export class InitialSchema1734450000000 implements MigrationInterface {
     name = 'InitialSchema1734450000000';
 
+    /**
+     * Crea un tipo ENUM solo si no existe
+     */
+    private async createEnumTypeIfNotExists(queryRunner: QueryRunner, typeName: string, values: string): Promise<void> {
+        // Verificar si el tipo existe usando pg_type
+        const result = await queryRunner.query(`
+            SELECT EXISTS (
+                SELECT 1 FROM pg_type
+                WHERE typname = '${typeName}'
+            ) as exists
+        `);
+
+        const typeExists = result[0]?.exists;
+
+        if (!typeExists) {
+            try {
+                // Convertir "val1,val2,val3" en "'val1','val2','val3'"
+                const enumValues = values.split(',').map((v) => `'${v}'`).join(', ');
+                await queryRunner.query(`CREATE TYPE "${typeName}" AS ENUM(${enumValues})`);
+            } catch (error: unknown) {
+                // Si el error es "duplicate key", significa que otro proceso lo creó primero
+                const err = error as { message?: string; code?: string };
+                if (
+                    err.code === '23505' || // duplicate key
+                    err.message?.includes('duplicate') ||
+                    err.message?.includes('duplicada')
+                ) {
+                    // El tipo fue creado por otro proceso, continuar
+                    return;
+                }
+                throw error;
+            }
+        }
+    }
+
+    /**
+     * Ejecuta un CREATE TABLE solo si no existe
+     * Extrae el nombre de la tabla de la query CREATE TABLE
+     * Si la tabla existe, simplemente la deja tal cual (las columnas faltantes se agregan después)
+     */
+    private async createTableIgnoreExists(queryRunner: QueryRunner, createTableQuery: string): Promise<void> {
+        // Extraer el nombre de la tabla de la query CREATE TABLE
+        // El formato es: CREATE TABLE "table_name" (...) o CREATE TABLE table_name (...)
+        const tableNameMatch = createTableQuery.match(/CREATE\s+TABLE\s+(?:"([^"]+)"|(\S+))/i);
+        if (!tableNameMatch) {
+             await queryRunner.query(createTableQuery);
+             return;
+         }
+
+         const tableName = tableNameMatch[1] || tableNameMatch[2];
+
+         // Verificar si la tabla ya existe
+         const checkResult = await queryRunner.query(`
+             SELECT EXISTS (
+                 SELECT 1 FROM information_schema.tables
+                 WHERE table_schema = 'public'
+                 AND table_name = '${tableName}'
+             )
+         `);
+
+         const tableExists = checkResult[0]?.exists;
+
+         if (!tableExists) {
+             await queryRunner.query(createTableQuery);
+         }
+         // Si la tabla ya existe, NO hacer nada
+         // Las columnas faltantes se agregarán en migraciones posteriores
+     }
+
+    /**
+     * Ejecuta un ALTER TABLE ADD CONSTRAINT solo si no existe
+     * Extrae el nombre del constraint y la tabla de la query
+     */
+    private async addConstraintIgnoreExists(queryRunner: QueryRunner, constraintQuery: string): Promise<void> {
+        // Extraer el nombre del constraint de la query
+        // Formato: ALTER TABLE "table" ADD CONSTRAINT "constraint_name" ...
+        const constraintMatch = constraintQuery.match(/ADD\s+CONSTRAINT\s+"([^"]+)"/i);
+        if (!constraintMatch) {
+            await queryRunner.query(constraintQuery);
+            return;
+        }
+
+        const constraintName = constraintMatch[1];
+
+        // Verificar si el constraint ya existe
+        const checkResult = await queryRunner.query(`
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.table_constraints
+                WHERE constraint_schema = 'public'
+                AND constraint_name = '${constraintName}'
+            )
+        `);
+
+        const constraintExists = checkResult[0]?.exists;
+
+        if (!constraintExists) {
+            await queryRunner.query(constraintQuery);
+        }
+    }
+
+     /**
+      * Ejecuta un CREATE INDEX solo si no existe
+      * Extrae el nombre del índice de la query CREATE INDEX
+      * Si la columna no existe, simplemente salte la creación del índice
+      */
+     private async createIndexIgnoreExists(queryRunner: QueryRunner, indexQuery: string): Promise<void> {
+         // Extraer el nombre del índice de la query
+         // Formato: CREATE INDEX "index_name" ON ...
+         const indexMatch = indexQuery.match(/CREATE\s+(UNIQUE\s+)?INDEX\s+"([^"]+)"/i);
+         if (!indexMatch) {
+             await queryRunner.query(indexQuery);
+             return;
+         }
+
+         const indexName = indexMatch[2];
+
+         // Verificar si el índice ya existe
+         const checkResult = await queryRunner.query(`
+             SELECT EXISTS (
+                 SELECT 1 FROM pg_indexes
+                 WHERE schemaname = 'public'
+                 AND indexname = '${indexName}'
+             )
+         `);
+
+         const indexExists = checkResult[0]?.exists;
+
+         if (!indexExists) {
+             await queryRunner.query(indexQuery);
+         }
+     }
+
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
-        await queryRunner.query(`CREATE TYPE "account_movements_movementtype_enum" AS ENUM('charge', 'payment', 'adjustment', 'discount', 'interest')`);
-        await queryRunner.query(`CREATE TYPE "backups_status_enum" AS ENUM('pending', 'completed', 'failed')`);
-        await queryRunner.query(`CREATE TYPE "cash_movements_movementtype_enum" AS ENUM('income', 'expense')`);
-        await queryRunner.query(`CREATE TYPE "cash_registers_status_enum" AS ENUM('open', 'closed')`);
-        await queryRunner.query(`CREATE TYPE "customer_accounts_status_enum" AS ENUM('active', 'suspended', 'closed')`);
-        await queryRunner.query(`CREATE TYPE "customers_documenttype_enum" AS ENUM('DNI', 'CUIT', 'CUIL', 'PASAPORTE', 'OTRO')`);
-        await queryRunner.query(`CREATE TYPE "customers_ivacondition_enum" AS ENUM('CONSUMIDOR_FINAL', 'RESPONSABLE_MONOTRIBUTO', 'RESPONSABLE_INSCRIPTO', 'EXENTO')`);
-        await queryRunner.query(`CREATE TYPE "fiscal_configuration_afipenvironment_enum" AS ENUM('homologacion', 'produccion')`);
-        await queryRunner.query(`CREATE TYPE "fiscal_configuration_ivacondition_enum" AS ENUM('CONSUMIDOR_FINAL', 'RESPONSABLE_MONOTRIBUTO', 'RESPONSABLE_INSCRIPTO', 'EXENTO')`);
-        await queryRunner.query(`CREATE TYPE "invoices_status_enum" AS ENUM('pending', 'authorized', 'rejected', 'error')`);
-        await queryRunner.query(`CREATE TYPE "purchases_status_enum" AS ENUM('pending', 'paid')`);
-        await queryRunner.query(`CREATE TYPE "sales_status_enum" AS ENUM('completed', 'pending', 'partial', 'cancelled')`);
-        await queryRunner.query(`CREATE TYPE "stock_movements_source_enum" AS ENUM('INITIAL_LOAD', 'PURCHASE', 'SALE', 'ADJUSTMENT', 'RETURN')`);
-        await queryRunner.query(`CREATE TYPE "stock_movements_type_enum" AS ENUM('IN', 'OUT')`);
-        await queryRunner.query(`CREATE TYPE "suppliers_documenttype_enum" AS ENUM('DNI', 'CUIT', 'CUIL', 'OTRO')`);
-        await queryRunner.query(`CREATE TYPE "suppliers_ivacondition_enum" AS ENUM('CONSUMIDOR_FINAL', 'RESPONSABLE_MONOTRIBUTO', 'RESPONSABLE_INSCRIPTO', 'EXENTO')`);
+        // Crear ENUMs solo si no existen (para evitar errores en migraciones repetidas)
+        await this.createEnumTypeIfNotExists(queryRunner, 'account_movements_movementtype_enum', 'charge,payment,adjustment,discount,interest');
+        await this.createEnumTypeIfNotExists(queryRunner, 'backups_status_enum', 'pending,completed,failed');
+        await this.createEnumTypeIfNotExists(queryRunner, 'cash_movements_movementtype_enum', 'income,expense');
+        await this.createEnumTypeIfNotExists(queryRunner, 'cash_registers_status_enum', 'open,closed');
+        await this.createEnumTypeIfNotExists(queryRunner, 'customer_accounts_status_enum', 'active,suspended,closed');
+        await this.createEnumTypeIfNotExists(queryRunner, 'customers_documenttype_enum', 'DNI,CUIT,CUIL,PASAPORTE,OTRO');
+        await this.createEnumTypeIfNotExists(queryRunner, 'customers_ivacondition_enum', 'CONSUMIDOR_FINAL,RESPONSABLE_MONOTRIBUTO,RESPONSABLE_INSCRIPTO,EXENTO');
+        await this.createEnumTypeIfNotExists(queryRunner, 'fiscal_configuration_afipenvironment_enum', 'homologacion,produccion');
+        await this.createEnumTypeIfNotExists(queryRunner, 'fiscal_configuration_ivacondition_enum', 'CONSUMIDOR_FINAL,RESPONSABLE_MONOTRIBUTO,RESPONSABLE_INSCRIPTO,EXENTO');
+        await this.createEnumTypeIfNotExists(queryRunner, 'invoices_status_enum', 'pending,authorized,rejected,error');
+        await this.createEnumTypeIfNotExists(queryRunner, 'purchases_status_enum', 'pending,paid');
+        await this.createEnumTypeIfNotExists(queryRunner, 'sales_status_enum', 'completed,pending,partial,cancelled');
+        await this.createEnumTypeIfNotExists(queryRunner, 'stock_movements_source_enum', 'INITIAL_LOAD,PURCHASE,SALE,ADJUSTMENT,RETURN');
+        await this.createEnumTypeIfNotExists(queryRunner, 'stock_movements_type_enum', 'IN,OUT');
+        await this.createEnumTypeIfNotExists(queryRunner, 'suppliers_documenttype_enum', 'DNI,CUIT,CUIL,OTRO');
+        await this.createEnumTypeIfNotExists(queryRunner, 'suppliers_ivacondition_enum', 'CONSUMIDOR_FINAL,RESPONSABLE_MONOTRIBUTO,RESPONSABLE_INSCRIPTO,EXENTO');
 
-        await queryRunner.query(`
+        // Tablas
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "account_movements" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "accountId" uuid NOT NULL,
@@ -54,7 +188,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "audit_logs" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "entity_type" varchar(50) NOT NULL,
@@ -70,7 +204,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "backups" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "filename" varchar(255) NOT NULL,
@@ -84,7 +218,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "cash_movements" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "movementType" "cash_movements_movementtype_enum" NOT NULL,
@@ -103,7 +237,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "cash_register_totals" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "payment_method_id" uuid NOT NULL,
@@ -120,7 +254,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "cash_registers" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "date" date NOT NULL,
@@ -144,7 +278,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "categories" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" varchar(100) NOT NULL,
@@ -158,7 +292,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "customer_accounts" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "customerId" uuid NOT NULL,
@@ -176,7 +310,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "customer_categories" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" varchar(100) NOT NULL,
@@ -189,7 +323,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "customers" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "firstName" varchar(100) NOT NULL,
@@ -213,7 +347,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "expense_categories" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" varchar(100) NOT NULL,
@@ -225,7 +359,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "expenses" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "description" varchar(200) NOT NULL,
@@ -245,7 +379,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "fiscal_configuration" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "businessName" varchar(200),
@@ -281,7 +415,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "income_categories" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" varchar(100) NOT NULL,
@@ -294,7 +428,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "incomes" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "description" varchar(200) NOT NULL,
@@ -317,7 +451,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "invoices" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "sale_id" uuid NOT NULL,
@@ -359,7 +493,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "login_audits" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "userId" uuid NOT NULL,
@@ -371,7 +505,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "payment_methods" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" varchar(50) NOT NULL,
@@ -384,7 +518,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "products" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" varchar(255) NOT NULL,
@@ -404,7 +538,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "purchase_items" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "purchase_id" uuid NOT NULL,
@@ -419,7 +553,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "purchases" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "purchaseNumber" varchar(20) NOT NULL,
@@ -446,19 +580,18 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "refresh_tokens" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "userId" uuid NOT NULL,
                 "token" varchar(500) NOT NULL,
                 "expiresAt" timestamp without time zone NOT NULL,
                 "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
-                "user_id" uuid,
                 PRIMARY KEY ("id")
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "sale_items" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "sale_id" uuid NOT NULL,
@@ -477,7 +610,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "sale_payments" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "sale_id" uuid NOT NULL,
@@ -494,7 +627,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "sale_taxes" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "sale_id" uuid NOT NULL,
@@ -505,7 +638,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "sales" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "saleNumber" varchar(20) NOT NULL,
@@ -533,7 +666,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "stock_movements" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "productId" uuid NOT NULL,
@@ -546,12 +679,11 @@ export class InitialSchema1734450000000 implements MigrationInterface {
                 "notes" text,
                 "date" timestamp without time zone NOT NULL,
                 "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
-                "product_id" uuid,
                 PRIMARY KEY ("id")
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "suppliers" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" varchar(200) NOT NULL,
@@ -577,7 +709,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "system_configuration" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "defaultProfitMargin" numeric(5,2) NOT NULL DEFAULT '30',
@@ -589,7 +721,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "tax_types" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" varchar(100) NOT NULL,
@@ -600,7 +732,7 @@ export class InitialSchema1734450000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+        await this.createTableIgnoreExists(queryRunner, `
             CREATE TABLE "users" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "username" varchar(50) NOT NULL,
@@ -617,276 +749,276 @@ export class InitialSchema1734450000000 implements MigrationInterface {
         `);
 
         // Foreign Keys
-        await queryRunner.query(`
-            ALTER TABLE "account_movements" 
-            ADD CONSTRAINT "FK_7d2cd968644c5490bf50bff6709" 
-            FOREIGN KEY ("paymentMethodId") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "account_movements"
+            ADD CONSTRAINT "FK_7d2cd968644c5490bf50bff6709"
+            FOREIGN KEY ("paymentMethodId")
             REFERENCES "payment_methods"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "account_movements" 
-            ADD CONSTRAINT "FK_dae89f38e90f02a194f57608f5a" 
-            FOREIGN KEY ("accountId") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "account_movements"
+            ADD CONSTRAINT "FK_dae89f38e90f02a194f57608f5a"
+            FOREIGN KEY ("accountId")
             REFERENCES "customer_accounts"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "account_movements" 
-            ADD CONSTRAINT "FK_1329229002a091ef7fee593c08d" 
-            FOREIGN KEY ("createdById") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "account_movements"
+            ADD CONSTRAINT "FK_1329229002a091ef7fee593c08d"
+            FOREIGN KEY ("createdById")
             REFERENCES "users"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "audit_logs" 
-            ADD CONSTRAINT "FK_bd2726fd31b35443f2245b93ba0" 
-            FOREIGN KEY ("user_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "audit_logs"
+            ADD CONSTRAINT "FK_bd2726fd31b35443f2245b93ba0"
+            FOREIGN KEY ("user_id")
             REFERENCES "users"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "cash_movements" 
-            ADD CONSTRAINT "FK_4a8c24eb16a7adad2154aeb1c55" 
-            FOREIGN KEY ("cash_register_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "cash_movements"
+            ADD CONSTRAINT "FK_4a8c24eb16a7adad2154aeb1c55"
+            FOREIGN KEY ("cash_register_id")
             REFERENCES "cash_registers"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "cash_movements" 
-            ADD CONSTRAINT "FK_3e189155db57fc4ec067ef68aa5" 
-            FOREIGN KEY ("created_by") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "cash_movements"
+            ADD CONSTRAINT "FK_3e189155db57fc4ec067ef68aa5"
+            FOREIGN KEY ("created_by")
             REFERENCES "users"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "cash_register_totals" 
-            ADD CONSTRAINT "FK_6544b5feaa70d4a11ed6073826e" 
-            FOREIGN KEY ("cash_register_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "cash_register_totals"
+            ADD CONSTRAINT "FK_6544b5feaa70d4a11ed6073826e"
+            FOREIGN KEY ("cash_register_id")
             REFERENCES "cash_registers"("id") ON DELETE CASCADE
         `);
-        await queryRunner.query(`
-            ALTER TABLE "cash_register_totals" 
-            ADD CONSTRAINT "FK_d0c44e56ceb30e4077a292a551e" 
-            FOREIGN KEY ("payment_method_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "cash_register_totals"
+            ADD CONSTRAINT "FK_d0c44e56ceb30e4077a292a551e"
+            FOREIGN KEY ("payment_method_id")
             REFERENCES "payment_methods"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "cash_registers" 
-            ADD CONSTRAINT "FK_d08f513314ad93f22aa720e18ca" 
-            FOREIGN KEY ("opened_by") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "cash_registers"
+            ADD CONSTRAINT "FK_d08f513314ad93f22aa720e18ca"
+            FOREIGN KEY ("opened_by")
             REFERENCES "users"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "cash_registers" 
-            ADD CONSTRAINT "FK_b433fa68b7d170e913c5bbeb8a6" 
-            FOREIGN KEY ("closed_by") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "cash_registers"
+            ADD CONSTRAINT "FK_b433fa68b7d170e913c5bbeb8a6"
+            FOREIGN KEY ("closed_by")
             REFERENCES "users"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "customer_accounts" 
-            ADD CONSTRAINT "FK_faa79f189b7dff19db11e5ce6e6" 
-            FOREIGN KEY ("customerId") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "customer_accounts"
+            ADD CONSTRAINT "FK_faa79f189b7dff19db11e5ce6e6"
+            FOREIGN KEY ("customerId")
             REFERENCES "customers"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "customers" 
-            ADD CONSTRAINT "FK_f95c9f3263ba32c34ebb051f1f9" 
-            FOREIGN KEY ("categoryId") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "customers"
+            ADD CONSTRAINT "FK_f95c9f3263ba32c34ebb051f1f9"
+            FOREIGN KEY ("categoryId")
             REFERENCES "customer_categories"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "expenses" 
-            ADD CONSTRAINT "FK_8a16b10452bdd176884248ce50f" 
-            FOREIGN KEY ("payment_method_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "expenses"
+            ADD CONSTRAINT "FK_8a16b10452bdd176884248ce50f"
+            FOREIGN KEY ("payment_method_id")
             REFERENCES "payment_methods"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "expenses" 
-            ADD CONSTRAINT "FK_5d1f4be708e0dfe2afa1a3c376c" 
-            FOREIGN KEY ("category_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "expenses"
+            ADD CONSTRAINT "FK_5d1f4be708e0dfe2afa1a3c376c"
+            FOREIGN KEY ("category_id")
             REFERENCES "expense_categories"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "expenses" 
-            ADD CONSTRAINT "FK_7c0c012c2f8e6578277c239ee61" 
-            FOREIGN KEY ("created_by") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "expenses"
+            ADD CONSTRAINT "FK_7c0c012c2f8e6578277c239ee61"
+            FOREIGN KEY ("created_by")
             REFERENCES "users"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "incomes" 
-            ADD CONSTRAINT "FK_24a1bf2eb3863f1335c956591ab" 
-            FOREIGN KEY ("payment_method_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "incomes"
+            ADD CONSTRAINT "FK_24a1bf2eb3863f1335c956591ab"
+            FOREIGN KEY ("payment_method_id")
             REFERENCES "payment_methods"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "incomes" 
-            ADD CONSTRAINT "FK_314abb2175ca312302671c0609b" 
-            FOREIGN KEY ("customer_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "incomes"
+            ADD CONSTRAINT "FK_314abb2175ca312302671c0609b"
+            FOREIGN KEY ("customer_id")
             REFERENCES "customers"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "incomes" 
-            ADD CONSTRAINT "FK_aa542e88dd5eaece8243e470962" 
-            FOREIGN KEY ("category_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "incomes"
+            ADD CONSTRAINT "FK_aa542e88dd5eaece8243e470962"
+            FOREIGN KEY ("category_id")
             REFERENCES "income_categories"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "incomes" 
-            ADD CONSTRAINT "FK_ec4353d3f033dc09ccd0d4c32fb" 
-            FOREIGN KEY ("created_by") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "incomes"
+            ADD CONSTRAINT "FK_ec4353d3f033dc09ccd0d4c32fb"
+            FOREIGN KEY ("created_by")
             REFERENCES "users"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "invoices" 
-            ADD CONSTRAINT "FK_d8a00152c976a4c6a391b1eb497" 
-            FOREIGN KEY ("sale_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "invoices"
+            ADD CONSTRAINT "FK_d8a00152c976a4c6a391b1eb497"
+            FOREIGN KEY ("sale_id")
             REFERENCES "sales"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "login_audits" 
-            ADD CONSTRAINT "FK_f76965bf9858a2cab885e064304" 
-            FOREIGN KEY ("userId") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "login_audits"
+            ADD CONSTRAINT "FK_f76965bf9858a2cab885e064304"
+            FOREIGN KEY ("userId")
             REFERENCES "users"("id") ON DELETE CASCADE
         `);
-        await queryRunner.query(`
-            ALTER TABLE "products" 
-            ADD CONSTRAINT "FK_ff56834e735fa78a15d0cf21926" 
-            FOREIGN KEY ("categoryId") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "products"
+            ADD CONSTRAINT "FK_ff56834e735fa78a15d0cf21926"
+            FOREIGN KEY ("categoryId")
             REFERENCES "categories"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "purchase_items" 
-            ADD CONSTRAINT "FK_43694b2fa800ce38d2da9ce74d6" 
-            FOREIGN KEY ("product_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "purchase_items"
+            ADD CONSTRAINT "FK_43694b2fa800ce38d2da9ce74d6"
+            FOREIGN KEY ("product_id")
             REFERENCES "products"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "purchase_items" 
-            ADD CONSTRAINT "FK_607211d59b13e705a673a999ab5" 
-            FOREIGN KEY ("purchase_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "purchase_items"
+            ADD CONSTRAINT "FK_607211d59b13e705a673a999ab5"
+            FOREIGN KEY ("purchase_id")
             REFERENCES "purchases"("id") ON DELETE CASCADE
         `);
-        await queryRunner.query(`
-            ALTER TABLE "purchases" 
-            ADD CONSTRAINT "FK_70ebb313de49b0256d21b1527d4" 
-            FOREIGN KEY ("created_by") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "purchases"
+            ADD CONSTRAINT "FK_70ebb313de49b0256d21b1527d4"
+            FOREIGN KEY ("created_by")
             REFERENCES "users"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "purchases" 
-            ADD CONSTRAINT "FK_96fceb0b3442b1821091a2d9715" 
-            FOREIGN KEY ("payment_method_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "purchases"
+            ADD CONSTRAINT "FK_96fceb0b3442b1821091a2d9715"
+            FOREIGN KEY ("payment_method_id")
             REFERENCES "payment_methods"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "purchases" 
-            ADD CONSTRAINT "FK_d5fec047f705d5b510c19379b95" 
-            FOREIGN KEY ("supplier_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "purchases"
+            ADD CONSTRAINT "FK_d5fec047f705d5b510c19379b95"
+            FOREIGN KEY ("supplier_id")
             REFERENCES "suppliers"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "refresh_tokens" 
-            ADD CONSTRAINT "FK_3ddc983c5f7bcf132fd8732c3f4" 
-            FOREIGN KEY ("user_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "refresh_tokens"
+            ADD CONSTRAINT "FK_3ddc983c5f7bcf132fd8732c3f4"
+            FOREIGN KEY ("userId")
             REFERENCES "users"("id") ON DELETE CASCADE
         `);
-        await queryRunner.query(`
-            ALTER TABLE "sale_items" 
-            ADD CONSTRAINT "FK_4ecae62db3f9e9cc9a368d57adb" 
-            FOREIGN KEY ("product_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "sale_items"
+            ADD CONSTRAINT "FK_4ecae62db3f9e9cc9a368d57adb"
+            FOREIGN KEY ("product_id")
             REFERENCES "products"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "sale_items" 
-            ADD CONSTRAINT "FK_c210a330b80232c29c2ad68462a" 
-            FOREIGN KEY ("sale_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "sale_items"
+            ADD CONSTRAINT "FK_c210a330b80232c29c2ad68462a"
+            FOREIGN KEY ("sale_id")
             REFERENCES "sales"("id") ON DELETE CASCADE
         `);
-        await queryRunner.query(`
-            ALTER TABLE "sale_payments" 
-            ADD CONSTRAINT "FK_9c7db4fd07371a0c1eddcd1bd20" 
-            FOREIGN KEY ("payment_method_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "sale_payments"
+            ADD CONSTRAINT "FK_9c7db4fd07371a0c1eddcd1bd20"
+            FOREIGN KEY ("payment_method_id")
             REFERENCES "payment_methods"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "sale_payments" 
-            ADD CONSTRAINT "FK_0e4445597642c2456ebdd7e23b1" 
-            FOREIGN KEY ("sale_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "sale_payments"
+            ADD CONSTRAINT "FK_0e4445597642c2456ebdd7e23b1"
+            FOREIGN KEY ("sale_id")
             REFERENCES "sales"("id") ON DELETE CASCADE
         `);
-        await queryRunner.query(`
-            ALTER TABLE "sale_taxes" 
-            ADD CONSTRAINT "FK_9e10f40f0530d4290b3bf5dbb82" 
-            FOREIGN KEY ("sale_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "sale_taxes"
+            ADD CONSTRAINT "FK_9e10f40f0530d4290b3bf5dbb82"
+            FOREIGN KEY ("sale_id")
             REFERENCES "sales"("id") ON DELETE CASCADE
         `);
-        await queryRunner.query(`
-            ALTER TABLE "sales" 
-            ADD CONSTRAINT "FK_83a12e5e2723eafe9a47c441457" 
-            FOREIGN KEY ("created_by") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "sales"
+            ADD CONSTRAINT "FK_83a12e5e2723eafe9a47c441457"
+            FOREIGN KEY ("created_by")
             REFERENCES "users"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "sales" 
-            ADD CONSTRAINT "FK_c51005b2b06cec7aa17462c54f5" 
-            FOREIGN KEY ("customer_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "sales"
+            ADD CONSTRAINT "FK_c51005b2b06cec7aa17462c54f5"
+            FOREIGN KEY ("customer_id")
             REFERENCES "customers"("id")
         `);
-        await queryRunner.query(`
-            ALTER TABLE "stock_movements" 
-            ADD CONSTRAINT "FK_2c1bb05b80ddcc562cd28d826c6" 
-            FOREIGN KEY ("product_id") 
+        await this.addConstraintIgnoreExists(queryRunner, `
+            ALTER TABLE "stock_movements"
+            ADD CONSTRAINT "FK_2c1bb05b80ddcc562cd28d826c6"
+            FOREIGN KEY ("productId")
             REFERENCES "products"("id")
         `);
 
         // Indexes
-        await queryRunner.query(`CREATE INDEX "IDX_1896ae681cf45b65c30ac4d75d" ON public.account_movements USING btree ("createdAt")`);
-        await queryRunner.query(`CREATE INDEX "IDX_318dacc6ac49989ce28297553a" ON public.account_movements USING btree ("movementType")`);
-        await queryRunner.query(`CREATE INDEX "IDX_6f5c93a631fe50545d103f37bd" ON public.account_movements USING btree ("referenceType", "referenceId")`);
-        // Mejora #2: Índice único parcial para evitar duplicados
-        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_account_movements_unique_reference" ON "account_movements" ("accountId", "referenceType", "referenceId") WHERE "referenceId" IS NOT NULL`);
-        await queryRunner.query(`CREATE INDEX "IDX_dae89f38e90f02a194f57608f5" ON public.account_movements USING btree ("accountId")`);
-        await queryRunner.query(`CREATE INDEX "IDX_7421efc125d95e413657efa3c6" ON public.audit_logs USING btree (entity_type, entity_id)`);
-        await queryRunner.query(`CREATE INDEX "IDX_88dcc148d532384790ab874c3d" ON public.audit_logs USING btree ("timestamp")`);
-        await queryRunner.query(`CREATE INDEX "IDX_bd2726fd31b35443f2245b93ba" ON public.audit_logs USING btree (user_id)`);
-        await queryRunner.query(`CREATE INDEX "IDX_cee5459245f652b75eb2759b4c" ON public.audit_logs USING btree (action)`);
-        await queryRunner.query(`CREATE INDEX "IDX_8b0be371d28245da6e4f4b6187" ON public.categories USING btree (name)`);
-        await queryRunner.query(`CREATE INDEX "IDX_7f67e3035731ad5aeb12af7376" ON public.customer_accounts USING btree ("daysOverdue")`);
-        // Mejora #8: Índice para plazo de pago
-        await queryRunner.query(`CREATE INDEX "IDX_customer_accounts_paymentTermDays" ON "customer_accounts" ("paymentTermDays")`);
-        await queryRunner.query(`CREATE INDEX "IDX_aa4ad1331507e75eca55689ed2" ON public.customer_accounts USING btree (balance)`);
-        await queryRunner.query(`CREATE INDEX "IDX_dd4af5e4a911ce718820caff37" ON public.customer_accounts USING btree (status)`);
-        await queryRunner.query(`CREATE INDEX "IDX_c3a9318c56cf9f9e4eb9d1b0ef" ON public.customer_categories USING btree ("isActive")`);
-        await queryRunner.query(`CREATE INDEX "IDX_ede93c8cf28e307313ec668e73" ON public.customer_categories USING btree (name)`);
-        await queryRunner.query(`CREATE INDEX "IDX_40946e98ab87148f58703fa1c5" ON public.customers USING btree ("isActive")`);
-        await queryRunner.query(`CREATE INDEX "IDX_8536b8b85c06969f84f0c098b0" ON public.customers USING btree (email)`);
-        await queryRunner.query(`CREATE INDEX "IDX_a626a4799ae1d4f275f68ef4a2" ON public.customers USING btree ("lastName", "firstName")`);
-        await queryRunner.query(`CREATE INDEX "IDX_dffea8343d90688bccac70b63a" ON public.customers USING btree ("documentNumber")`);
-        await queryRunner.query(`CREATE INDEX "IDX_f95c9f3263ba32c34ebb051f1f" ON public.customers USING btree ("categoryId")`);
-        await queryRunner.query(`CREATE INDEX "IDX_6bdb3db95dd955d3c701e93542" ON public.expense_categories USING btree (name)`);
-        await queryRunner.query(`CREATE INDEX "IDX_36df98c0190cfafd07455a2bfc" ON public.expenses USING btree ("isPaid")`);
-        await queryRunner.query(`CREATE INDEX "IDX_f52fb01c27607bb74ba05abf16" ON public.expenses USING btree ("expenseDate")`);
-        await queryRunner.query(`CREATE INDEX "IDX_9bfab959a7960a323bcf1d118c" ON public.income_categories USING btree (name)`);
-        await queryRunner.query(`CREATE INDEX "IDX_3a2c8e7c0b3e7d1e655f582473" ON public.incomes USING btree ("incomeDate")`);
-        await queryRunner.query(`CREATE INDEX "IDX_6017a723ad7e03f5e885e4f982" ON public.incomes USING btree ("isPaid")`);
-        await queryRunner.query(`CREATE INDEX "IDX_4c9fb58de893725258746385e1" ON public.products USING btree (name)`);
-        await queryRunner.query(`CREATE INDEX "IDX_adfc522baf9d9b19cd7d9461b7" ON public.products USING btree (barcode)`);
-        await queryRunner.query(`CREATE INDEX "IDX_ff39b9ac40872b2de41751eedc" ON public.products USING btree ("isActive")`);
-        await queryRunner.query(`CREATE INDEX "IDX_ff56834e735fa78a15d0cf2192" ON public.products USING btree ("categoryId")`);
-        await queryRunner.query(`CREATE INDEX "IDX_11862e6bc4363d7972bbff85bf" ON public.purchases USING btree ("purchaseDate")`);
-        await queryRunner.query(`CREATE INDEX "IDX_2cb30fcfd2e6e895ffc58c3d7a" ON public.purchases USING btree ("providerName")`);
-        await queryRunner.query(`CREATE INDEX "IDX_36cd9508061bebb74fb3e1a9c7" ON public.purchases USING btree (status)`);
-        await queryRunner.query(`CREATE INDEX "IDX_d5fec047f705d5b510c19379b9" ON public.purchases USING btree (supplier_id)`);
-        await queryRunner.query(`CREATE INDEX "IDX_4542dd2f38a61354a040ba9fd5" ON public.refresh_tokens USING btree (token)`);
-        await queryRunner.query(`CREATE INDEX "IDX_56b91d98f71e3d1b649ed6e9f3" ON public.refresh_tokens USING btree ("expiresAt")`);
-        await queryRunner.query(`CREATE INDEX "IDX_12c072f5150ca7d495b07aa1c6" ON public.sales USING btree ("saleNumber")`);
-        await queryRunner.query(`CREATE INDEX "IDX_65f3c52de52446c1d23ed5daf2" ON public.sales USING btree ("saleDate")`);
-        await queryRunner.query(`CREATE INDEX "IDX_83e1f4b8d3b863cce4846e0295" ON public.sales USING btree (status)`);
-        await queryRunner.query(`CREATE INDEX "IDX_c51005b2b06cec7aa17462c54f" ON public.sales USING btree (customer_id)`);
-        await queryRunner.query(`CREATE INDEX "IDX_4827b42d37a5f169c4bf7e63f9" ON public.stock_movements USING btree (date)`);
-        await queryRunner.query(`CREATE INDEX "IDX_67aceb5d7a6fa85362821b15cb" ON public.stock_movements USING btree (source)`);
-        await queryRunner.query(`CREATE INDEX "IDX_a3acb59db67e977be45e382fc5" ON public.stock_movements USING btree ("productId")`);
-        await queryRunner.query(`CREATE INDEX "IDX_cca7634960c09010c40b6490a1" ON public.stock_movements USING btree (type)`);
-        await queryRunner.query(`CREATE INDEX "IDX_5b5720d9645cee7396595a16c9" ON public.suppliers USING btree (name)`);
-        await queryRunner.query(`CREATE INDEX "IDX_66181e465a65c2ddcfa9c00c9c" ON public.suppliers USING btree (email)`);
-        await queryRunner.query(`CREATE INDEX "IDX_876c06b5396f3c4acb7144ca92" ON public.suppliers USING btree ("isActive")`);
-        await queryRunner.query(`CREATE INDEX "IDX_939b78561f0b4da019d2f1bdcc" ON public.suppliers USING btree ("documentNumber")`);
-        await queryRunner.query(`CREATE INDEX "IDX_fe0bb3f6520ee0469504521e71" ON public.users USING btree (username)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_1896ae681cf45b65c30ac4d75d" ON public.account_movements USING btree ("createdAt")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_318dacc6ac49989ce28297553a" ON public.account_movements USING btree ("movementType")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_6f5c93a631fe50545d103f37bd" ON public.account_movements USING btree ("referenceType", "referenceId")`);
+        // Mejora #2: Indice unico parcial para evitar duplicados
+        await this.createIndexIgnoreExists(queryRunner, `CREATE UNIQUE INDEX "IDX_account_movements_unique_reference" ON "account_movements" ("accountId", "referenceType", "referenceId") WHERE "referenceId" IS NOT NULL`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_dae89f38e90f02a194f57608f5" ON public.account_movements USING btree ("accountId")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_7421efc125d95e413657efa3c6" ON public.audit_logs USING btree (entity_type, entity_id)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_88dcc148d532384790ab874c3d" ON public.audit_logs USING btree ("timestamp")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_bd2726fd31b35443f2245b93ba" ON public.audit_logs USING btree (user_id)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_cee5459245f652b75eb2759b4c" ON public.audit_logs USING btree (action)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_8b0be371d28245da6e4f4b6187" ON public.categories USING btree (name)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_7f67e3035731ad5aeb12af7376" ON public.customer_accounts USING btree ("daysOverdue")`);
+        // Mejora #8: Indice para plazo de pago
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_customer_accounts_paymentTermDays" ON "customer_accounts" ("paymentTermDays")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_aa4ad1331507e75eca55689ed2" ON public.customer_accounts USING btree (balance)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_dd4af5e4a911ce718820caff37" ON public.customer_accounts USING btree (status)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_c3a9318c56cf9f9e4eb9d1b0ef" ON public.customer_categories USING btree ("isActive")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_ede93c8cf28e307313ec668e73" ON public.customer_categories USING btree (name)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_40946e98ab87148f58703fa1c5" ON public.customers USING btree ("isActive")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_8536b8b85c06969f84f0c098b0" ON public.customers USING btree (email)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_a626a4799ae1d4f275f68ef4a2" ON public.customers USING btree ("lastName", "firstName")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_dffea8343d90688bccac70b63a" ON public.customers USING btree ("documentNumber")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_f95c9f3263ba32c34ebb051f1f" ON public.customers USING btree ("categoryId")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_6bdb3db95dd955d3c701e93542" ON public.expense_categories USING btree (name)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_36df98c0190cfafd07455a2bfc" ON public.expenses USING btree ("isPaid")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_f52fb01c27607bb74ba05abf16" ON public.expenses USING btree ("expenseDate")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_9bfab959a7960a323bcf1d118c" ON public.income_categories USING btree (name)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_3a2c8e7c0b3e7d1e655f582473" ON public.incomes USING btree ("incomeDate")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_6017a723ad7e03f5e885e4f982" ON public.incomes USING btree ("isPaid")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_4c9fb58de893725258746385e1" ON public.products USING btree (name)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_adfc522baf9d9b19cd7d9461b7" ON public.products USING btree (barcode)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_ff39b9ac40872b2de41751eedc" ON public.products USING btree ("isActive")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_ff56834e735fa78a15d0cf2192" ON public.products USING btree ("categoryId")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_11862e6bc4363d7972bbff85bf" ON public.purchases USING btree ("purchaseDate")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_2cb30fcfd2e6e895ffc58c3d7a" ON public.purchases USING btree ("providerName")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_36cd9508061bebb74fb3e1a9c7" ON public.purchases USING btree (status)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_d5fec047f705d5b510c19379b9" ON public.purchases USING btree (supplier_id)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_4542dd2f38a61354a040ba9fd5" ON public.refresh_tokens USING btree (token)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_56b91d98f71e3d1b649ed6e9f3" ON public.refresh_tokens USING btree ("expiresAt")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_12c072f5150ca7d495b07aa1c6" ON public.sales USING btree ("saleNumber")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_65f3c52de52446c1d23ed5daf2" ON public.sales USING btree ("saleDate")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_83e1f4b8d3b863cce4846e0295" ON public.sales USING btree (status)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_c51005b2b06cec7aa17462c54f" ON public.sales USING btree (customer_id)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_4827b42d37a5f169c4bf7e63f9" ON public.stock_movements USING btree (date)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_67aceb5d7a6fa85362821b15cb" ON public.stock_movements USING btree (source)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_a3acb59db67e977be45e382fc5" ON public.stock_movements USING btree ("productId")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_cca7634960c09010c40b6490a1" ON public.stock_movements USING btree (type)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_5b5720d9645cee7396595a16c9" ON public.suppliers USING btree (name)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_66181e465a65c2ddcfa9c00c9c" ON public.suppliers USING btree (email)`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_876c06b5396f3c4acb7144ca92" ON public.suppliers USING btree ("isActive")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_939b78561f0b4da019d2f1bdcc" ON public.suppliers USING btree ("documentNumber")`);
+        await this.createIndexIgnoreExists(queryRunner, `CREATE INDEX "IDX_fe0bb3f6520ee0469504521e71" ON public.users USING btree (username)`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {

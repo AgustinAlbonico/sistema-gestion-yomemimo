@@ -17,19 +17,24 @@ import {
 import {
     FormField,
 } from '@/components/ui/form';
+import { Control } from 'react-hook-form';
 import { PaymentMethod } from '../types';
 import { PaymentMethodIcons } from '../constants';
 import { Badge } from '@/components/ui/badge';
+import { CreateSaleFormValues } from '../schemas/sale.schema';
 
 interface SalePaymentsProps {
-    readonly paymentFields: readonly any[]; // field array
-    readonly appendPayment: (value: any) => void;
+    readonly paymentFields: readonly {
+        id: string;
+        name: string;
+    }[];
+    readonly appendPayment: (value: CreateSaleFormValues['payments'][number]) => void;
     readonly removePayment: (index: number) => void;
-    readonly paymentMethods?: readonly any[];
+    readonly paymentMethods?: readonly PaymentMethod[];
     readonly total: number;
     readonly pendingAmount: number;
     readonly isOnAccount: boolean;
-    readonly control: any;
+    readonly control: Control<CreateSaleFormValues>;
 }
 
 function formatCurrency(value: number): string {

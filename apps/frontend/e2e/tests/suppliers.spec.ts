@@ -41,11 +41,19 @@ test.describe('Proveedores', () => {
       
       // Llenar formulario
       await page.getByLabel(/Nombre/i).first().fill(uniqueName);
-      
-      // CUIT/DNI si existe
-      const cuitInput = page.getByLabel(/CUIT|DNI|Documento/i);
-      if (await cuitInput.isVisible()) {
-        await cuitInput.fill('20123456789');
+
+      // Tipo de documento (combobox) si existe
+      const docTypeCombo = page.getByRole('combobox', { name: /Tipo de Documento/i }).first();
+      if (await docTypeCombo.isVisible().catch(() => false)) {
+        // Abrir el combo y seleccionar CUIT (opción más común para proveedores)
+        await docTypeCombo.click();
+        await page.getByRole('option', { name: /CUIT/i }).first().click().catch(() => {});
+      }
+
+      // Número de documento si existe
+      const docNumberInput = page.getByRole('textbox', { name: /Número de Documento/i }).first();
+      if (await docNumberInput.isVisible().catch(() => false)) {
+        await docNumberInput.fill('20123456789');
       }
       
       // Teléfono si existe
@@ -54,8 +62,8 @@ test.describe('Proveedores', () => {
         await phoneInput.fill('1155667788');
       }
       
-      // Guardar
-      await page.getByRole('button', { name: /Guardar/i }).click();
+      // Guardar - el botón dice "Crear Proveedor"
+      await page.getByRole('button', { name: /Crear Proveedor/i }).click();
       
       // Verificar éxito
       await helpers.expectSuccessToast();

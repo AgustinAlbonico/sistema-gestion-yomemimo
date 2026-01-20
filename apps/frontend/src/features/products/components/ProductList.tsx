@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/common/DataTable';
-import { productsApi, categoriesApi } from '../api/products.api';
+import { productsApi, categoriesApi, brandsApi } from '../api/products.api';
 import { Product } from '../types';
 import { ColumnDef } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/dialog';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { Separator } from '@/components/ui/separator';
+import { BrandSelect } from './BrandSelect';
 
 interface ProductListProps {
     readonly onEdit: (product: Product) => void;
@@ -257,12 +258,19 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
     const [viewProduct, setViewProduct] = useState<Product | null>(null);
     const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+    const [selectedBrandId, setSelectedBrandId] = useState<string>('');
     const [stockStatus, setStockStatus] = useState<'all' | 'critical'>('all');
 
     // Query para categorías
     const { data: categories } = useQuery({
         queryKey: ['categories'],
         queryFn: () => categoriesApi.getAll(),
+    });
+
+    // Query para marcas
+    const { data: brands } = useQuery({
+        queryKey: ['brands'],
+        queryFn: () => brandsApi.getAll(),
     });
 
     // Query para configuración global (stock mínimo)
@@ -276,10 +284,11 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
     const globalMinStock = config?.minStockAlert ?? 5;
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['products', { categoryId: selectedCategoryId, stockStatus }],
+        queryKey: ['products', { categoryId: selectedCategoryId, brandId: selectedBrandId, stockStatus }],
         queryFn: () => productsApi.getAll({
             limit: 10000, // Aumentado para soportar catálogos grandes
             categoryId: selectedCategoryId && selectedCategoryId !== 'all' ? selectedCategoryId : undefined,
+            brandId: selectedBrandId || undefined,
             stockStatus: stockStatus === 'all' ? undefined : stockStatus,
         }),
     });
@@ -312,6 +321,14 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
                     ))}
                 </SelectContent>
             </Select>
+
+            {/* Filtro de marcas con búsqueda y scroll */}
+            <BrandSelect
+                selectedId={selectedBrandId || null}
+                onSelect={(id) => setSelectedBrandId(id || '')}
+                brands={brands || []}
+                placeholder="Todas las marcas"
+            />
 
             {/* Filtro de stock */}
             <Select

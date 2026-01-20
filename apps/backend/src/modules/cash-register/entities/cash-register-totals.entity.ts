@@ -19,6 +19,9 @@ export class CashRegisterTotals {
     @JoinColumn({ name: 'cash_register_id' })
     cashRegister!: CashRegister;
 
+    @Column({ name: 'cash_register_id' })
+    cashRegisterId!: string;
+
     @ManyToOne(() => PaymentMethodEntity)
     @JoinColumn({ name: 'payment_method_id' })
     paymentMethod!: PaymentMethodEntity;

@@ -1,0 +1,71 @@
+{
+  "qualityProfile": {
+    "name": "NestJS TypeScript",
+    "language": "ts",
+    "languageSpecific": {
+      "ts": {
+        "key": "typescript",
+        "name": "TypeScript"
+      }
+    },
+    "parentProfile": "sonar-way-quality-profile",
+    "description": "Quality profile optimized for NestJS/TypeScript applications with security and maintainability rules",
+    "rules": [
+      {
+        "repo": "typescript",
+        "key": "S1128",
+        "severity": "MAJOR"
+      },
+      {
+        "repo": "typescript",
+        "key": "S1451",
+        "severity": "MAJOR"
+      },
+      {
+        "repo": "typescript",
+        "key": "S1068",
+        "severity": "MINOR"
+      },
+      {
+        "repo": "typescript",
+        "key": "S1135",
+        "severity": "MAJOR"
+      },
+      {
+        "repo": "typescript",
+        "key": "S101",
+        "severity": "MAJOR"
+      },
+      {
+        "repo": "typescript",
+        "key": "S1488",
+        "severity": "MINOR"
+      },
+      {
+        "repo": "typescript",
+        "key": "S1075",
+        "severity": "MAJOR"
+      },
+      {
+        "repo": "typescript",
+        "key": "S1117",
+        "severity": "MAJOR"
+      },
+      {
+        "repo": "typescript",
+        "key": "S1066",
+        "severity": "MAJOR"
+      },
+      {
+        "repo": "typescript",
+        "key": "S3776",
+        "severity": "MAJOR"
+      },
+      {
+        "repo": "typescript",
+        "key": "S1145",
+        "severity": "MAJOR"
+      }
+    ]
+  }
+}
