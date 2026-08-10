@@ -130,9 +130,10 @@ export interface TopProduct {
     productSku: string | null;
     quantitySold: number;
     revenue: number;
-    cost: number;
-    profit: number;
-    margin: number;
+    cost: number | null;
+    profit: number | null;
+    margin: number | null;
+    hasKnownCost: boolean;
 }
 
 export interface ProductsReport {
@@ -152,6 +153,10 @@ export interface ProductsReport {
         productsLowStock: number;
         totalStockValue: number;
         totalSaleValue: number;
+        // Valor de stock solo de productos con costo conocido (excluye precio fijo sin costo)
+        totalStockValueKnown: number;
+        // Cantidad de productos en modo precio fijo (info para UI)
+        productsWithManualPrice: number;
     };
 }
 
@@ -764,7 +769,7 @@ export class ReportsService {
             product: Product;
             quantity: number;
             revenue: number;
-            cost: number;
+            cost: number | null;
         }>();
 
         for (const item of items) {
@@ -775,19 +780,27 @@ export class ReportsService {
                     product: item.product,
                     quantity: 0,
                     revenue: 0,
-                    cost: 0,
+                    cost: item.product.cost !== null && item.product.cost !== undefined ? 0 : null,
                 });
             }
             const prod = productMap.get(productId)!;
             prod.quantity += item.quantity;
             prod.revenue += Number(item.subtotal);
-            prod.cost += item.quantity * Number(item.product.cost);
+            // Solo acumular cost si el producto tiene costo conocido
+            if (prod.cost !== null && item.product.cost !== null && item.product.cost !== undefined) {
+                prod.cost += item.quantity * Number(item.product.cost);
+            } else {
+                prod.cost = null;
+            }
         }
 
         // Convertir y ordenar
         const topProducts: TopProduct[] = Array.from(productMap.values())
             .map(data => {
-                const profit = data.revenue - data.cost;
+                const hasKnownCost = data.cost !== null;
+                const cost = data.cost ?? 0;
+                const profit = hasKnownCost ? data.revenue - cost : null;
+                const margin = hasKnownCost && data.revenue > 0 ? (profit! / data.revenue) * 100 : null;
                 return {
                     productId: data.product.id,
                     productName: data.product.name,
@@ -796,7 +809,8 @@ export class ReportsService {
                     revenue: data.revenue,
                     cost: data.cost,
                     profit,
-                    margin: data.revenue > 0 ? (profit / data.revenue) * 100 : 0,
+                    margin,
+                    hasKnownCost,
                 };
             })
             .sort((a, b) => b.revenue - a.revenue)
@@ -833,7 +847,7 @@ export class ReportsService {
             product: Product;
             quantity: number;
             revenue: number;
-            cost: number;
+            cost: number | null;
         }>();
 
         for (const item of items) {
@@ -844,18 +858,25 @@ export class ReportsService {
                     product: item.product,
                     quantity: 0,
                     revenue: 0,
-                    cost: 0,
+                    cost: item.product.cost !== null && item.product.cost !== undefined ? 0 : null,
                 });
             }
             const prod = productMap.get(productId)!;
             prod.quantity += item.quantity;
             prod.revenue += Number(item.subtotal);
-            prod.cost += item.quantity * Number(item.product.cost);
+            if (prod.cost !== null && item.product.cost !== null && item.product.cost !== undefined) {
+                prod.cost += item.quantity * Number(item.product.cost);
+            } else {
+                prod.cost = null;
+            }
         }
 
         const result: TopProduct[] = Array.from(productMap.values())
             .map(data => {
-                const profit = data.revenue - data.cost;
+                const hasKnownCost = data.cost !== null;
+                const cost = data.cost ?? 0;
+                const profit = hasKnownCost ? data.revenue - cost : null;
+                const margin = hasKnownCost && data.revenue > 0 ? (profit! / data.revenue) * 100 : null;
                 return {
                     productId: data.product.id,
                     productName: data.product.name,
@@ -864,7 +885,8 @@ export class ReportsService {
                     revenue: data.revenue,
                     cost: data.cost,
                     profit,
-                    margin: data.revenue > 0 ? (profit / data.revenue) * 100 : 0,
+                    margin,
+                    hasKnownCost,
                 };
             })
             .sort((a, b) => b.revenue - a.revenue);
@@ -896,8 +918,14 @@ export class ReportsService {
         const productsWithStock = allProducts.filter(p => p.stock > 0).length;
         const productsOutOfStock = allProducts.filter(p => p.stock === 0).length;
         const productsLowStock = allProducts.filter(p => p.stock > 0 && p.stock <= globalMinStockForProducts).length;
-        const totalStockValue = allProducts.reduce((sum, p) => sum + (p.stock * Number(p.cost)), 0);
-        const totalSaleValue = allProducts.reduce((sum, p) => sum + (p.stock * Number(p.price)), 0);
+        // Valor de stock: productos con costo conocido. Los que tienen cost=null no suman (no se conoce).
+        const totalStockValue = allProducts.reduce((sum, p) => sum + (p.stock * Number(p.cost ?? 0)), 0);
+        const totalStockValueKnown = allProducts.reduce(
+            (sum, p) => (p.cost !== null && p.cost !== undefined) ? sum + (p.stock * Number(p.cost)) : sum,
+            0
+        );
+        const productsWithManualPrice = allProducts.filter(p => p.useManualPrice === true).length;
+        const totalSaleValue = allProducts.reduce((sum, p) => sum + (p.stock * Number(p.price ?? 0)), 0);
 
         // Productos de baja rotación (sin ventas en el período)
         const soldProductIds = new Set(topProducts.map(p => p.productId));
@@ -923,6 +951,8 @@ export class ReportsService {
                 productsLowStock,
                 totalStockValue: Math.round(totalStockValue * 100) / 100,
                 totalSaleValue: Math.round(totalSaleValue * 100) / 100,
+                totalStockValueKnown: Math.round(totalStockValueKnown * 100) / 100,
+                productsWithManualPrice,
             },
         };
     }
@@ -1493,7 +1523,7 @@ export class ReportsService {
         const totalProducts = products.length;
         const lowStock = products.filter(p => p.stock > 0 && p.stock <= globalMinStock).length;
         const outOfStock = products.filter(p => p.stock === 0).length;
-        const totalValue = products.reduce((sum, p) => sum + (p.stock * Number(p.cost)), 0);
+        const totalValue = products.reduce((sum, p) => sum + (p.stock * Number(p.cost ?? 0)), 0);
 
         // CUENTAS CORRIENTES
         const accounts = await this.accountRepo.find();

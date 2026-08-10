@@ -37,12 +37,13 @@ export class Product {
         type: 'decimal',
         precision: 20,
         scale: 2,
+        nullable: true,
         transformer: {
             to: (value: number) => value,
-            from: (value: string) => Number.parseFloat(value),
+            from: (value: string) => value ? Number.parseFloat(value) : null,
         },
     })
-    cost!: number;
+    cost!: number | null;
 
     @Column({
         type: 'decimal',
@@ -93,6 +94,12 @@ export class Product {
     @Column({ type: 'boolean', default: false })
     useCustomMargin!: boolean;
 
+    // Indica si el producto usa precio fijo (cargado directamente, sin cálculo desde costo + margen).
+    // Cuando es true: el price se respeta tal cual y el cost puede ser null.
+    // Cuando es false: el comportamiento es el clásico (price calculado desde cost + profitMargin).
+    @Column({ type: 'boolean', default: false })
+    useManualPrice!: boolean;
+
     @Column({ type: 'boolean', default: true })
     isActive!: boolean;
 
@@ -102,10 +109,15 @@ export class Product {
     @UpdateDateColumn({ type: 'timestamp' })
     updatedAt!: Date;
 
-    // Hook para calcular precio si hay margen de ganancia
+    // Hook para calcular precio si hay margen de ganancia.
+    // FIX: Ignora el cálculo cuando el producto está en modo precio fijo (useManualPrice = true),
+    // porque en ese modo el price se carga manualmente y nunca debe ser pisado.
     @BeforeInsert()
     @BeforeUpdate()
     calculatePriceFromMargin() {
+        if (this.useManualPrice) {
+            return;
+        }
         if (this.profitMargin && this.cost) {
             this.price = this.cost * (1 + this.profitMargin / 100);
             this.price = Math.round(this.price * 100) / 100; // Redondear a 2 decimales

@@ -363,6 +363,7 @@ describe('ProductsService', () => {
             stock: 0,
             categoryId: null,
             brandName: null,
+            useManualPrice: false,
         };
 
         beforeEach(() => {
@@ -448,6 +449,186 @@ describe('ProductsService', () => {
             expect(mockProductsRepository.create).toHaveBeenCalledWith(
                 expect.objectContaining({
                     barcode: null,
+                })
+            );
+        });
+    });
+
+    describe('create (modo precio fijo)', () => {
+        beforeEach(() => {
+            mockProductsRepository.create.mockImplementation((data) => ({ id: 'uuid-123', ...data }));
+            mockProductsRepository.save.mockImplementation((product) => Promise.resolve(product));
+        });
+
+        it('usa precio del DTO cuando useManualPrice = true', async () => {
+            const dto = {
+                name: 'Manual Price Product',
+                price: 250,
+                stock: 0,
+                useManualPrice: true,
+            };
+
+            await service.create(dto as any);
+
+            expect(mockProductsRepository.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    name: 'Manual Price Product',
+                    price: 250,
+                    profitMargin: null,
+                    useManualPrice: true,
+                    useCustomMargin: false,
+                    cost: null,
+                })
+            );
+        });
+
+        it('lanza error si useManualPrice = true y no se proporciona price', async () => {
+            const dto = {
+                name: 'Sin precio',
+                useManualPrice: true,
+            };
+
+            await expect(service.create(dto as any)).rejects.toThrow(
+                'Cuando useManualPrice = true, debe proporcionar el precio final.'
+            );
+        });
+
+        it('usa default useManualPrice = true cuando no se especifica', async () => {
+            const dto = {
+                name: 'Default Manual',
+                price: 100,
+                stock: 0,
+            };
+
+            await service.create(dto as any);
+
+            expect(mockProductsRepository.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    useManualPrice: true,
+                    price: 100,
+                })
+            );
+        });
+
+        it('permite crear producto en modo precio fijo con costo opcional', async () => {
+            const dto = {
+                name: 'Manual con costo',
+                price: 200,
+                cost: 150,
+                stock: 0,
+                useManualPrice: true,
+            };
+
+            await service.create(dto as any);
+
+            expect(mockProductsRepository.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    price: 200,
+                    cost: 150,
+                    profitMargin: null,
+                })
+            );
+        });
+    });
+
+    describe('update (modo precio fijo)', () => {
+        it('no recalcula price cuando producto está en modo manual y se cambia el costo', async () => {
+            const product = {
+                id: 'uuid-1',
+                name: 'Manual',
+                cost: 100,
+                price: 200,
+                profitMargin: null,
+                useManualPrice: true,
+                useCustomMargin: false,
+                category: null,
+            };
+            mockProductsRepository.findOne.mockResolvedValue(product);
+            mockProductsRepository.save.mockImplementation((p) => Promise.resolve(p));
+
+            await service.update('uuid-1', { cost: 150 } as any);
+
+            expect(mockProductsRepository.save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    cost: 150,
+                    price: 200, // No recalculado
+                    useManualPrice: true,
+                })
+            );
+        });
+
+        it('respeta cambio directo de price en modo manual', async () => {
+            const product = {
+                id: 'uuid-1',
+                name: 'Manual',
+                cost: 100,
+                price: 200,
+                profitMargin: null,
+                useManualPrice: true,
+                useCustomMargin: false,
+                category: null,
+            };
+            mockProductsRepository.findOne.mockResolvedValue(product);
+            mockProductsRepository.save.mockImplementation((p) => Promise.resolve(p));
+
+            await service.update('uuid-1', { price: 250 } as any);
+
+            expect(mockProductsRepository.save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    price: 250,
+                    useManualPrice: true,
+                })
+            );
+        });
+
+        it('transición manual → clásico recalcula el price desde costo + margen', async () => {
+            const product = {
+                id: 'uuid-1',
+                name: 'Transicion',
+                cost: 100,
+                price: 200,
+                profitMargin: null,
+                useManualPrice: true,
+                useCustomMargin: false,
+                category: null,
+            };
+            mockProductsRepository.findOne.mockResolvedValue(product);
+            mockProductsRepository.save.mockImplementation((p) => Promise.resolve(p));
+            mockConfigurationService.getDefaultProfitMargin.mockResolvedValue(30);
+
+            await service.update('uuid-1', { useManualPrice: false } as any);
+
+            expect(mockProductsRepository.save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    useManualPrice: false,
+                    profitMargin: 30,
+                    price: 130, // 100 * 1.30
+                })
+            );
+        });
+
+        it('transición clásico → manual respeta price del DTO', async () => {
+            const product = {
+                id: 'uuid-1',
+                name: 'Transicion',
+                cost: 100,
+                price: 130,
+                profitMargin: 30,
+                useManualPrice: false,
+                useCustomMargin: false,
+                category: null,
+            };
+            mockProductsRepository.findOne.mockResolvedValue(product);
+            mockProductsRepository.save.mockImplementation((p) => Promise.resolve(p));
+
+            await service.update('uuid-1', { useManualPrice: true, price: 250 } as any);
+
+            expect(mockProductsRepository.save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    useManualPrice: true,
+                    price: 250,
+                    profitMargin: null,
+                    useCustomMargin: false,
                 })
             );
         });

@@ -96,6 +96,7 @@ describe('ConfigurationController', () => {
                 margin: 35,
                 skipped: 2,
                 skippedByCategory: 1,
+                skippedByManualPrice: 0,
             };
             configurationService.updateAllProductsPrices.mockResolvedValue(expectedResult);
 
@@ -112,6 +113,7 @@ describe('ConfigurationController', () => {
                 margin: 30,
                 skipped: 0,
                 skippedByCategory: 0,
+                skippedByManualPrice: 0,
             };
             configurationService.updateAllProductsPrices.mockResolvedValue(expectedResult);
 
@@ -136,6 +138,7 @@ describe('ConfigurationController', () => {
                 margin: 25,
                 skipped: 5,
                 skippedByCategory: 2,
+                skippedByManualPrice: 1,
             };
             configurationService.updateAllProductsPrices.mockResolvedValue(expectedResult);
 

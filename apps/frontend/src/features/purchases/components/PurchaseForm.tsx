@@ -129,7 +129,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
             // Seleccionar el producto en el item actual
             if (createProductIndex !== null) {
                 form.setValue(`items.${createProductIndex}.productId`, newProduct.id);
-                form.setValue(`items.${createProductIndex}.unitPrice`, newProduct.cost);
+                form.setValue(`items.${createProductIndex}.unitPrice`, newProduct.cost ?? 0);
             }
 
             // Cerrar diálogo y limpiar
@@ -224,7 +224,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
             append({
                 productId: product.id,
                 quantity: 1,
-                unitPrice: product.cost,
+                unitPrice: product.cost ?? 0,
                 notes: '',
             });
             toast.success(`${product.name} agregado`);
@@ -432,7 +432,7 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
                                                                         // Auto-completar precio de costo
                                                                         form.setValue(
                                                                             `items.${index}.unitPrice`,
-                                                                            product.cost
+                                                                            product.cost ?? 0
                                                                         );
                                                                     }}
                                                                     onClear={() => {
@@ -633,8 +633,10 @@ export function PurchaseForm({ onSubmit, isLoading }: PurchaseFormProps) {
                             name: initialProductName,
                             cost: 0,
                             stock: 0,
-                            categoryIds: [],
+                            categoryId: null,
                             isActive: true,
+                            useManualPrice: false,
+                            useCustomMargin: false,
                         }}
                         onSubmit={handleCreateProduct}
                         isLoading={createProductMutation.isPending}

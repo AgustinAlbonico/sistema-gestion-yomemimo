@@ -1,16 +1,21 @@
+// touched
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+// touched
 import { z } from 'zod';
+// touched
 import { IsString, IsOptional, IsNumber, IsBoolean, IsUUID, IsInt, Min, Max, Length } from 'class-validator';
 
 /**
  * Schema simplificado para crear producto
  * Solo: nombre, costo, stock, categoría (opcional, una sola)
- * Opcionalmente: margen de ganancia personalizado
+ * Opcional: margen de ganancia personalizado
+ * Opcional: modo precio fijo (price cargado directamente, sin cálculo desde costo)
  */
 export const BaseProductSchema = z.object({
     name: z.string().min(1, 'El nombre es requerido').max(255),
     description: z.string().max(1000).optional().nullable(),
-    cost: z.number().min(0, 'El costo debe ser 0 o mayor'),
+    cost: z.number().min(0, 'El costo debe ser 0 o mayor').optional().nullable(),
+    price: z.number().min(0, 'El precio debe ser 0 o mayor').optional(),
     stock: z.number().int().min(0).optional().default(0),
     categoryId: z.string().uuid().optional().nullable(),
     brandName: z.string().max(100).optional().nullable(),
@@ -19,6 +24,8 @@ export const BaseProductSchema = z.object({
     // Margen de ganancia personalizado (opcional)
     useCustomMargin: z.boolean().optional().default(false),
     customProfitMargin: z.number().min(0).max(1000000).optional(),
+    // Modo precio fijo: cuando es true, el price se carga directamente y no se calcula desde costo+margen
+    useManualPrice: z.boolean().optional().default(true),
 });
 
 export const CreateProductSchema = BaseProductSchema;
@@ -42,10 +49,17 @@ export class CreateProductDto {
     @Length(0, 1000)
     description?: string | null;
 
-    @ApiProperty({ example: 100, description: 'Costo del producto' })
+    @ApiProperty({ example: 100, description: 'Costo del producto (opcional si useManualPrice = true)' })
+    @IsOptional()
     @IsNumber()
     @Min(0)
-    cost!: number;
+    cost?: number | null;
+
+    @ApiPropertyOptional({ example: 150, description: 'Precio final del producto (requerido si useManualPrice = true)' })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    price?: number;
 
     @ApiPropertyOptional({ example: 10, description: 'Stock inicial' })
     @IsOptional()
@@ -86,5 +100,10 @@ export class CreateProductDto {
     @Min(0)
     @Max(1000000)
     customProfitMargin?: number;
+
+    @ApiPropertyOptional({ example: true, default: true, description: 'Usar precio fijo cargado manualmente (sin cálculo desde costo)' })
+    @IsOptional()
+    @IsBoolean()
+    useManualPrice?: boolean;
 }
 

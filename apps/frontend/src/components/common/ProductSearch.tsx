@@ -235,7 +235,7 @@ export function ProductSearch({
                                                             <span>Stock: {product.stock}</span>
                                                         )}
                                                         {showCost && (
-                                                            <span>Costo: {formatCurrencyValue(product.cost)}</span>
+                                                            <span>Costo: {formatCurrencyValue(product.cost ?? 0)}</span>
                                                         )}
                                                     </div>
                                                 </div>

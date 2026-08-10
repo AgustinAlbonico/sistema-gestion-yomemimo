@@ -65,9 +65,10 @@ export class ConfigurationService implements OnModuleInit {
      * Actualiza el precio de productos según el % de ganancia configurado
      * NOTA: Excluye:
      * - Productos con margen de ganancia personalizado (useCustomMargin = true)
+     * - Productos en modo precio fijo (useManualPrice = true)
      * - Productos cuya categoría tenga un margen de ganancia definido
      */
-    async updateAllProductsPrices(newMargin?: number): Promise<{ updated: number; margin: number; skipped: number; skippedByCategory: number }> {
+    async updateAllProductsPrices(newMargin?: number): Promise<{ updated: number; margin: number; skipped: number; skippedByCategory: number; skippedByManualPrice: number }> {
         if (newMargin !== undefined) {
             await this.updateConfiguration({ defaultProfitMargin: newMargin });
         }
@@ -90,6 +91,7 @@ export class ConfigurationService implements OnModuleInit {
         // Obtener productos que deben usar el margen general:
         // - isActive = true
         // - useCustomMargin = false
+        // - useManualPrice = false
         // - categoryId IS NULL O categoryId NO está en categorías con margen
         let productsToUpdate: Product[] = [];
 
@@ -98,20 +100,26 @@ export class ConfigurationService implements OnModuleInit {
                 .createQueryBuilder('product')
                 .where('product.isActive = :isActive', { isActive: true })
                 .andWhere('product.useCustomMargin = :useCustomMargin', { useCustomMargin: false })
+                .andWhere('product.useManualPrice = :useManualPrice', { useManualPrice: false })
                 .andWhere('(product.categoryId IS NULL OR product.categoryId NOT IN (:...categoryIds))', {
                     categoryIds: categoryIdsWithMargin
                 })
                 .getMany();
         } else {
-            // No hay categorías con margen, obtener todos los que no tienen margen personalizado
+            // No hay categorías con margen, obtener todos los que no tienen margen personalizado ni precio fijo
             productsToUpdate = await productRepo.find({
-                where: { isActive: true, useCustomMargin: false }
+                where: { isActive: true, useCustomMargin: false, useManualPrice: false }
             });
         }
 
         // Contar productos con margen personalizado (no serán afectados)
         const skipped = await productRepo.count({
             where: { isActive: true, useCustomMargin: true }
+        });
+
+        // Contar productos en modo precio fijo (no serán afectados)
+        const skippedByManualPrice = await productRepo.count({
+            where: { isActive: true, useManualPrice: true }
         });
 
         // Contar productos con categoría que tiene margen (no serán afectados)
@@ -121,6 +129,7 @@ export class ConfigurationService implements OnModuleInit {
                 .createQueryBuilder('product')
                 .where('product.isActive = :isActive', { isActive: true })
                 .andWhere('product.useCustomMargin = :useCustomMargin', { useCustomMargin: false })
+                .andWhere('product.useManualPrice = :useManualPrice', { useManualPrice: false })
                 .andWhere('product.categoryId IN (:...categoryIds)', {
                     categoryIds: categoryIdsWithMargin
                 })
@@ -129,7 +138,8 @@ export class ConfigurationService implements OnModuleInit {
 
         // Actualizar precio de cada producto
         for (const product of productsToUpdate) {
-            product.price = product.cost * (1 + margin / 100);
+            const cost = product.cost ?? 0;
+            product.price = cost * (1 + margin / 100);
             product.price = Math.round(product.price * 100) / 100;
             product.profitMargin = margin;
         }
@@ -140,7 +150,8 @@ export class ConfigurationService implements OnModuleInit {
             updated: productsToUpdate.length,
             margin,
             skipped,
-            skippedByCategory
+            skippedByCategory,
+            skippedByManualPrice
         };
     }
 }

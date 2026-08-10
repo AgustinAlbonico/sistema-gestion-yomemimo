@@ -60,8 +60,9 @@ export class InventoryService {
                 // Actualizar costo del producto si es un ingreso y trae costo (solo para compras)
                 if (dto.cost && dto.source === StockMovementSource.PURCHASE) {
                     product.cost = dto.cost;
-                    // Recalcular precio si tiene margen
-                    if (product.profitMargin) {
+                    // Recalcular precio si tiene margen Y no está en modo precio fijo.
+                    // En modo precio fijo el price se carga manualmente y nunca se pisa desde una compra.
+                    if (!product.useManualPrice && product.profitMargin) {
                         product.price = product.cost * (1 + product.profitMargin / 100);
                         product.price = Math.round(product.price * 100) / 100;
                     }
@@ -159,13 +160,13 @@ export class InventoryService {
 
         // Calcular valor total del inventario (stock * costo)
         const totalInventoryValue = allProducts.reduce(
-            (sum, p) => sum + (p.stock * p.cost),
+            (sum, p) => sum + (p.stock * Number(p.cost ?? 0)),
             0
         );
 
         // Calcular valor total a precio de venta
         const totalInventorySaleValue = allProducts.reduce(
-            (sum, p) => sum + (p.stock * (p.price ?? p.cost)),
+            (sum, p) => sum + (p.stock * Number(p.price ?? p.cost ?? 0)),
             0
         );
 

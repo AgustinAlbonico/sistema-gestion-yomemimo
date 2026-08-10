@@ -9,10 +9,11 @@ export interface Product {
     description?: string;
     sku?: string;
     barcode?: string;
-    cost: number;
+    cost: number | null;
     price: number;
-    profitMargin?: number;
+    profitMargin?: number | null;
     useCustomMargin?: boolean;
+    useManualPrice?: boolean;
     stock: number;
     categoryId?: string | null;
     category?: Category | null;
@@ -38,13 +39,15 @@ export interface CreateProductDTO {
     name: string;
     description?: string | null;
     barcode?: string | null;
-    cost: number;
+    cost?: number | null;
+    price?: number;
     stock?: number;
     categoryId?: string | null;
     brandName?: string | null;
     isActive?: boolean;
     useCustomMargin?: boolean;
     customProfitMargin?: number;
+    useManualPrice?: boolean;
 }
 
 export interface UpdateProductDTO extends Partial<CreateProductDTO> { }

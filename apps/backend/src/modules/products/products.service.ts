@@ -78,13 +78,35 @@ export class ProductsService {
             category = foundCategory;
         }
 
-        // Determinar margen de ganancia según jerarquía
-        const useCustomMargin = dto.useCustomMargin ?? false;
-        const profitMargin = await this.getEffectiveProfitMargin(
-            useCustomMargin,
-            dto.customProfitMargin,
-            category,
-        );
+        // Modo precio fijo: default true para productos nuevos.
+        // Si está activo, el price viene en el DTO y se respeta tal cual.
+        // Si está inactivo, se calcula desde cost + profitMargin (modo clásico).
+        const useManualPrice = dto.useManualPrice ?? true;
+
+        let price: number | null;
+        let profitMargin: number | null;
+        let useCustomMargin: boolean;
+
+        if (useManualPrice) {
+            // Modo precio fijo: el price se carga directamente.
+            // No se calcula desde costo + margen.
+            if (dto.price === undefined || dto.price === null) {
+                throw new Error('Cuando useManualPrice = true, debe proporcionar el precio final.');
+            }
+            price = dto.price;
+            // En modo precio fijo no aplica la jerarquía de márgenes: profitMargin queda en null
+            profitMargin = null;
+            useCustomMargin = false;
+        } else {
+            // Modo clásico: calcular desde cost + profitMargin
+            useCustomMargin = dto.useCustomMargin ?? false;
+            profitMargin = await this.getEffectiveProfitMargin(
+                useCustomMargin,
+                dto.customProfitMargin,
+                category,
+            );
+            price = this.calculatePrice(dto.cost ?? 0, profitMargin);
+        }
 
         // Procesar marca (opcional)
         let brand: Brand | null = null;
@@ -92,18 +114,16 @@ export class ProductsService {
             brand = await this.brandsRepository.findOrCreateByName(dto.brandName);
         }
 
-        // Calcular precio automáticamente
-        const price = this.calculatePrice(dto.cost, profitMargin);
-
         // Crear producto con stock 0 inicialmente (el stock se agrega via movimiento)
         const initialStock = dto.stock ?? 0;
         const product = this.productsRepository.create({
             name: dto.name,
             description: dto.description,
-            cost: dto.cost,
+            cost: dto.cost ?? null,
             price,
             profitMargin,
             useCustomMargin,
+            useManualPrice,
             stock: 0, // Inicializar en 0, el movimiento lo actualizará
             category,
             categoryId: dto.categoryId || null,
@@ -122,7 +142,7 @@ export class ProductsService {
                 type: StockMovementType.IN,
                 source: StockMovementSource.INITIAL_LOAD,
                 quantity: initialStock,
-                cost: dto.cost,
+                cost: dto.cost ?? 0,
                 notes: 'Carga inicial de stock',
                 date: new Date().toISOString(),
             });
@@ -197,7 +217,7 @@ export class ProductsService {
             }
         }
 
-        // Manejar cambio de margen y recalcular precio si es necesario
+        // Manejar cambio de modo precio fijo o recálculo de precio
         await this.handlePriceRecalculation(product, dto);
 
         // Actualizar campos básicos
@@ -246,9 +266,47 @@ export class ProductsService {
     }
 
     /**
-     * Maneja el recálculo del precio según cambios en margen, costo o categoría
+     * Maneja el recálculo del precio según cambios en margen, costo, categoría o modo precio fijo.
+     *
+     * Caso 0 (manual): si el producto está en modo precio fijo, solo aplica cambios de `price`
+     *                   enviado en el DTO. Ignora completamente la jerarquía de márgenes.
+     * Caso 0.bis: transición useManualPrice false→true o true→false.
      */
     private async handlePriceRecalculation(product: Product, dto: UpdateProductDTO): Promise<void> {
+        // Caso 0.bis: Transición de modo precio fijo
+        if (dto.useManualPrice !== undefined && dto.useManualPrice !== product.useManualPrice) {
+            product.useManualPrice = dto.useManualPrice;
+
+            if (dto.useManualPrice) {
+                // Pasó a modo precio fijo: usar el price del DTO (o mantener el actual)
+                product.price = dto.price ?? product.price ?? 0;
+                // profitMargin deja de tener sentido en modo manual
+                product.profitMargin = null;
+                product.useCustomMargin = false;
+            } else {
+                // Volvió a modo clásico: recalcular desde cost + margen efectivo
+                const margin = await this.getEffectiveProfitMargin(
+                    dto.useCustomMargin ?? product.useCustomMargin,
+                    dto.customProfitMargin,
+                    product.category,
+                );
+                product.profitMargin = margin;
+                product.useCustomMargin = dto.useCustomMargin ?? false;
+                const cost = dto.cost ?? product.cost ?? 0;
+                product.price = this.calculatePrice(cost, margin);
+            }
+            return;
+        }
+
+        // Caso 0: producto en modo precio fijo — solo respetar price directo
+        if (product.useManualPrice) {
+            if (dto.price !== undefined) {
+                product.price = dto.price;
+            }
+            return;
+        }
+
+        // A partir de acá, el producto está en modo clásico (cálculo automático).
         // Caso 1: Cambio en useCustomMargin
         if (dto.useCustomMargin !== undefined) {
             product.useCustomMargin = dto.useCustomMargin;
@@ -259,7 +317,7 @@ export class ProductsService {
                 product.profitMargin = await this.getEffectiveProfitMargin(false, undefined, product.category);
             }
 
-            const cost = dto.cost ?? product.cost;
+            const cost = dto.cost ?? product.cost ?? 0;
             product.price = this.calculatePrice(cost, product.profitMargin ?? 0);
             return;
         }
@@ -267,7 +325,7 @@ export class ProductsService {
         // Caso 2: Actualización de margen personalizado existente
         if (dto.customProfitMargin !== undefined && product.useCustomMargin) {
             product.profitMargin = dto.customProfitMargin;
-            const cost = dto.cost ?? product.cost;
+            const cost = dto.cost ?? product.cost ?? 0;
             product.price = this.calculatePrice(cost, product.profitMargin);
             return;
         }
@@ -279,7 +337,7 @@ export class ProductsService {
                 product.profitMargin ?? undefined,
                 product.category,
             );
-            product.price = this.calculatePrice(dto.cost, margin);
+            product.price = this.calculatePrice(dto.cost ?? 0, margin);
             product.profitMargin = margin;
             return;
         }
@@ -288,7 +346,8 @@ export class ProductsService {
         if (dto.categoryId !== undefined && !product.useCustomMargin) {
             const margin = await this.getEffectiveProfitMargin(false, undefined, product.category);
             product.profitMargin = margin;
-            product.price = this.calculatePrice(product.cost, margin);
+            const cost = product.cost ?? 0;
+            product.price = this.calculatePrice(cost, margin);
         }
     }
 
@@ -304,14 +363,16 @@ export class ProductsService {
 
     /**
      * Recalcula los precios de todos los productos de una categoría
-     * Se llama cuando se actualiza el profitMargin de una categoría
+     * Se llama cuando se actualiza el profitMargin de una categoría.
+     * Excluye productos en modo precio fijo (useManualPrice = true).
      */
     async recalculateProductsByCategory(categoryId: string, categoryMargin: number | null): Promise<number> {
-        // Obtener productos de esta categoría que NO tienen margen personalizado
+        // Obtener productos de esta categoría que NO tienen margen personalizado NI precio fijo
         const products = await this.productsRepository.find({
             where: {
                 categoryId,
                 useCustomMargin: false,
+                useManualPrice: false,
                 isActive: true,
             },
         });
@@ -321,7 +382,7 @@ export class ProductsService {
             // Si la categoría tiene margen, usarlo; si no, usar el margen general
             const margin = categoryMargin ?? await this.configService.getDefaultProfitMargin();
             product.profitMargin = margin;
-            product.price = this.calculatePrice(product.cost, margin);
+            product.price = this.calculatePrice(product.cost ?? 0, margin);
             await this.productsRepository.save(product);
             updated++;
         }

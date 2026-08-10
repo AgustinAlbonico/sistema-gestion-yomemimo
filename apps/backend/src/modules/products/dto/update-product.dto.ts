@@ -29,7 +29,13 @@ export class UpdateProductDto {
     @IsOptional()
     @IsNumber()
     @Min(0)
-    cost?: number;
+    cost?: number | null;
+
+    @ApiPropertyOptional({ example: 150, description: 'Precio final (usado cuando useManualPrice = true)' })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    price?: number;
 
     @ApiPropertyOptional({ example: 10, description: 'Stock actual' })
     @IsOptional()
@@ -70,5 +76,10 @@ export class UpdateProductDto {
     @Min(0)
     @Max(1000000)
     customProfitMargin?: number;
+
+    @ApiPropertyOptional({ example: true, description: 'Usar precio fijo cargado manualmente' })
+    @IsOptional()
+    @IsBoolean()
+    useManualPrice?: boolean;
 }
 

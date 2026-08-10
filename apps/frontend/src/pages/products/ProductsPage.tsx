@@ -53,10 +53,12 @@ const EMPTY_CREATE_DEFAULTS: ProductFormValues = {
     name: '',
     description: null,
     barcode: null,
-    cost: 0,
+    cost: null,
+    price: undefined,
     stock: 0,
     categoryId: null,
     isActive: true,
+    useManualPrice: true,
     useCustomMargin: false,
     customProfitMargin: undefined,
     brandName: null,
@@ -80,7 +82,7 @@ function ProductDetailDialog({
     if (!product) return null;
 
     const margin = product.profitMargin ?? 0;
-    const ganancia = product.price - product.cost;
+    const ganancia = product.price - (product.cost ?? 0);
     const isLowStock = product.stock <= globalMinStock && product.stock > 0;
     const isOutOfStock = product.stock === 0;
 
@@ -151,7 +153,11 @@ function ProductDetailDialog({
                         <div className="grid grid-cols-2 gap-3">
                             <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 border border-slate-200 dark:border-slate-800">
                                 <p className="text-xs text-muted-foreground mb-1">Costo</p>
-                                <p className="text-lg font-semibold">{formatCurrency(product.cost)}</p>
+                                <p className="text-lg font-semibold">
+                                    {product.cost === null || product.cost === undefined
+                                        ? <span className="text-muted-foreground text-sm font-normal italic">Sin costo cargado</span>
+                                        : formatCurrency(product.cost)}
+                                </p>
                             </div>
 
                             <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800/50">
@@ -721,11 +727,14 @@ export default function ProductsPage() {
                             description: editingProduct.description,
                             barcode: editingProduct.barcode ?? null,
                             cost: editingProduct.cost,
+                            price: editingProduct.price,
                             stock: editingProduct.stock,
                             categoryId: editingProduct.categoryId || null,
                             isActive: editingProduct.isActive,
+                            useManualPrice: editingProduct.useManualPrice ?? false,
                             useCustomMargin: editingProduct.useCustomMargin ?? false,
-                            customProfitMargin: editingProduct.useCustomMargin ? editingProduct.profitMargin : undefined,
+                            customProfitMargin: editingProduct.useCustomMargin ? (editingProduct.profitMargin ?? undefined) : undefined,
+                            brandName: editingProduct.brand?.name ?? null,
                         }}
                         onSubmit={handleUpdate}
                         isLoading={updateMutation.isPending}

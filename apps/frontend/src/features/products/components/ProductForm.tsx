@@ -26,7 +26,7 @@ import { categoriesApi, productsApi } from '../api/products.api';
 import { api } from '@/lib/axios';
 import { formatCurrency } from '@/lib/utils';
 import { useEffect, useState, useMemo } from 'react';
-import { Percent, Info } from 'lucide-react';
+import { Percent, Info, Tag } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BrandCombobox } from './BrandCombobox';
 
@@ -39,15 +39,17 @@ interface ProductFormProps {
 }
 
 /**
- * Formulario de producto con lógica de margen de ganancia jerárquico:
- * 1. Margen personalizado del producto (si useCustomMargin = true)
- * 2. Margen de la categoría (si la categoría tiene profitMargin)
- * 3. Margen general del sistema
+ * Formulario de producto con dos modos:
+ *
+ * 1. Modo Precio Fijo (default ON): el usuario carga el precio de venta directamente.
+ *    El costo es opcional. No se aplica jerarquía de márgenes.
+ *
+ * 2. Modo Calculado (default OFF): el usuario carga el costo y el sistema calcula
+ *    el precio desde el margen efectivo (personalizado > categoría > general).
  */
 export function ProductForm({ initialData, onSubmit, isLoading, isEditing, currentProductId }: ProductFormProps) {
     const [defaultMargin, setDefaultMargin] = useState<number>(30);
 
-    // Obtener el % de ganancia por defecto de la configuración
     useEffect(() => {
         api.get('/api/configuration')
             .then(res => {
@@ -57,20 +59,29 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing, curre
             .catch(() => setDefaultMargin(30));
     }, []);
 
+    // Detectar modo inicial: si initialData es de un producto existente que NO usa manual price
+    // (productos cargados antes de esta feature), defaulteamos a manual=true (nuevo comportamiento).
+    // El backend ya respetará el modo del initialData al editar.
+    const initialUseManualPrice = initialData?.useManualPrice ?? true;
+
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(productSchema),
-        defaultValues: initialData || {
-            name: '',
-            description: null,
-            barcode: null,
-            cost: 0,
-            stock: 0,
-            categoryId: null,
-            isActive: true,
-            useCustomMargin: false,
-            customProfitMargin: undefined,
-            brandName: null,
-        },
+        defaultValues: initialData
+            ? { ...initialData, useManualPrice: initialUseManualPrice }
+            : {
+                name: '',
+                description: null,
+                barcode: null,
+                cost: null,
+                price: undefined,
+                stock: 0,
+                categoryId: null,
+                isActive: true,
+                useManualPrice: true,
+                useCustomMargin: false,
+                customProfitMargin: undefined,
+                brandName: null,
+            },
     });
 
     const { data: categories } = useQuery({
@@ -78,21 +89,18 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing, curre
         queryFn: () => categoriesApi.getActive(),
     });
 
-    // Watch cost, categoría y margen personalizado para calcular precio
+    const useManualPrice = form.watch('useManualPrice');
     const cost = form.watch('cost');
     const categoryId = form.watch('categoryId');
     const useCustomMargin = form.watch('useCustomMargin');
     const customProfitMargin = form.watch('customProfitMargin');
 
-    // Obtener la categoría seleccionada
     const selectedCategory = useMemo(() => {
         if (!categoryId || !categories) return null;
         return categories.find(c => c.id === categoryId) || null;
     }, [categoryId, categories]);
 
-    // Determinar el margen efectivo y su origen
     const marginInfo = useMemo(() => {
-        // 1. Margen personalizado del producto
         if (useCustomMargin && customProfitMargin !== undefined) {
             return {
                 margin: customProfitMargin,
@@ -100,8 +108,6 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing, curre
                 description: 'Margen personalizado del producto'
             };
         }
-
-        // 2. Margen de la categoría
         if (selectedCategory?.profitMargin !== null && selectedCategory?.profitMargin !== undefined) {
             return {
                 margin: selectedCategory.profitMargin,
@@ -109,8 +115,6 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing, curre
                 description: `Margen de la categoría "${selectedCategory.name}"`
             };
         }
-
-        // 3. Margen general del sistema
         return {
             margin: defaultMargin,
             source: 'general' as const,
@@ -118,16 +122,17 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing, curre
         };
     }, [useCustomMargin, customProfitMargin, selectedCategory, defaultMargin]);
 
-    const calculatedPrice = cost > 0 ? cost * (1 + marginInfo.margin / 100) : 0;
+    const calculatedPrice = useMemo(() => {
+        const numericCost = typeof cost === 'number' && !Number.isNaN(cost) ? cost : 0;
+        return numericCost > 0 ? numericCost * (1 + marginInfo.margin / 100) : 0;
+    }, [cost, marginInfo.margin]);
 
-    // FIX 2.3: Verificar barcode duplicado al perder foco (anti-duplicado)
     const handleBarcodeBlur = async (barcode: string | null | undefined) => {
         const trimmed = (barcode ?? '').trim();
         if (!trimmed) return;
 
         try {
             const existing = await productsApi.findByBarcode(trimmed);
-            // Si es el mismo producto que estamos editando, no es duplicado
             if (existing && existing.id !== currentProductId) {
                 toast.warning(`Ya existe el producto "${existing.name}" con ese código`, {
                     description: 'Considerá editar el producto existente en vez de crear uno nuevo.',
@@ -269,7 +274,7 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing, curre
                                 </SelectContent>
                             </Select>
                             <FormDescription>
-                                {selectedCategory?.profitMargin !== null && selectedCategory?.profitMargin !== undefined ? (
+                                {selectedCategory?.profitMargin !== null && selectedCategory?.profitMargin !== undefined && !useManualPrice ? (
                                     <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
                                         <Info className="h-3 w-3" />
                                         Esta categoría tiene {selectedCategory.profitMargin}% de ganancia configurado
@@ -283,8 +288,70 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing, curre
                     )}
                 />
 
-                {/* Costo y Stock en una fila */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Toggle de modo Precio Fijo */}
+                <FormField
+                    control={form.control}
+                    name="useManualPrice"
+                    render={({ field }) => (
+                        <FormItem className="rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950 p-4">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="space-y-1 flex-1">
+                                    <FormLabel className="text-base flex items-center gap-2">
+                                        <Tag className="h-4 w-4" />
+                                        Precio Fijo
+                                    </FormLabel>
+                                    <FormDescription className="text-sm">
+                                        Cuando está activado, cargás el precio de venta directamente.
+                                        Cuando está desactivado, el sistema calcula el precio desde el costo y el margen de ganancia.
+                                    </FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={(checked) => {
+                                            field.onChange(checked);
+                                            if (!checked) {
+                                                // Cambió a modo clásico: limpiar el price (se recalcula desde cost+margen)
+                                                form.setValue('price', undefined);
+                                                form.trigger('cost');
+                                            } else {
+                                                // Cambió a modo precio fijo: limpiar customProfitMargin (no aplica)
+                                                form.setValue('useCustomMargin', false);
+                                                form.setValue('customProfitMargin', undefined);
+                                                form.setValue('profitMargin' as any, undefined);
+                                                form.trigger('price');
+                                            }
+                                        }}
+                                    />
+                                </FormControl>
+                            </div>
+                        </FormItem>
+                    )}
+                />
+
+                {/* Campo dinámico: Precio Final (modo manual) o Costo (modo clásico) */}
+                {useManualPrice ? (
+                    <FormField
+                        control={form.control}
+                        name="price"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Precio Final <span className="text-red-500">*</span></FormLabel>
+                                <FormControl>
+                                    <NumericInput
+                                        placeholder="0.00"
+                                        value={field.value ?? ''}
+                                        onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number.parseFloat(e.target.value) || 0)}
+                                    />
+                                </FormControl>
+                                <FormDescription>
+                                    Precio de venta cargado directamente. No se calcula desde costo.
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                ) : (
                     <FormField
                         control={form.control}
                         name="cost"
@@ -294,129 +361,131 @@ export function ProductForm({ initialData, onSubmit, isLoading, isEditing, curre
                                 <FormControl>
                                     <NumericInput
                                         placeholder="0.00"
-                                        value={field.value}
-                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number.parseFloat(e.target.value) || 0)}
+                                        value={field.value ?? ''}
+                                        onChange={(e) => field.onChange(e.target.value === '' ? null : Number.parseFloat(e.target.value) || 0)}
                                     />
                                 </FormControl>
-                                <FormDescription>Precio de compra</FormDescription>
+                                <FormDescription>Precio de compra (se calcula el precio de venta con el margen)</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
+                )}
 
-                    <FormField
-                        control={form.control}
-                        name="stock"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>{isEditing ? 'Stock Actual' : 'Stock Inicial'} <span className="text-red-500">*</span></FormLabel>
-                                <FormControl>
-                                    <NumericInput
-                                        allowDecimals={false}
-                                        placeholder="0"
-                                        value={field.value}
-                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number.parseInt(e.target.value) || 0)}
-                                    />
-                                </FormControl>
-                                <FormDescription>Cantidad disponible</FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
-
-                {/* Preview del precio calculado con indicador de origen del margen */}
-                <div className="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <p className="text-sm text-green-700 dark:text-green-300">Precio de Venta</p>
-                            <p className="text-xs text-green-600 dark:text-green-400">
-                                Costo + {marginInfo.margin}%
-                                <span className="ml-1">
-                                    ({marginInfo.source === 'personalizado'
-                                        ? 'margen personalizado'
-                                        : marginInfo.source === 'categoria'
-                                            ? `categoría: ${selectedCategory?.name}`
-                                            : 'margen general'})
-                                </span>
-                            </p>
-                        </div>
-                        <span className="text-2xl font-bold text-green-600 dark:text-green-400">
-                            {formatCurrency(calculatedPrice)}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Toggle de margen personalizado */}
+                {/* Stock */}
                 <FormField
                     control={form.control}
-                    name="useCustomMargin"
+                    name="stock"
                     render={({ field }) => (
-                        <FormItem className="rounded-lg border p-4">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-0.5">
-                                    <FormLabel className="text-base flex items-center gap-2">
-                                        <Percent className="h-4 w-4" />
-                                        Margen de Ganancia Personalizado
-                                    </FormLabel>
-                                    <FormDescription>
-                                        {field.value
-                                            ? 'Este producto usa un margen diferente'
-                                            : marginInfo.source === 'categoria'
-                                                ? `Usando margen de categoría (${marginInfo.margin}%)`
-                                                : `Usando margen general del sistema (${defaultMargin}%)`
-                                        }
-                                    </FormDescription>
-                                </div>
-                                <FormControl>
-                                    <Checkbox
-                                        checked={field.value}
-                                        onCheckedChange={(checked) => {
-                                            field.onChange(checked);
-                                            // Si desactiva, limpiar el margen personalizado
-                                            if (!checked) {
-                                                form.setValue('customProfitMargin', undefined);
-                                            }
-                                        }}
-                                    />
-                                </FormControl>
-                            </div>
-
-                            {/* Campo de margen personalizado - visible solo si está activo */}
-                            {field.value ? (
-                                <div className="mt-4 pt-4 border-t">
-                                    <FormField
-                                        control={form.control}
-                                        name="customProfitMargin"
-                                        render={({ field: marginField }) => (
-                                            <FormItem>
-                                                <FormLabel>Margen de Ganancia (%)</FormLabel>
-                                                <div className="flex items-center gap-2">
-                                                    <FormControl>
-                                                        <NumericInput
-                                                            placeholder="Ej: 50"
-                                                            className="max-w-[150px]"
-                                                            value={marginField.value ?? ''}
-                                                            onChange={(e) => marginField.onChange(e.target.value === '' ? undefined : Number.parseFloat(e.target.value) || 0)}
-                                                        />
-                                                    </FormControl>
-                                                    <span className="text-muted-foreground">%</span>
-                                                </div>
-                                                <FormDescription>
-                                                    {marginInfo.source === 'categoria'
-                                                        ? `Sobrescribe el margen de la categoría (${selectedCategory?.profitMargin}%)`
-                                                        : `Sobrescribe el margen general (${defaultMargin}%)`
-                                                    }
-                                                </FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                            ) : null}
+                        <FormItem>
+                            <FormLabel>{isEditing ? 'Stock Actual' : 'Stock Inicial'} <span className="text-red-500">*</span></FormLabel>
+                            <FormControl>
+                                <NumericInput
+                                    allowDecimals={false}
+                                    placeholder="0"
+                                    value={field.value}
+                                    onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number.parseInt(e.target.value) || 0)}
+                                />
+                            </FormControl>
+                            <FormDescription>Cantidad disponible</FormDescription>
+                            <FormMessage />
                         </FormItem>
                     )}
                 />
+
+                {/* Preview del precio calculado + toggle margen personalizado: SOLO en modo clásico */}
+                {!useManualPrice && (
+                    <>
+                        <div className="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="text-sm text-green-700 dark:text-green-300">Precio de Venta</p>
+                                    <p className="text-xs text-green-600 dark:text-green-400">
+                                        Costo + {marginInfo.margin}%
+                                        <span className="ml-1">
+                                            ({marginInfo.source === 'personalizado'
+                                                ? 'margen personalizado'
+                                                : marginInfo.source === 'categoria'
+                                                    ? `categoría: ${selectedCategory?.name}`
+                                                    : 'margen general'})
+                                        </span>
+                                    </p>
+                                </div>
+                                <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                    {formatCurrency(calculatedPrice)}
+                                </span>
+                            </div>
+                        </div>
+
+                        <FormField
+                            control={form.control}
+                            name="useCustomMargin"
+                            render={({ field }) => (
+                                <FormItem className="rounded-lg border p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base flex items-center gap-2">
+                                                <Percent className="h-4 w-4" />
+                                                Margen de Ganancia Personalizado
+                                            </FormLabel>
+                                            <FormDescription>
+                                                {field.value
+                                                    ? 'Este producto usa un margen diferente'
+                                                    : marginInfo.source === 'categoria'
+                                                        ? `Usando margen de categoría (${marginInfo.margin}%)`
+                                                        : `Usando margen general del sistema (${defaultMargin}%)`
+                                                }
+                                            </FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={(checked) => {
+                                                    field.onChange(checked);
+                                                    if (!checked) {
+                                                        form.setValue('customProfitMargin', undefined);
+                                                    }
+                                                }}
+                                            />
+                                        </FormControl>
+                                    </div>
+
+                                    {field.value ? (
+                                        <div className="mt-4 pt-4 border-t">
+                                            <FormField
+                                                control={form.control}
+                                                name="customProfitMargin"
+                                                render={({ field: marginField }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Margen de Ganancia (%)</FormLabel>
+                                                        <div className="flex items-center gap-2">
+                                                            <FormControl>
+                                                                <NumericInput
+                                                                    placeholder="Ej: 50"
+                                                                    className="max-w-[150px]"
+                                                                    value={marginField.value ?? ''}
+                                                                    onChange={(e) => marginField.onChange(e.target.value === '' ? undefined : Number.parseFloat(e.target.value) || 0)}
+                                                                />
+                                                            </FormControl>
+                                                            <span className="text-muted-foreground">%</span>
+                                                        </div>
+                                                        <FormDescription>
+                                                            {marginInfo.source === 'categoria'
+                                                                ? `Sobrescribe el margen de la categoría (${selectedCategory?.profitMargin}%)`
+                                                                : `Sobrescribe el margen general (${defaultMargin}%)`
+                                                            }
+                                                        </FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    ) : null}
+                                </FormItem>
+                            )}
+                        />
+                    </>
+                )}
 
                 <Button type="submit" disabled={isLoading} className="w-full">
                     {isLoading ? 'Guardando...' : 'Guardar Producto'}

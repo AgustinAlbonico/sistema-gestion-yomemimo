@@ -161,9 +161,10 @@ export interface TopProduct {
     productSku: string | null;
     quantitySold: number;
     revenue: number;
-    cost: number;
-    profit: number;
-    margin: number;
+    cost: number | null;
+    profit: number | null;
+    margin: number | null;
+    hasKnownCost: boolean;
 }
 
 // Producto de Baja Rotación
@@ -183,6 +184,8 @@ export interface InventoryStats {
     productsLowStock: number;
     totalStockValue: number;
     totalSaleValue: number;
+    totalStockValueKnown: number;
+    productsWithManualPrice: number;
 }
 
 // Reporte de Productos
